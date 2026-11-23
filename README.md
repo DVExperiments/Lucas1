@@ -1,18 +1,18 @@
-# The Lucas Money Game V2.7
+# The Lucas Money Game V2.8
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 
 ## Try the pilot
 
 1. Open the hosted site and choose **Play the demo** to open a sample learner dashboard. Use **Start at home** or **Start a class** for fresh progress. Choose an age band in learner setup. Ages 11–13 is the main pilot experience, with display adjustments for ages 8–10 and 14–17.
-2. The dashboard quest trail shows the optional challenge, required missions and check-in. From the dashboard, use **I did a chore**, **Mini business**, or **Money habit** to record real activities. On SAM, watch the assigned video first and take its matching quiz. Labelled placeholder clips and quizzes let learners try the game until an official pair is assigned.
+2. The dashboard quest trail shows the optional challenge, required missions and check-in. From the dashboard, use **I did a chore**, **Business mission**, or **Money habit** to record real activities. On SAM, watch the assigned video first and take its matching quiz. Labelled placeholder clips and quizzes let learners try the game until an official pair is assigned.
 3. Use **Facilitator view** to review submissions, tailor a learner's weekly module, and record a check-in. Check-ins open the next week. After the week 12 check-in, the learner can choose **Keep playing** to continue at their own pace.
 4. In a class, open the facilitator dashboard to view progress and create a competition. Choose a metric and target. Learners see new challenges on their dashboard and score as they complete activities after the competition starts.
 
 ## Progress and rewards
 
 - Learning XP drives levels and the class leaderboard. In each week it counts approved missions, up to one approved chore, the completed lesson clip and the passed quiz. Savings balances are personal and do not affect learning XP or rankings.
-- The Profile shop has free starter looks and point unlocks for icons, dashboard backgrounds, and titles. Points spent on the retired virtual shop are available again in the new shop. The progress chart shows cumulative XP and savings by week. Savings milestones and the big personal goal use the learner's own money log. The Money buckets page shows Spend, Save, Invest and Give together. Balances reflect allocations from closed weeks. Each bucket has a playable practice decision, with extra reading on savings accounts, shares and funds, and KiwiSaver.
+- The Profile shop has free starter looks and point unlocks for icons, dashboard backgrounds, and titles. Points spent on the retired virtual shop are available again in the new shop. The progress chart shows cumulative XP and savings by week. Savings milestones and the big personal goal use the learner's own money log. The Money buckets page shows Spend, Save, Invest and Give together. Use **Log money in** on the dashboard to record an earning. Business costs and simulated tax reduce the amount available in Main. Choose **Move money** to transfer between Main and a bucket, and see the change immediately. Cash left in Main carries into the next week. Savings badges are confirmed at check-in. Earlier closed weeks retain their original bucket allocations. Each bucket has a playable practice decision, with extra reading on savings accounts, shares and funds, and KiwiSaver.
 - Set both the direct SAM video and matching quiz URLs in **Settings** or in a learner's weekly module. If a weekly override is entered, supply both links there. Without a complete pair, the game uses the SAM libraries for missing links and displays its labelled placeholder lesson. Learners record official completion with a short reflection. Facilitators review it in mentored games. Results do not sync from SAM.
 
 ## Weekly and teacher challenges

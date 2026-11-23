@@ -45,7 +45,7 @@ export const uid = () => {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
 };
 export function makeWeek(index, rules) {
-  return { index, closed: false, rules: structuredClone(rules), transactions: [], choice: null, feedback: '',
+  return { index, closed: false, rules: structuredClone(rules), transactions: [], transfers: [], choice: null, feedback: '',
     tasks: ['business', 'learning', 'reflection'].map(id => ({ id, required: true, points: 10, status: 'todo', evidence: '', feedback: '' })) };
 }
 export function makePlayer(fields, rules) {
@@ -72,7 +72,7 @@ export function fresh() {
     for (const task of week.tasks) {
       Object.assign(task, { status: 'approved', evidence: 'Completed in the sample game.' });
     }
-    Object.assign(week, { closed: true, videoWatched: true, quizPassed: true, feedback: 'Keep a note of what supplies you use each week.' });
+    Object.assign(week, { closed: true, transfers: undefined, videoWatched: true, quizPassed: true, feedback: 'Keep a note of what supplies you use each week.' });
     player.weeks.push(makeWeek(index + 1, rules));
   }
   const peer = makePlayer({ name: 'Jamie', track: 0, business: 'Weekend Plant Stall', goal: 'Buy art supplies', target: 6000, mode: 'manual', offer: 'Grow and sell easy-care plants.', customers: 'Family and neighbours' }, rules);
@@ -88,30 +88,70 @@ export function totals(week) {
   const profit = sales - costs;
   const tax = Math.round(Math.max(0, profit) * week.rules.tax / 100);
   const distributable = Math.max(0, profit - tax);
-  const raw = week.rules.split.map(rate => distributable * rate);
-  const allocations = raw.map(value => Math.floor(value / 100));
-  const order = [0, 1, 2, 3].sort((a, b) => raw[b] % 100 - raw[a] % 100);
-  const remainder = distributable - allocations.reduce((a, b) => a + b, 0);
-  order.slice(0, remainder).forEach(index => allocations[index]++);
+  const allocations = buckets.map(() => 0);
+  if (week.transfers) {
+    for (const move of week.transfers) allocations[move.bucket] += move.cents;
+  } else {
+    // Historical closed weeks keep their original automatic allocations.
+    const raw = week.rules.split.map(rate => distributable * rate);
+    raw.forEach((value, i) => allocations[i] = Math.floor(value / 100));
+    const order = [0, 1, 2, 3].sort((a, b) => raw[b] % 100 - raw[a] % 100);
+    const remainder = distributable - allocations.reduce((a, b) => a + b, 0);
+    order.slice(0, remainder).forEach(index => allocations[index]++);
+  }
   const approved = week.tasks.filter(task => task.status === 'approved');
   const ready = week.tasks.every(task => !task.required || task.status === 'approved');
   const bonus = week.closed && ready ? week.rules.bonus : 0;
-  const match = week.closed && ready ? Math.min(Math.round(allocations[1] * week.rules.match / 100), week.rules.cap) : 0;
+  const match = week.closed && ready ? Math.min(Math.round(Math.max(0, allocations[1]) * week.rules.match / 100), week.rules.cap) : 0;
   return { sales, costs, rewards, profit, tax, distributable, allocations, ready, match, points: approved.reduce((acc, task) => acc + task.points, 0) + bonus };
 }
+export function accounts(player, replacement) {
+  let cash = 0, moved = 0;
+  const balances = buckets.map(() => 0);
+  for (const record of player.weeks) {
+    const week = replacement?.index === record.index ? replacement : record;
+    const t = totals(week);
+    cash += t.rewards;
+    if (week.transfers) {
+      cash += t.profit - t.tax;
+      moved += t.allocations.reduce((sum, amount) => sum + amount, 0);
+    }
+    if (week.transfers || week.closed) {
+      t.allocations.forEach((value, i) => balances[i] += value);
+      balances[1] += t.match;
+    }
+  }
+  const main = cash - moved;
+  return { main, available: Math.max(0, main), balances, moved };
+}
+
+export function canUpdateTransactions(player, week, transactions) {
+  const before = accounts(player);
+  const after = accounts(player, { ...week, transactions });
+  return after.moved <= 0 || after.main >= Math.min(0, before.main);
+}
+
+export function transferMoney(player, bucket, cents) {
+  const week = player.weeks.at(-1);
+  if (!week?.transfers || week.closed) return 'Open a new week before moving money.';
+  if (!Number.isInteger(bucket) || bucket < 0 || bucket >= buckets.length || !Number.isSafeInteger(cents) || cents === 0) {
+    return 'Choose an account and enter an amount greater than zero.';
+  }
+  const bank = accounts(player);
+  if (cents > bank.available) return 'There isn’t enough in Main. Log money in or move some back from a bucket first.';
+  if (-cents > bank.balances[bucket]) return 'There isn’t enough in this bucket to move that much back.';
+  week.transfers.push({ bucket, cents });
+  return '';
+}
+
 export function progress(player) {
   const awardPoints = earnedAwards(player).reduce((sum, award) => sum + award.points, 0);
   const challengePoints = weeklyCertificates(player).length * weeklyPoints;
   return player.weeks.reduce((sum, week) => {
-    const t = totals(week);
-    if (week.closed) {
-      t.allocations.forEach((value, i) => sum.buckets[i] += value);
-      sum.buckets[1] += t.match;
-      sum.closed++;
-    }
-    sum.points += t.points;
+    if (week.closed) sum.closed++;
+    sum.points += totals(week).points;
     return sum;
-  }, { buckets: [0, 0, 0, 0], points: awardPoints + challengePoints, awardPoints, challengePoints, closed: 0 });
+  }, { buckets: accounts(player).balances, points: awardPoints + challengePoints, awardPoints, challengePoints, closed: 0 });
 }
 
 export const market = [
@@ -288,7 +328,7 @@ export function progressHistory(p) {
   let xp = 0, saved = 0;
   return p.weeks.map(week => {
     xp += learningStats(p, [week]).xp;
-    if (week.closed) {
+    if (week.closed || week.transfers) {
       const tally = totals(week);
       saved += tally.allocations[1] + tally.match;
     }

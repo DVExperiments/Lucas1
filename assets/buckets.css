@@ -52,3 +52,43 @@
   .bucket-page-heading { align-items:start; flex-direction:column; }
   .bucket-board { grid-template-columns:1fr; }
 }
+
+/* Practice banking surfaces share the arcade palette and account artwork. */
+.bank-overview { margin:18px 0; }
+.bank-overview h2 { margin:2px 0; }
+.bank-overview-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:12px; margin:14px 0 12px; }
+.bank-overview-grid > div:first-child, .bank-week {
+  min-width:0; border:1px solid var(--line); border-radius:12px; padding:13px 14px; background:var(--inset);
+}
+.bank-balance span { display:block; color:var(--muted); font-size:.85rem; }
+.bank-balance strong { display:block; color:var(--gold); font-size:1.9rem; line-height:1.2; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.bank-balance p, .bank-recent p { color:var(--muted); margin:4px 0 0; }
+.bank-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.bank-actions:not(:empty) { margin-top:8px; }
+.bank-actions .button { min-height:44px; }
+.bank-week dl { margin:4px 0 0; }
+.bank-week dl > div, .bank-activity li { display:flex; justify-content:space-between; align-items:baseline; gap:8px 14px; padding:5px 0; border-bottom:1px solid var(--line); }
+.bank-week dl > div:last-child, .bank-activity li:last-child { border-bottom:0; }
+.bank-week dt, .bank-activity span { color:var(--muted); overflow-wrap:anywhere; min-width:0; }
+.bank-week dd, .bank-activity strong { flex:none; font-weight:800; font-variant-numeric:tabular-nums; }
+.bank-accounts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.button.bank-account {
+  display:grid; justify-items:start; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:2px 7px;
+  min-width:0; padding:9px; text-align:left; background:var(--surface-raised);
+  font-size:.85rem; overflow-wrap:anywhere;
+}
+.bank-account strong { grid-column:2; color:var(--gold); font-size:1rem; }
+.bank-recent { margin-top:14px; }
+.bank-activity { list-style:none; margin:4px 0 0; padding:0; }
+.ledger-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; }
+.ledger-toolbar .bank-actions { margin-top:0; }
+.ledger-toolbar p { margin-bottom:0; }
+.bucket-amount small { display:block; font-size:.7rem; line-height:1.2; color:var(--muted); }
+.bucket-amount { font-size:1.18rem; max-width:calc(100% - 16px); overflow-wrap:anywhere; }
+.bucket-card-copy > .button { margin-top:6px; }
+.bucket-adventure { scroll-margin-top:75px; }
+.bucket-adventure:focus-visible { outline:3px solid var(--lime); outline-offset:3px; }
+@media(max-width:680px) {
+  .bank-overview-grid { grid-template-columns:1fr; }
+  .bank-accounts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
