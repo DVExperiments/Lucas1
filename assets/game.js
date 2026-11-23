@@ -61,6 +61,19 @@ export function newHomeGame(fields) {
 export function fresh() {
   const rules = structuredClone(defaults);
   const player = makePlayer({ name: 'Alex', track: 1, business: 'Coastline Car Wash', goal: 'Buy a second-hand bike', target: 3000, mode: 'manual', solo: true, offer: 'Wash family cars on Saturdays for an agreed price.', customers: 'Family and neighbours I know' }, rules);
+  const sampleJobs = [[2000, 600], [3000, 1200], [2000, 300]];
+  for (const [index, [income, cost]] of sampleJobs.entries()) {
+    const week = player.weeks[index];
+    week.transactions = [
+      { id: uid(), kind: 'sale', label: 'Car wash jobs', cents: income },
+      { id: uid(), kind: 'cost', label: 'Car wash supplies', cents: cost }
+    ];
+    for (const task of week.tasks) {
+      Object.assign(task, { status: 'approved', evidence: 'Completed in the sample game.' });
+    }
+    Object.assign(week, { closed: true, videoWatched: true, quizPassed: true, feedback: 'Keep a note of what supplies you use each week.' });
+    player.weeks.push(makeWeek(index + 1, rules));
+  }
   const peer = makePlayer({ name: 'Jamie', track: 0, business: 'Weekend Plant Stall', goal: 'Buy art supplies', target: 6000, mode: 'manual', offer: 'Grow and sell easy-care plants.', customers: 'Family and neighbours' }, rules);
   peer.modules = { 0: { title: 'Set up your plant stall', summary: 'Pick one plant to sell and agree a price. Ask two people what they would pay for it before you make up a sign.', business: 'Find out what one plant costs to grow. Ask two people about your price and write what you decided.', outside: 'Imagine you have $10 to put together a gift. Ask someone how they would split that between the gift and the wrapping, then explain your own plan.' } };
   peer.weeks[0].transactions.push({ id: uid(), kind: 'sale', label: 'Two potted herbs', cents: 1200 }, { id: uid(), kind: 'cost', label: 'Pots and potting mix', cents: 400 });
@@ -201,42 +214,71 @@ export function grantAwards(p, { checkSavings = false } = {}) {
 }
 
 export const shopItems = [
-  { id: 'register', name: 'Countertop register', cost: 30, kind: 'fixture', description: 'Put a proper register by the checkout.' },
-  { id: 'shelves', name: 'Display shelves', cost: 50, kind: 'fixture', description: 'Set up wall shelves for stock and supplies.' },
-  { id: 'counter', name: 'Oak checkout counter', cost: 75, kind: 'fixture', description: 'Trade the folding table for a timber counter.' },
-  { id: 'garden', name: 'Garden theme', cost: 100, kind: 'theme', description: 'Give the shop a sage-green wall and striped awning.' },
-  { id: 'after-hours', name: 'After-hours theme', cost: 125, kind: 'theme', description: 'Dress the shop in midnight blue and warm gold.' }
+  { id: 'hero', kind: 'icon', name: 'Lucas', cost: 0, symbol: '', description: 'The original arcade portrait.' },
+  { id: 'kiwi', kind: 'icon', name: 'Kiwi', cost: 0, symbol: '🥝', description: 'A bright green profile icon.' },
+  { id: 'spark', kind: 'icon', name: 'Spark', cost: 0, symbol: '⭐', description: 'A little star for big plans.' },
+  { id: 'rocket', kind: 'icon', name: 'Rocket', cost: 30, symbol: '🚀', description: 'For ideas that take off.' },
+  { id: 'owl', kind: 'icon', name: 'Night Owl', cost: 55, symbol: '🦉', description: 'For learners who look closely.' },
+  { id: 'sunset', kind: 'background', name: 'Arcade Sunset', cost: 0, image: 'arcade-hero.webp', description: 'The original dashboard scene.' },
+  { id: 'coast', kind: 'background', name: 'Coast Ride', cost: 0, image: 'coast-ride.webp', description: 'Blue skies over a coastal skatepark.' },
+  { id: 'market-lights', kind: 'background', name: 'Market Lights', cost: 70, image: 'market-lights.webp', description: 'A weekend market glowing at sunset.' },
+  { id: 'rookie', kind: 'title', name: 'Money Rookie', cost: 0, description: 'Every good habit starts somewhere.' },
+  { id: 'goal-getter', kind: 'title', name: 'Goal Getter', cost: 35, description: 'A title for taking the next step.' },
+  { id: 'budget-boss', kind: 'title', name: 'Budget Boss', cost: 60, description: 'A title for making a plan and sticking to it.' },
+  { id: 'habit-hero', kind: 'title', name: 'Habit Hero', cost: 100, description: 'A title for practising the small things that add up.' }
 ];
+const profileDefaults = { icon: 'hero', background: 'sunset', title: 'rookie' };
 export function shopWallet(p) {
   const earned = progress(p).points;
-  const purchases = p.shop?.purchases ?? [];
+  // Retired fixture and theme purchases no longer count against the balance.
+  const purchases = (p.shop?.purchases ?? []).filter(purchase => shopItems.some(item => item.id === purchase.id));
   const spent = purchases.reduce((sum, purchase) => sum + purchase.price, 0);
-  return { earned, spent, balance: Math.max(0, earned - spent), owned: new Set(purchases.map(purchase => purchase.id)) };
+  const owned = new Set([...shopItems.filter(item => !item.cost).map(item => item.id), ...purchases.map(purchase => purchase.id)]);
+  return { earned, spent, balance: Math.max(0, earned - spent), owned };
+}
+export function cosmetics(p) {
+  const { owned } = shopWallet(p);
+  return Object.fromEntries(Object.entries(profileDefaults).map(([kind, id]) => [
+    kind, shopItems.find(item => item.kind === kind && item.id === p.shop?.equipped?.[kind] && owned.has(item.id))
+      ?? shopItems.find(item => item.id === id)
+  ]));
 }
 function shopSettings(p) {
-  return p.shop ??= { purchases: [], target: null, theme: 'classic' };
+  return p.shop ??= { purchases: [], target: null };
 }
 export function buyUpgrade(p, id) {
   const item = shopItems.find(entry => entry.id === id);
-  if (!item) return 'This upgrade is unavailable.';
+  if (!item) return 'This item is unavailable.';
   const wallet = shopWallet(p);
-  if (wallet.owned.has(id)) return 'You already own this upgrade.';
-  if (wallet.balance < item.cost) return 'You do not have enough game points for this upgrade.';
+  if (wallet.owned.has(id)) return 'You already own this item.';
+  if (wallet.balance < item.cost) return 'You do not have enough game points.';
   const shop = shopSettings(p);
   shop.purchases.push({ id, price: item.cost });
   if (shop.target === id) shop.target = null;
-  if (item.kind === 'theme') shop.theme = item.id;
+  equipCosmetic(p, id);
   return null;
 }
-export function equipTheme(p, id) {
-  if (id !== 'classic' && (!shopItems.some(item => item.id === id && item.kind === 'theme') || !shopWallet(p).owned.has(id))) return false;
-  shopSettings(p).theme = id;
+export function equipCosmetic(p, id) {
+  const item = shopItems.find(entry => entry.id === id);
+  if (!item || !shopWallet(p).owned.has(id)) return false;
+  (shopSettings(p).equipped ??= {})[item.kind] = id;
   return true;
 }
 export function setShopTarget(p, id) {
   if (id !== null && (!shopItems.some(item => item.id === id) || shopWallet(p).owned.has(id))) return false;
   shopSettings(p).target = id;
   return true;
+}
+export function progressHistory(p) {
+  let xp = 0, saved = 0;
+  return p.weeks.map(week => {
+    xp += learningStats(p, [week]).xp;
+    if (week.closed) {
+      const tally = totals(week);
+      saved += tally.allocations[1] + tally.match;
+    }
+    return { week: week.index + 1, xp, saved };
+  }).slice(-12);
 }
 
 export const competitionMetrics = { xp: 'Learning XP', missions: 'Missions', lessons: 'Videos + quizzes' };

@@ -1,4 +1,4 @@
-# The Lucas Money Game V2.0
+# The Lucas Money Game V2.1
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 
@@ -12,7 +12,7 @@ A Success Avenue Money pilot for intermediate-school learners. Learners complete
 ## Progress and rewards
 
 - Learning XP drives levels and the class leaderboard. In each week it counts approved missions, up to one approved chore, the completed lesson clip and the passed quiz. Savings balances are personal and do not affect learning XP or rankings.
-- Shop points pay for virtual shop upgrades. Savings milestones and the big personal goal use the learner's own money log. The savings and investing pages introduce savings accounts, KiwiSaver and Sharesies as learning topics.
+- The Profile shop has free starter looks and point unlocks for icons, dashboard backgrounds, and titles. Points spent on the retired virtual shop are available again in the new shop. The progress chart shows cumulative XP and savings by week. Savings milestones and the big personal goal use the learner's own money log. The savings and investing pages introduce savings accounts, KiwiSaver and Sharesies as learning topics.
 - The facilitator can set SAM lesson and quiz URLs for the group in **Settings** or for an individual week in the learner's module. External links open in a new tab. The included clip and quiz provide the in-game credit during the pilot.
 
 ## Publish on GitHub Pages
@@ -25,4 +25,6 @@ A Success Avenue Money pilot for intermediate-school learners. Learners complete
 
 Progress is saved in this browser profile for the site's origin and path. Existing Lucas Money Game saves at the same URL can carry over. Earlier age categories are assigned a starting display band. Check the age band in the facilitator’s learner profile after upgrading. Use the same browser profile and the same hosted URL to resume. The sample group is available independently of your own games.
 
-Facilitator mode is open to anyone with access to this browser profile. Use sample names for classroom demonstrations. A classroom rollout across student devices requires authenticated SAM accounts, server-side class and role permissions, and shared persistence. The SAM embed and credit for SAM-hosted video and quiz completions will need the owner's integration details and approved content URLs.
+In a class, use **Open teacher dashboard** from Home and enter the class PIN. Open a learner record and choose **Hand device to learner** to activate that learner. The learner sees their assigned profile. The teacher roster and leaderboards show equipped icons and titles. Older classes set a PIN when first opened after upgrading. The demo teacher dashboard uses sample data and opens directly.
+
+The PIN controls the interface on this browser. Use sample names for classroom demonstrations. A classroom rollout across student devices requires authenticated SAM accounts, server-side class and role permissions, and shared persistence. The SAM embed and credit for SAM-hosted video and quiz completions will need the owner's integration details and approved content URLs.

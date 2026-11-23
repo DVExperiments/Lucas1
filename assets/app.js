@@ -1,6 +1,7 @@
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, buyUpgrade, equipTheme, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js';
 import { episodes, episodeFor, programmeLength } from './curriculum.js';
 
+const assetUrl = image => new URL('./assets/' + image, location.href).href;
 const sitePath = location.pathname.replace(/index\.html$/, '');
 const key = 'sam-lucas-workspace-v1:' + sitePath;
 const currency = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' });
@@ -8,7 +9,7 @@ const money = cents => currency.format(cents / 100);
 const $ = selector => document.querySelector(selector);
 const dialog = $('#dialog');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-const marks = ['$', '◎', '◇', '♡'];
+const marks = ['🛍️', '🐖', '🌱', '🎁'];
 const statuses = { todo: 'To do', submitted: 'Awaiting review', revision: 'Revise', approved: 'Approved' };
 function readSave(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
@@ -27,6 +28,7 @@ function groupState(id) {
   return id === 'test' ? workspace.sample : workspace.groups.find(group => group.id === id)?.data;
 }
 let state = groupState(workspace.active);
+if (!workspace.classResume && state?.current && state.kind !== 'home' && workspace.active !== 'test') workspace.classResume = workspace.active;
 let view = 'home';
 let role = null;
 const publicRoutes = new Set(['home', 'setup', 'public-help']);
@@ -49,6 +51,24 @@ const activeWeek = p => p.weeks.at(-1);
 const isHomeGame = () => state?.kind === 'home';
 const facilitatorLabel = () => isHomeGame() ? 'Parent / caregiver view' : 'Facilitator view';
 const dashboardLabel = () => isHomeGame() ? 'Parent dashboard' : 'Group dashboard';
+const classGroups = () => workspace.groups.filter(({data}) => data.kind !== 'home');
+const assignedClass = () => {
+  const id = workspace.classResume ?? workspace.active;
+  return classGroups().find(group => group.id === id && group.data.current);
+};
+async function classPinDigest(id, pin) {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(id + ':' + pin));
+  return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2,'0')).join('');
+}
+function pinField() {
+  return field('Facilitator PIN','pin','Use 6 to 12 digits. Keep it with the adult running this class.', '<input type="password" name="pin" inputmode="numeric" minlength="6" maxlength="12" pattern="[0-9]{6,12}" autocomplete="off" required>');
+}
+function classAccessDialog() {
+  const groups = classGroups();
+  openDialog('Open teacher dashboard', form('class-access',
+    field('Class','classId','Choose the class you are running.', `<select name="classId">${groups.map(({id,data}) => `<option value="${esc(id)}" ${id===workspace.active?'selected':''}>${esc(data.group)}</option>`).join('')}</select>`)
+    + pinField() + '<p class="detail">Older classes set their PIN the first time a teacher opens them on this browser.</p>', 'Open teacher dashboard'));
+}
 const button = (label, action, attrs = '', style = 'secondary') => `<button type="button" class="button ${style}" data-action="${action}" ${attrs}>${label}</button>`;
 const playerAttrs = p => `data-player="${esc(p.id)}"`;
 const pill = (label, tone = '') => `<span class="pill ${tone}">${label}</span>`;
@@ -62,7 +82,7 @@ function save(message, unlocked = []) {
     toast.textContent = [message, ...unlocked.map(award => 'Badge unlocked: ' + award.title + ' (+' + award.points + ' pts).')].filter(Boolean).join(' ');
     toast.classList.toggle('reward-toast', Boolean(unlocked.length));
     toast.hidden = false;
-    toast.focus();
+    toast.focus({ preventScroll: true });
   }
 }
 function navigate(next) {
@@ -79,19 +99,32 @@ function navigate(next) {
   }
   ledgerWeek = undefined;
   render();
-  $('#main').focus();
+  window.scrollTo(0, 0);
+  $('#main').focus({ preventScroll: true });
+  const nav = $('#nav'), active = nav.querySelector('[aria-current="page"]');
+  if (active && nav.scrollWidth > nav.clientWidth) {
+    const area = nav.getBoundingClientRect(), tab = active.getBoundingClientRect();
+    if (tab.left < area.left || tab.right > area.right) nav.scrollLeft += tab.left - area.left;
+  }
 }
 function selectGroup(id) {
   workspace.active = id;
   state = groupState(id);
 }
 function openRole(nextRole) {
+  chartWeek = undefined;
   role = nextRole;
   if (role === 'facilitator') detailWeek = undefined;
   navigate(role === 'facilitator' ? 'group' : player() ? 'dashboard' : 'home');
 }
+const pageArt = {
+  week: ['market-lights.webp','📋'], money: ['market-lights.webp','🪙'],
+  investments: ['coast-ride.webp','🌱'], progress: ['coast-ride.webp','🏆'],
+  shop: ['market-lights.webp','⭐'], 'learner-help': ['coast-ride.webp','💡']
+};
 function pageHeader(label, title, description, action = '') {
-  return `<div class="page-header"><div><div class="eyebrow">${label}</div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;
+  const art = role === 'learner' ? pageArt[view] : undefined;
+  return `<div class="page-header ${art ? 'story-header' : ''}" ${art ? `style="--page-art:url('${esc(assetUrl(art[0]))}')"` : ''}>${art ? `<span class="story-icon" aria-hidden="true">${art[1]}</span>` : ''}<div><div class="eyebrow">${label}</div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;
 }
 function pct(p) { return Math.min(100, Math.floor(progress(p).buckets[1] * 100 / p.target)); }
 function taskName(task, p) {
@@ -111,7 +144,7 @@ function taskPrompt(task, p, week) {
 function goal(p, dark = false) {
   return `<section class="goal ${dark ? 'goal-dark' : 'panel'}"><div class="eyebrow">MY SAVINGS GOAL</div><h2>${esc(p.goal)}</h2>
     <div class="goal-amount"><strong>${money(progress(p).buckets[1])}</strong> <span>of ${money(p.target)}</span></div>
-    <progress value="${pct(p)}" max="100" aria-label="Savings goal progress"></progress><div class="goal-bottom"><span>${pct(p)}% of goal</span>${button('Edit goal', 'edit-player', '', 'quiet')}</div></section>`;
+    <progress value="${pct(p)}" max="100" aria-label="Savings goal progress"></progress><div class="goal-bottom"><span>${pct(p)}% of goal</span>${button('Edit goal', 'edit-goal', '', 'quiet')}</div></section>`;
 }
 function bucketCards(amounts) {
   return `<div class="bucket-grid">${buckets.map((name, index) => `<article class="bucket bucket-${index}"><div class="bucket-icon" aria-hidden="true">${marks[index]}</div><div><div class="bucket-label">${name}</div><strong>${money(amounts[index])}</strong></div></article>`).join('')}</div>`;
@@ -152,8 +185,7 @@ function weekView(p) {
   const required = week.tasks.filter(task => task.required).length;
   const approved = week.tasks.filter(task => task.required && task.status === 'approved').length;
   const status = task => p.solo && task.status === 'approved' ? 'Complete' : statuses[task.status];
-  return `<div class="game-intro"><div><div class="eyebrow">${esc(p.business)} · ${p.solo ? 'Solo practice' : tracks[p.track] + ' · Mentor review'}</div><h1>${week.closed ? 'Campaign complete' : esc(info.title)}</h1><p>${week.closed ? 'Look back on your business decisions and see how far you got towards your goal.' : esc(info.summary)}</p></div>
-    ${isHomeGame() ? '' : button('Start your own game', 'add-player', '', 'small')}</div>
+  return `${pageHeader(esc(p.business) + ' · WEEK ' + (week.index + 1), week.closed ? 'Campaign complete' : esc(info.title), week.closed ? 'Look back on your business decisions and see how far you got towards your goal.' : esc(info.summary))}
   <div class="game-shell"><div class="play-area"><section class="scene" aria-label="Market board">
     <div class="scene-header"><strong>${p.mode === 'sim' ? market[week.index % market.length].place : 'My business'}</strong><span>WEEK ${week.index + 1}</span></div>
     ${p.mode === 'sim' ? `<ol class="market-steps" aria-label="Market day stages">${['Choose a plan', 'Respond to news', 'See results'].map((label, i) => {
@@ -219,8 +251,9 @@ function awardShelf(p, result) {
 function progressView(p) {
   const result = progress(p), wallet = shopWallet(p);
   return `${pageHeader('MY BUSINESS', 'My progress', 'See what you saved and what you learnt along the way.')}
-  <div class="progress-layout">${goal(p, true)}<div class="stats progress-stats"><article class="panel"><span>Weeks closed</span><strong>${result.closed}</strong></article><article class="panel"><span>Shop points earned</span><strong>${result.points}</strong><p class="detail">${result.points - result.awardPoints} from missions and weeks · ${result.awardPoints} from badges</p></article></div></div>
-  <section class="panel shop-callout"><div><h2>Upgrade your virtual shop</h2><p><strong>${wallet.balance} points available</strong> · ${wallet.spent} spent. Your badges stay in your collection.</p></div>${button('Visit my virtual shop', 'view', 'data-view="shop"', 'primary')}</section>
+  ${trendChart(p)}
+  <div class="progress-layout spaced">${goal(p, true)}<div class="stats progress-stats"><article class="panel"><span>Weeks closed</span><strong>${result.closed}</strong></article><article class="panel"><span>Shop points earned</span><strong>${result.points}</strong><p class="detail">${result.points - result.awardPoints} from missions and weeks · ${result.awardPoints} from badges</p></article></div></div>
+  <section class="panel shop-callout"><div><h2>Make your profile yours</h2><p><strong>${wallet.balance} points available</strong> · ${wallet.spent} spent. Your badges stay in your collection.</p></div>${button('Open Profile shop', 'view', 'data-view="shop"', 'primary')}</section>
   ${awardShelf(p, result)}
   <div class="section-title spaced"><div><h2>Four buckets</h2><p>Total allocations from closed weeks. Save includes any simulated match.</p></div></div>
   ${bucketCards(result.buckets)}
@@ -230,80 +263,72 @@ function progressView(p) {
   }).join('')}</ul>` : '<p>Your weekly notes will appear after you close your first week.</p>'}
   </section>`;
 }
-function shopPreview(p, wallet) {
-  const owns = id => wallet.owned.has(id);
-  const theme = p.shop?.theme ?? 'classic';
-  const upgrades = shopItems.filter(item => item.kind === 'fixture' && owns(item.id)).map(item => item.name);
-  const look = shopItems.find(item => item.id === theme)?.name ?? 'Classic theme';
-  return `<figure class="shop-preview" data-theme="${esc(theme)}" aria-labelledby="shop-preview-title">
-    <div class="shop-sign"><span id="shop-preview-title">${esc(p.business)}</span></div>
-    <div class="shop-awning" aria-hidden="true"></div>
-    <div class="shop-interior" aria-hidden="true">
-      <div class="shop-window"><span></span></div>
-      ${owns('shelves') ? '<div class="scene-shelves"><div><i></i><i></i><i></i></div><div><i></i><i></i></div></div>' : '<div class="shop-board"><span>OPEN</span></div>'}
-      <div class="shop-counter ${owns('counter') ? 'oak-counter' : ''}">
-        ${owns('register') ? '<div class="shop-register"><span></span></div>' : '<div class="shop-notebook"></div>'}
-        <span class="counter-edge"></span><span class="counter-base"></span>
-      </div>
-      <div class="shop-floor"></div>
-    </div>
-    <figcaption><strong>${look}</strong><span>${upgrades.length ? upgrades.join(' · ') : 'Folding counter · Paper ledger'}</span></figcaption>
-  </figure>`;
+function avatar(p, compact = false) {
+  const item = cosmetics(p).icon;
+  return `<span class="arc-avatar ${item.symbol ? 'avatar-symbol' : ''} ${compact ? 'avatar-compact' : ''}" aria-hidden="true">${item.symbol}</span>`;
+}
+function identity(p) {
+  return `<span class="learner-identity">${avatar(p, true)}<span><strong>${esc(p.name)}</strong><small>${cosmetics(p).title.name}</small></span></span>`;
+}
+function artwork(p) {
+  return `style="--scene-image:url('${esc(assetUrl(cosmetics(p).background.image))}')"`;
 }
 function shopView(p) {
-  const wallet = shopWallet(p);
+  const wallet = shopWallet(p), equipped = cosmetics(p);
   const target = shopItems.find(item => item.id === p.shop?.target && !wallet.owned.has(item.id));
-  const itemCard = item => {
-    const owned = wallet.owned.has(item.id);
-    const equipped = item.kind === 'theme' && p.shop?.theme === item.id;
-    const pinned = target?.id === item.id;
+  const card = item => {
+    const owned = wallet.owned.has(item.id), wearing = equipped[item.kind].id === item.id;
     const attrs = `data-id="${item.id}"`;
-    return `<li class="catalog-item"><div class="catalog-main"><div><h3>${item.name}</h3><p>${item.description}</p></div>
-       ${pill(owned ? (equipped ? 'Equipped' : 'Owned') : item.cost + ' pts', owned ? 'green' : '')}</div>
-      ${owned ? (item.kind === 'theme' && !equipped ? button('Use theme', 'shop-theme', attrs + ` aria-label="Use ${item.name}"`, 'small') : '') : `<div class="catalog-actions">
-        ${wallet.balance >= item.cost ? button('Buy upgrade', 'shop-buy', attrs + ` aria-label="Buy ${item.name}"`, 'primary small') : `<span class="detail">Need ${item.cost - wallet.balance} more pts</span>`}
-        ${pinned ? pill('Saving for this', 'green') : button('Save for this', 'shop-target', attrs + ` aria-label="Save for ${item.name}"`, 'small')}
-      </div>`}</li>`;
+    const preview = item.kind === 'background'
+      ? `<span class="style-scene" style="background-image:url('${esc(assetUrl(item.image))}')" aria-hidden="true"></span>`
+      : item.kind === 'icon'
+        ? `<span class="arc-avatar ${item.symbol ? 'avatar-symbol' : ''}" aria-hidden="true">${item.symbol}</span>`
+        : `<span class="style-title"><span aria-hidden="true">✦</span> ${item.name}</span>`;
+    return `<li class="style-card">${preview}<div class="style-card-copy"><h3>${item.name}</h3><p>${item.description}</p>
+      <div class="catalog-actions">${wearing ? pill('Equipped', 'green')
+        : owned ? button('Equip', 'shop-equip', attrs + ` aria-label="Equip ${item.name}"`, 'small')
+        : `${wallet.balance >= item.cost ? button('Buy · ' + item.cost + ' pts', 'shop-buy', attrs + ` aria-label="Buy ${item.name} for ${item.cost} points"`, 'primary small') : pill(item.cost + ' pts · ' + (item.cost - wallet.balance) + ' to go')}
+        ${target?.id === item.id ? pill('Saving for this', 'green') : button('Save for this', 'shop-target', attrs + ` aria-label="Save for ${item.name}"`, 'small')}`}</div></div></li>`;
   };
-  return `${pageHeader('MY BUSINESS', 'My virtual shop', 'Spend points on your virtual shop or save them for a bigger upgrade.')}
-  <div class="shop-layout">
-    ${shopPreview(p, wallet)}
-    <div class="shop-side">
-      <section class="panel points-wallet"><h2>Game points</h2>
-        <p class="wallet-balance"><strong>${wallet.balance}</strong> <span>available to spend</span></p>
-        <div class="wallet-totals"><span>${wallet.earned} earned</span><span>${wallet.spent} spent</span></div>
-        <p>Upgrades change your virtual shop. Purchases use game points only.</p>
-        ${button('See how I earn points', 'view', 'data-view="progress"', 'small')}
-      </section>
-      <section class="panel shop-target"><h2>Upgrade goal</h2>
-        ${target ? `<h3>${target.name}</h3><progress max="${target.cost}" value="${Math.min(wallet.balance,target.cost)}" aria-label="Points towards ${target.name}"></progress>
-          <p>${wallet.balance >= target.cost ? 'You have enough points for this upgrade.' : (target.cost - wallet.balance) + ' more points to save.'}</p>
-          ${button('Clear upgrade goal', 'shop-target', '', 'quiet')}`
-        : '<p>Choose Save for this on an upgrade to track how close you are.</p>'}
-      </section>
-    </div>
+  return `${pageHeader('PROFILE SHOP', 'Make it yours', 'Choose an icon, dashboard background or title. Spend points now or save up for something you want.')}
+  <div class="style-overview">
+    <section class="style-preview" ${artwork(p)} aria-label="Your equipped profile">${avatar(p)}<div><h2>${esc(p.name)}</h2><span class="style-title">✦ ${equipped.title.name}</span><p>${equipped.background.name}</p></div></section>
+    <section class="panel points-wallet"><h2>Game points</h2><p class="wallet-balance"><strong>${wallet.balance}</strong> <span>available to spend</span></p>
+    ${target ? `<p>Saving for <strong>${target.name}</strong> · ${Math.max(0,target.cost-wallet.balance)} pts to go</p><progress value="${Math.min(wallet.balance,target.cost)}" max="${target.cost}" aria-label="Points towards ${target.name}"></progress>${button('Clear goal', 'shop-target', '', 'quiet small')}` : `<p>Set a point goal with <strong>Save for this</strong>.</p>${button('See how I earn points','view','data-view="progress"','small')}`}</section>
   </div>
-  <section class="panel shop-catalog" aria-labelledby="catalog-title">
-    <h2 id="catalog-title">Shop upgrades</h2>
-    <h3 class="catalog-heading">Fixtures</h3><ul class="catalog-grid">${shopItems.filter(item => item.kind === 'fixture').map(itemCard).join('')}</ul>
-    <div class="section-title catalog-themes"><h3>Themes</h3>${p.shop?.theme && p.shop.theme !== 'classic' ? button('Use classic theme', 'shop-theme', 'data-id="classic"', 'small') : ''}</div>
-    <ul class="catalog-grid">${shopItems.filter(item => item.kind === 'theme').map(itemCard).join('')}</ul>
-  </section>`;
+  ${[['icon','Profile icons'],['background','Dashboard backgrounds'],['title','Titles']].map(([kind,label])=>`<section class="style-catalog"><h2>${label}</h2><ul>${shopItems.filter(item=>item.kind===kind).map(card).join('')}</ul></section>`).join('')}`;
 }
 function shopPurchaseDialog(p, item) {
   const wallet = shopWallet(p);
   if (wallet.owned.has(item.id) || wallet.balance < item.cost) return;
-  const balanceAfter = wallet.balance - item.cost;
+  const remaining = wallet.balance - item.cost;
   const target = shopItems.find(other => other.id === p.shop?.target && other.id !== item.id);
-  const beforeGap = target && Math.max(0, target.cost - wallet.balance);
-  const afterGap = target && Math.max(0, target.cost - balanceAfter);
-  openDialog('Buy ' + item.name + '?', `<p>${item.description} This costs <strong>${item.cost} game points</strong> and leaves you with <strong>${balanceAfter} points</strong>.</p>
-    ${target && afterGap > beforeGap ? `<p class="shop-tradeoff">If you buy this now, you’ll need ${afterGap} more points for your ${target.name.toLowerCase()} goal.</p>` : ''}
+  openDialog('Buy ' + item.name + '?', `<p>This costs <strong>${item.cost} game points</strong> and leaves you with <strong>${remaining} points</strong>.</p>
+    ${target && remaining < target.cost ? `<p class="shop-tradeoff">You’ll need ${target.cost - remaining} more points for ${target.name}.</p>` : ''}
     ${form('shop-buy', '', 'Spend ' + item.cost + ' points', `${playerAttrs(p)} data-id="${item.id}"`)}`);
 }
 
+let chartMetric = 'xp';
+let chartWeek;
+function trendChart(p, showProgressLink = false) {
+  const savings = chartMetric === 'saved', history = progressHistory(p);
+  const selected = history.find(point => point.week === chartWeek) ?? history.at(-1);
+  const step = savings ? 500 : 20;
+  const max = Math.max(step, Math.ceil(Math.max(...history.map(point => point[chartMetric])) / step) * step);
+  const format = amount => savings ? money(amount) : amount + ' XP';
+  return `<section class="arc-trend" aria-label="Progress chart">
+    <div class="trend-head"><div><h2>Progress over time</h2><p>${savings ? 'Money added to Save at check-ins' : 'Total Learning XP from missions, videos and quizzes'}</p></div>
+    ${showProgressLink ? button('My progress →','view','data-view="progress"','small') : ''}</div>
+    <div class="trend-tools"><div class="trend-tabs" aria-label="Chart metric">
+      ${[['xp','Learning XP'],['saved','Savings']].map(([id,label])=>button(label,'chart-metric',`data-id="${id}" aria-pressed="${chartMetric===id}"`,'small')).join('')}
+    </div><p><strong>${format(selected[chartMetric])}</strong> · Week ${selected.week}</p></div>
+    <div class="trend-plot"><div class="trend-axis" aria-hidden="true"><span>${format(max)}</span><span>${savings ? '$0' : '0'}</span></div>
+    <div class="trend-columns" style="--count:${history.length}">${history.map(point=>`<button type="button" class="trend-column" data-action="chart-week" data-index="${point.week}" aria-pressed="${selected.week===point.week}" aria-label="Week ${point.week}, ${format(point[chartMetric])}"><span class="trend-bar" style="--height:${112*point[chartMetric]/max}px"></span><small>${point.week}</small></button>`).join('')}</div></div>
+  </section>`;
+}
+
 const levels = ['Money Explorer', 'Money Learner', 'Money Builder', 'Money Grower', 'Money Planner', 'Money Hero'];
-const levelIcons = ['◈', '✦', '▦', '↗', '◆', '★'];
+const levelIcons = ['🧭', '💡', '🧰', '🌱', '🎯', '🏆'];
 const levelGoals = ['Notice where money goes', 'Learn how money works', 'Build good money habits', 'Plan for the long term', 'Make thoughtful choices', 'Keep your goals in sight'];
 const levelStep = 100;
 let jar = 'savings';
@@ -336,13 +361,13 @@ function dashboardView(p) {
     : button('Watch this week’s video','task','data-id="learning"','primary');
   return `<div class="arc-dashboard">
     <div class="arc-grid">
-      <aside class="arc-profile"><div class="arc-avatar" aria-hidden="true"></div><strong>${esc(p.name)}</strong><p>${esc(p.business)}</p>
+      <aside class="arc-profile">${button(avatar(p), 'view', 'data-view="shop" aria-label="Customise my profile"', 'avatar-button')}<strong>${esc(p.name)}</strong><span class="profile-title">${cosmetics(p).title.name}</span><p>${esc(p.business)}</p>
       <div class="arc-level">LEVEL ${level+1}<br><span>${levels[level]}</span></div>
       <dl><div><dt>✦ Learning XP</dt><dd>${stats.xp}</dd></div><div><dt>◉ Shop points</dt><dd>${shopWallet(p).balance}</dd></div><div><dt>✓ Weeks closed</dt><dd>${closed}</dd></div></dl>
       </aside>
-      <section class="arc-main"><div class="arc-hero">
+      <section class="arc-main"><div class="arc-hero" ${artwork(p)}>
         <div class="arc-hero-copy"><span class="arc-tag">${w.index >= programmeLength ? 'KEEP GOING' : 'WEEK ' + (w.index+1) + ' / 12'}</span>
-          <h1>${w.closed ? '12 weeks complete!' : 'Ready, ' + esc(p.name) + '?'}</h1><p>${esc(info.title)}${p.track === 0 ? ' · Play with a grown-up' : ''}</p>
+          <div class="hero-mobile-identity">${identity(p)}</div><h1>${w.closed ? '12 weeks complete!' : 'Ready, ' + esc(p.name) + '?'}</h1><p>${esc(info.title)}${p.track === 0 ? ' · Play with a grown-up' : ''}</p>
           ${next}
         </div></div>
         <div class="arc-missions"><div class="arc-section-head"><div><span>YOUR NEXT MOVE</span><h2>This week’s missions</h2></div>${pill(approved + ' / ' + required + ' approved', 'green')}</div>
@@ -353,10 +378,11 @@ function dashboardView(p) {
           ${button('<span aria-hidden="true">✎</span><strong>Money habit</strong><small>Try it in real life</small>', 'task', 'data-id="reflection"', 'mission-action')}
         </div></div>
       </section>
-      <aside class="arc-side"><section class="arc-card"><span>YOUR PROGRESS</span><h2>${level === 5 ? 'Top level reached' : 'Next level'}</h2><progress max="100" value="${levelProgress}" aria-label="Learning XP to next level"></progress><p>${level === 5 ? 'Keep practising your money habits.' : (levelStep - levelProgress) + ' XP to Level ' + (level+2)}</p></section>
-      <section class="arc-card arc-gold"><span>MY BIG GOAL</span><h2>${esc(p.goal)}</h2><progress max="100" value="${pct(p)}" aria-label="Savings goal progress"></progress><p>${pct(p)}% of goal · ${closed} ${closed === 1 ? 'week' : 'weeks'} checked in</p></section>
-      <section class="arc-card arc-chart"><span>LEARNING THIS WEEK</span><h2>${week.xp} XP earned</h2><dl>${[['Missions',week.missions,w.tasks.filter(t=>t.id!=='learning' && t.kind!=='chore').length + Number(w.tasks.some(t=>t.kind==='chore'))],['Videos',week.videos,1],['Quizzes',week.quizzes,1]].map(([label,n,max])=>`<div><dt>${label}</dt><dd><progress aria-label="${label} completed this week" max="${Math.max(1,max)}" value="${n}"></progress><b>${n}</b></dd></div>`).join('')}</dl></section></aside>
+      <aside class="arc-side"><section class="arc-card"><span>YOUR PROGRESS</span><h2>${button(level === 5 ? 'Top level reached' : 'Next level', 'view', 'data-view="progress" aria-label="Your progress"', 'card-link')}</h2><progress max="100" value="${levelProgress}" aria-label="Learning XP to next level"></progress><p>${level === 5 ? 'Keep practising your money habits.' : (levelStep - levelProgress) + ' XP to Level ' + (level+2)}</p></section>
+      <section class="arc-card arc-gold"><span>MY BIG GOAL</span><h2>${button(esc(p.goal), 'view', 'data-view="progress" aria-label="My big goal and savings progress"', 'card-link')}</h2><progress max="100" value="${pct(p)}" aria-label="Savings goal progress"></progress><p>${pct(p)}% of goal · ${closed} ${closed === 1 ? 'week' : 'weeks'} checked in</p></section>
+      <section class="arc-card arc-chart"><span>LEARNING THIS WEEK</span><h2>${button(week.xp + ' XP earned', 'view', 'data-view="week" aria-label="See this week’s learning"', 'card-link')}</h2><dl>${[['Missions',week.missions,w.tasks.filter(t=>t.id!=='learning' && t.kind!=='chore').length + Number(w.tasks.some(t=>t.kind==='chore'))],['Videos',week.videos,1],['Quizzes',week.quizzes,1]].map(([label,n,max])=>`<div><dt>${label}</dt><dd><progress aria-label="${label} completed this week" max="${Math.max(1,max)}" value="${n}"></progress><b>${n}</b></dd></div>`).join('')}</dl></section></aside>
     </div>
+    ${trendChart(p, true)}
     ${competitionNotice(p)}
     ${journey(p,level)}
   </div>`;
@@ -376,10 +402,13 @@ function investmentsView(p) {
 }
 function scoreboard(rows, metric) {
   return `<div class="table-wrap"><table><thead><tr><th scope="col">Rank</th><th scope="col">Learner</th><th scope="col">${metric}</th></tr></thead>
-    <tbody>${rows.map((row,i)=>`<tr><td>${rows.findIndex(other=>other.score===row.score)+1}</td><td>${esc(row.name)}</td><td><strong>${row.score}</strong></td></tr>`).join('') || '<tr><td colspan="3">Add learners to see the leaderboard.</td></tr>'}</tbody></table></div>`;
+    <tbody>${rows.map(row => {
+      const learner = state.players.find(p => p.id === row.id);
+      return `<tr><td>${rows.findIndex(other => other.score === row.score) + 1}</td><td>${learner ? identity(learner) : esc(row.name)}</td><td><strong>${row.score}</strong></td></tr>`;
+    }).join('') || '<tr><td colspan="3">Add learners to see the leaderboard.</td></tr>'}</tbody></table></div>`;
 }
 function classCompetitions() {
-  const board = state.players.map(p=>({name:p.name,score:learningStats(p).xp})).sort((a,b)=>b.score-a.score || a.name.localeCompare(b.name));
+  const board = state.players.map(p=>({id:p.id,name:p.name,score:learningStats(p).xp})).sort((a,b)=>b.score-a.score || a.name.localeCompare(b.name));
   return `<section class="panel list-section"><div class="section-title"><div><h2>Class leaderboard</h2><p>Ranked by completed learning activities.</p></div>
     ${state.players.length ? button('Create competition','new-competition','','primary') : ''}</div>${scoreboard(board,'Learning XP')}</section>
     ${(state.competitions ?? []).map(c=>`<section class="panel list-section"><div class="section-title"><div><h2>${esc(c.title)}</h2><p>${esc(c.message)} · Target: ${c.target} ${competitionMetrics[c.metric]}</p></div>
@@ -404,20 +433,21 @@ function groupView() {
   ${classCompetitions()}
   <section class="panel ledger"><div class="section-title"><h2>Review queue</h2>${state.players.some(p => !p.solo && !activeWeek(p).closed) ? button('Assign activity', 'assign') : ''}</div>
   ${pending.length ? `<ul class="review-list">${pending.map(({ p, t }) => `<li><div><strong>${esc(p.name)} · ${esc(taskName(t, p))}</strong><p>Week ${activeWeek(p).index + 1} · ${tracks[p.track]}</p></div>${button('Review', 'review', `data-player="${p.id}" data-id="${t.id}"`, 'small')}</li>`).join('')}</ul>` : '<p>New submissions will appear here.</p>'}</section>
-  <section class="panel ledger spaced"><h2>Learners</h2><div class="table-wrap"><table><thead><tr><th scope="col">Learner</th><th scope="col">Week</th><th scope="col">Progress</th><th scope="col">Missions</th><th scope="col">Videos</th><th scope="col">Quizzes</th><th scope="col">XP</th><th scope="col">Action</th></tr></thead>
+  <section class="panel ledger spaced"><h2>Learners</h2><div class="table-wrap"><table><thead><tr><th scope="col">Learner</th><th scope="col">Current module</th><th scope="col">This week</th><th scope="col">Missions</th><th scope="col">Videos</th><th scope="col">Quizzes</th><th scope="col">XP</th><th scope="col">Action</th></tr></thead>
   <tbody>${state.players.map(p => {
     const w = activeWeek(p), stats = learningStats(p);
+    const required = w.tasks.filter(task => task.required);
+    const completed = required.filter(task => task.status === 'approved').length;
     const status = p.solo ? (w.closed ? 'Solo complete' : 'Solo practice') : w.closed ? 'Pilot complete' : totals(w).ready ? 'Ready for check-in' : w.tasks.some(t => t.status === 'submitted') ? 'Awaiting review' : w.tasks.some(t => t.status !== 'todo') || w.transactions.length ? 'In progress' : 'To start';
-    return `<tr><td><strong>${esc(p.name)}</strong><div class="detail">${tracks[p.track]}</div></td><td>${w.index + 1}</td><td>${pill(status, status === 'Ready for check-in' || w.closed ? 'green' : '')}</td><td>${stats.missions}</td><td>${stats.videos}</td><td>${stats.quizzes}</td><td>${stats.xp}</td><td>${button('Open learner', 'learner-detail', `data-player="${p.id}"`, 'small')}${!p.solo && totals(w).ready && !w.closed ? button('Check in', 'close-week', `data-player="${p.id}"`, 'small') : ''}</td></tr>`;
+    return `<tr><td>${identity(p)}<div class="detail">${tracks[p.track]}</div></td><td><strong>Week ${w.index + 1}</strong><div class="detail">${esc(moduleFor(p,w.index).title)}</div></td><td>${pill(status, status === 'Ready for check-in' || w.closed ? 'green' : '')}<div class="detail">${completed} / ${required.length} required complete</div></td><td>${stats.missions}</td><td>${stats.videos}</td><td>${stats.quizzes}</td><td>${stats.xp}</td><td>${button('Open learner', 'learner-detail', `data-player="${p.id}"`, 'small')}${!p.solo && totals(w).ready && !w.closed ? button('Check in', 'close-week', `data-player="${p.id}"`, 'small') : ''}</td></tr>`;
   }).join('')}</tbody></table></div></section>
-  <p class="detail">Classroom demo on this device. Anyone using this browser profile can open the facilitator dashboard.</p>`;
+  <p class="detail">${workspace.active === 'test' ? 'Sample learners and activity for trying the teacher view.' : 'This class shares one browser. The facilitator PIN gates the teacher view on this device.'}</p>`;
 }
 function homeView() {
-  const p = player();
-  const options = kind => workspace.groups.filter(({ data }) => (data.kind === 'home') === (kind === 'home'))
-    .map(({ id, data }) => `<option value="${esc(id)}" ${id === workspace.active ? 'selected' : ''}>${esc(data.group)}</option>`).join('');
-  const homeOptions = options('home'), groupOptions = options('group');
-  const hasSaves = homeOptions || groupOptions || workspace.sample;
+  const homeGames = workspace.groups.filter(({data}) => data.kind === 'home');
+  const homeGame = homeGames.find(group => group.id === workspace.active) ?? homeGames[0];
+  const classGame = assignedClass();
+  const classLearner = classGame?.data.players.find(p => p.id === classGame.data.current);
   return `<section class="welcome">
     <div><div class="eyebrow">SUCCESS AVENUE MONEY</div><h1>The Lucas Money Game</h1>
       <p>Do chores. Take on a mini business. Build money habits that bring your big goal closer.</p>
@@ -426,14 +456,12 @@ function homeView() {
   </section>
   <div class="welcome-grid">
     <section class="panel start-panel"><h2>Continue a saved game</h2>
-      ${hasSaves ? `<label for="home-group">Saved game<select id="home-group">
-        ${homeOptions ? `<optgroup label="Home games">${homeOptions}</optgroup>` : ''}
-        ${groupOptions ? `<optgroup label="Groups">${groupOptions}</optgroup>` : ''}
-        ${workspace.sample ? `<option value="test" ${workspace.active === 'test' ? 'selected' : ''}>Test group · sample learners</option>` : ''}
-        </select></label>
-        ${isHomeGame() ? `<p>${esc(p.name)} · ${esc(p.business)}</p>` : p ? `<label for="home-profile">Learner profile<select id="home-profile">${state.players.map(other=>`<option value="${esc(other.id)}" ${other.id === p.id ? 'selected' : ''}>${esc(other.name)} · ${esc(other.business)}</option>`).join('')}</select></label>` : '<p>This group is ready for its first learner.</p>'}
-        <div class="action-row">${p ? button('Continue as learner', 'open-learner', '', 'primary') : ''}${button('Open ' + facilitatorLabel().toLowerCase(), 'open-facilitator', '', p ? 'secondary' : 'primary')}</div>`
-      : '<p>Home games and groups you set up will appear here.</p>'}
+      ${classLearner ? `<p>Class learner on this device · <strong>${esc(classLearner.name)}</strong></p>${button('Continue class game','resume-class','', 'primary')}` : ''}
+      ${homeGame ? `<label for="home-group">Home game<select id="home-group">${homeGames.map(({id,data})=>`<option value="${esc(id)}" ${id===homeGame.id?'selected':''}>${esc(data.group)}</option>`).join('')}</select></label>
+        <div class="action-row">${button('Continue home game','resume-home',`data-id="${esc(homeGame.id)}"`,'primary')}${button('Open parent view','resume-parent',`data-id="${esc(homeGame.id)}"`)}</div>` : ''}
+      ${classGroups().length ? button('Open teacher dashboard','open-facilitator') : ''}
+      ${workspace.sample ? button('Open demo teacher dashboard','open-demo-teacher','', 'small') : ''}
+      ${!homeGame && !classGroups().length && !workspace.sample ? '<p>Saved games will appear here.</p>' : ''}
     </section>
     <section class="panel start-panel"><h2>First time playing?</h2><p>Play at home with one learner and a parent or caregiver. For a class or club, set up a group and add learners.</p>
     <p>The test group lets you try the game with sample learners and submissions.</p>${button('View setup instructions', 'view', 'data-view="setup"')}</section>
@@ -453,7 +481,7 @@ function setupView() {
       <ol class="setup-steps">
         <li>Create a group for your class, club or household with multiple learners.</li>
         <li>In <strong>Facilitator view</strong>, set the weekly money rules in Settings if needed, then use <strong>Add learner</strong> to set up each person.</li>
-        <li>Open a learner record to customise their missions, review work and close the week after the check-in.</li>
+        <li>Open a learner record to review their work or choose <strong>Hand device to learner</strong> to open that learner’s dashboard.</li>
       </ol><div class="action-row">${button('Start a new group', 'new-group')}${button(workspace.sample ? 'Resume demo' : 'Play the demo', 'test-group')}</div>
     </section>
   </div><p class="detail spaced">Games and progress are saved in this browser. Learners and facilitators use the same saved game on this device.</p>`;
@@ -498,8 +526,8 @@ function learnerHelpView() {
       </dl>
       <p>Activity rewards are tracked separately from business earnings. Closing a week adds the new bucket allocations to your totals.</p>
     </section>
-    <section class="panel help-panel"><h2>Badges and shop upgrades</h2>
-      <p>In My progress, badges recognise milestones like completing a mission or saving a quarter of your goal. Visit My virtual shop to spend game points on upgrades or save for a bigger one. Your badges stay in your collection.</p>
+    <section class="panel help-panel"><h2>Badges and profile rewards</h2>
+      <p>In My progress, badges recognise milestones like completing a mission or saving a quarter of your goal. Visit Profile shop to unlock profile icons, backgrounds and titles. Your badges stay in your collection.</p>
       <p>Click the game logo to return to Home.</p>
     </section>
     ${aboutPanel()}
@@ -540,15 +568,16 @@ function settingsView() {
 function render() {
   const isPublic = publicRoutes.has(view);
   const p = isPublic ? undefined : player();
-  $('#role').innerHTML = !isPublic && state && (role === 'learner' || p)
+  $('#role').innerHTML = !isPublic && state && (role === 'learner' ? isHomeGame() : p)
     ? button(role === 'learner' ? facilitatorLabel() : 'Learner view', 'switch-role', '', 'role-switch') : '';
   const links = isPublic
     ? [['home','Home'], ['setup','Setup instructions'], ['public-help','About &amp; Help']]
     : role === 'learner'
-      ? [['dashboard','Dashboard'], ['week','Missions'], ['money','Money log'], ['investments','Savings &amp; investing'], ['progress','My progress'], ['shop','My virtual shop'], ['learner-help','About &amp; Help']]
+      ? [['dashboard','Dashboard'], ['week','Missions'], ['money','Money log'], ['investments','Savings &amp; investing'], ['progress','My progress'], ['shop','Profile shop'], ['learner-help','About &amp; Help']]
       : [['home','Home'], ['group',dashboardLabel()], ['settings','Settings'], ['facilitator-help','About &amp; Help']];
-  $('#nav').innerHTML = links.map(([id,label]) => `<button type="button" data-action="view" data-view="${id}" ${view === id ? 'aria-current="page"' : ''}>${label}</button>`).join('') + (p && role === 'learner' && !isHomeGame() ? `<label class="profile"><span class="sr-only">Learner profile</span><select id="profile">${state.players.map(other => `<option value="${other.id}" ${other.id === p.id ? 'selected' : ''}>${esc(other.name)}</option>`).join('')}</select></label>` : '');
+  $('#nav').innerHTML = links.map(([id,label]) => `<button type="button" data-action="view" data-view="${id}" ${view === id ? 'aria-current="page"' : ''}>${label}</button>`).join('');
   const sections = { home: homeView, setup: setupView, 'public-help': publicHelpView, 'learner-help': learnerHelpView, 'facilitator-help': facilitatorHelpView, detail: learnerDetail, dashboard: dashboardView, investments: investmentsView, week: weekView, money: moneyView, progress: progressView, shop: shopView, group: groupView, settings: settingsView };
+  document.body.dataset.role = role ?? 'public';
   document.body.dataset.skin = !isPublic && role === 'facilitator' ? 'staff' : p?.track === 0 ? 'junior' : p?.track === 2 ? 'teen' : 'arcade';
   const context = !isPublic && state ? `<p class="group-context">${workspace.active === 'test' ? 'Test group · Sample data' : esc(state.group)}</p>` : '';
   $('#main').innerHTML = '<p id="notice" class="toast" role="status" tabindex="-1" hidden></p>' + context + sections[view](view === 'detail' ? state.players.find(other => other.id === detailPlayerId) : p);
@@ -632,8 +661,8 @@ function taskDialog(p, week, task, showQuiz = false) {
 
 }
 function playerDialog(p, homeSetup = false) {
-  openDialog(homeSetup ? 'Play at home' : p ? 'Edit learner profile' : role === 'learner' ? 'Start your own game' : 'Add learner', form(homeSetup ? 'new-home' : p ? 'edit-player' : 'add-player', `${homeSetup ? '<p>Set up one learner. A parent or caregiver can tailor missions, review work and run weekly check-ins.</p>' : ''}<div class="fields">
-    ${textField('First name or nickname', 'name', 'This name appears in the profile picker and facilitator dashboard. A nickname is enough.', p?.name, 40)}${textField('Business name', 'business', 'Give your business or household service a name, such as Weekend Car Wash.', p?.business)}
+  openDialog(homeSetup ? 'Play at home' : p ? 'Edit learner profile' : 'Add learner', form(homeSetup ? 'new-home' : p ? 'edit-player' : 'add-player', `${homeSetup ? '<p>Set up one learner. A parent or caregiver can tailor missions, review work and run weekly check-ins.</p>' : ''}<div class="fields">
+    ${textField('First name or nickname', 'name', 'This name appears on the learner and facilitator dashboards. A nickname is enough.', p?.name, 40)}${textField('Business name', 'business', 'Give your business or household service a name, such as Weekend Car Wash.', p?.business)}
     ${field('Age range', 'track', 'Choose the learner’s age range. This adjusts their dashboard and mission guidance.', `<select name="track">${tracks.map((label,index) => `<option value="${index}" ${index === (p?.track ?? 1) ? 'selected' : ''}>${label}</option>`).join('')}</select>`)}
     ${!p ? field('Business mode', 'mode', 'Choose My real business for paid household jobs, a service or a product you sell. The practice simulation supplies sample figures.', `<select name="mode"><option value="manual">My real business</option><option value="sim">Practice simulation</option></select>`) : ''}
     ${textField('What do you offer? (optional)', 'offer', 'Describe the job or product, such as mowing the lawn for an agreed price.', p?.offer, 120, false)}
@@ -664,9 +693,9 @@ function learnerDetail(p) {
       <div><dt>Customers</dt><dd>${esc(p.customers || 'Add who the business serves in Edit learner profile.')}</dd></div>
       <div><dt>Savings goal</dt><dd>${esc(p.goal)} · ${money(result.buckets[1])} of ${money(p.target)} (${pct(p)}%)</dd></div>
       <div><dt>Progress</dt><dd>${result.closed} weeks closed · ${learningStats(p).xp} learning XP · ${result.points} points</dd></div>
-      <div><dt>Virtual shop</dt><dd>${wallet.balance} pts available · ${wallet.spent} spent${wallet.owned.size ? ' · ' + shopItems.filter(item => wallet.owned.has(item.id)).map(item => item.name).join(', ') : ''}</dd></div>
+      <div><dt>Profile shop</dt><dd>${wallet.balance} pts available · ${wallet.spent} spent · ${cosmetics(p).title.name}</dd></div>
       <div><dt>Badges</dt><dd>${earnedAwards(p).map(award => award.title).join(' · ') || 'None earned yet'}</dd></div>
-    </dl>${button('Open learner view', 'switch-player', attrs, 'small')}</section>
+    </dl>${button('Hand device to learner', 'switch-player', attrs, 'small')}</section>
     <section class="panel learner-buckets"><h2>Four buckets to date</h2><p>Closed weeks only. Save includes any simulated match.</p>${bucketCards(result.buckets)}</section>
   </div>
   <section class="panel spaced" aria-labelledby="module-overview-title">
@@ -730,43 +759,95 @@ document.addEventListener('click', event => {
     el.setAttribute('aria-expanded', String(!tip.hidden));
     return;
   }
-  const p = id ? state?.players.find(other => other.id === id) : player();
+  const p = id && role === 'facilitator' ? state?.players.find(other => other.id === id) : player();
   const w = p && activeWeek(p), task = w?.tasks.find(t => t.id === item);
   switch (action) {
     case 'dismiss': closeDialog(); break;
     case 'view': closeDialog(); navigate(next); break;
+    case 'chart-week':
+    case 'chart-metric': {
+      if (role !== 'learner' || !['dashboard','progress'].includes(view)) return;
+      if (action === 'chart-metric' && ['xp','saved'].includes(item)) chartMetric = item;
+      if (action === 'chart-week') chartWeek = Number(index);
+      render();
+      $(`[data-action="${action}"][aria-pressed="true"]`)?.focus({preventScroll:true});
+      break;
+    }
     case 'shop-buy': {
       const upgrade = shopItems.find(entry => entry.id === item);
       if (role === 'learner' && view === 'shop' && p && upgrade) shopPurchaseDialog(p, upgrade);
       break;
     }
-    case 'shop-theme':
-      if (role === 'learner' && view === 'shop' && p && equipTheme(p, item)) save('Shop theme updated.');
+    case 'shop-equip':
+      if (role === 'learner' && view === 'shop' && p && equipCosmetic(p, item)) save('Profile updated.');
       break;
     case 'shop-target':
-      if (role === 'learner' && view === 'shop' && p && setShopTarget(p, item || null)) save(item ? 'Upgrade goal saved.' : 'Upgrade goal cleared.');
+      if (role === 'learner' && view === 'shop' && p && setShopTarget(p, item || null)) save(item ? 'Point goal saved.' : 'Point goal cleared.');
       break;
-    case 'open-learner': if (p) openRole('learner'); break;
-    case 'open-facilitator': if (state) openRole('facilitator'); break;
+    
+    case 'open-facilitator':
+      if (publicRoutes.has(view) && classGroups().length) classAccessDialog();
+      break;
+    case 'open-demo-teacher':
+      if (!publicRoutes.has(view) || !workspace.sample) return;
+      selectGroup('test');
+      openRole('facilitator');
+      save();
+      break;
+    case 'resume-class': {
+      const group = assignedClass();
+      if (!publicRoutes.has(view) || !group) return;
+      selectGroup(group.id);
+      openRole('learner');
+      save();
+      break;
+    }
+    case 'resume-home':
+    case 'resume-parent':
+      if (!publicRoutes.has(view) || groupState(item)?.kind !== 'home') return;
+      selectGroup(item);
+      openRole(action === 'resume-home' ? 'learner' : 'facilitator');
+      save();
+      break;
     case 'new-home':
       if (publicRoutes.has(view)) playerDialog(undefined, true);
       break;
     case 'new-group':
-      openDialog('Set up your group', form('new-group', textField('Group name', 'newGroupName', 'Use a name for your class, household or club.', '', 60), 'Create group'));
+      if (!publicRoutes.has(view)) return;
+      openDialog('Set up your class', form('new-group', textField('Group name', 'newGroupName', 'Use a name for your class, household or club.', '', 60) + pinField(), 'Create group'));
       break;
     case 'test-group':
       if (!workspace.sample) {
         workspace.sample = fresh();
-        workspace.sample.players.forEach(p => grantAwards(p));
+        workspace.sample.players.forEach(p => grantAwards(p, { checkSavings: true }));
       }
       selectGroup('test');
       openRole('learner');
       save();
       break;
-    case 'switch-role': openRole(role === 'learner' ? 'facilitator' : 'learner'); break;
-    case 'switch-player': state.current = p.id; role = 'learner'; closeDialog(); navigate('dashboard'); save(); break;
-    case 'edit-player': playerDialog(p); break;
-    case 'add-player': if (state && !isHomeGame()) playerDialog(); break;
+    case 'switch-role':
+      if (role === 'facilitator' && !isHomeGame() && workspace.active !== 'test' && p) {
+        state.current = p.id;
+        workspace.classResume = workspace.active;
+      }
+      if (role === 'facilitator' || (role === 'learner' && isHomeGame())) openRole(role === 'learner' ? 'facilitator' : 'learner');
+      save();
+      break;
+    case 'switch-player':
+      if (role !== 'facilitator' || !p) return;
+      state.current = p.id;
+      if (!isHomeGame() && workspace.active !== 'test') workspace.classResume = workspace.active;
+      closeDialog();
+      openRole('learner');
+      save();
+      break;
+    case 'edit-goal':
+      if (role === 'learner' && p) openDialog('Edit savings goal', form('edit-goal',
+        textField('Savings goal','goal','Name something you’d like to save for.',p.goal)
+        + field('Goal amount (NZD)','target','Enter the total amount you need to save.',`<input type="number" name="target" min=".01" max="1000000" step=".01" value="${p.target/100}" required>`),'Save goal'));
+      break;
+    case 'edit-player': if (role === 'facilitator' && p) playerDialog(p); break;
+    case 'add-player': if (role === 'facilitator' && state && !isHomeGame()) playerDialog(); break;
     case 'task': if (task) taskDialog(p, w, task); break;
     case 'lesson-quiz':
       if (role === 'learner' && w?.videoWatched) taskDialog(p, w, w.tasks.find(t=>t.id==='learning'), true);
@@ -846,10 +927,11 @@ document.addEventListener('click', event => {
       break;
     }
     case 'assign':
+      if (role !== 'facilitator') return;
       openDialog('Assign activity', form('assign', `${isHomeGame() ? `<input type="hidden" name="recipient" value="${esc(p.id)}">` : field('Assign to', 'recipient', 'Choose one learner or assign to everyone with an open mentored week.', `<select name="recipient"><option value="all">All mentored learners with an open week</option>${state.players.filter(other => !other.solo && !activeWeek(other).closed).map(other => `<option value="${other.id}">${esc(other.name)} · Week ${activeWeek(other).index + 1}</option>`).join('')}</select>`)}
       ${textField('Activity title', 'title', 'Use a short title the learner can recognise, such as Compare two prices.')}${noteField('What should they do and submit?', 'prompt', 'Give one clear task and say what to return. For example, compare two prices and send one sentence explaining your choice.')}${field('Points', 'points', 'How many points should approval of this activity award?', `<input type="number" name="points" value="10" min="0" max="100" required>`)}
       <label class="radio"><input type="checkbox" name="required"> Required for check-in</label>`, 'Assign activity')); break;
-    case 'review': if (task?.status === 'submitted' && !w.closed) reviewDialog(p, task); break;
+    case 'review': if (role === 'facilitator' && task?.status === 'submitted' && !w.closed) reviewDialog(p, task); break;
     case 'learner-detail':
       if (role !== 'facilitator') return;
       detailPlayerId = p.id;
@@ -866,7 +948,7 @@ document.addEventListener('click', event => {
       break;
     }
     case 'close-week':
-      if (!p.solo && totals(w).ready && !w.closed) openDialog('Check in with ' + esc(p.name), `<p>All required activities are approved. Review the business result and agree on one next step.</p>
+      if (role === 'facilitator' && !p.solo && totals(w).ready && !w.closed) openDialog('Check in with ' + esc(p.name), `<p>All required activities are approved. Review the business result and agree on one next step.</p>
       ${w.tasks.some(t => !t.required && t.status === 'submitted') ? '<p>Optional submissions are still awaiting review. Review them before closing the week if you want them to count.</p>' : ''}
       <div class="lesson"><strong>Week ${w.index + 1}</strong><p>${money(totals(w).profit)} profit before simulated tax · ${money(totals(w).allocations[1])} allocated to Save</p></div>
       ${form('close-week', noteField('Feedback and next step', 'feedback', 'Summarise one thing the learner noticed and agree on one action to try next week.'), w.index === programmeLength - 1 ? 'Finish programme' : 'Close week and open next', `data-player="${p.id}"`)}`); break;
@@ -874,19 +956,17 @@ document.addEventListener('click', event => {
 });
 document.addEventListener('change', event => {
   if (event.target.id === 'home-group') { selectGroup(event.target.value); save(); $('#home-group').focus(); }
-  if (event.target.id === 'home-profile') { state.current = event.target.value; save(); $('#home-profile').focus(); }
-  if (event.target.id === 'profile') { state.current = event.target.value; ledgerWeek = undefined; save(); $('#profile').focus(); }
   if (event.target.id === 'detail-week') { detailWeek = Number(event.target.value); render(); $('#detail-week').focus(); }
   if (event.target.id === 'ledger-week') { ledgerWeek = Number(event.target.value); render(); $('#ledger-week').focus(); }
 });
-document.addEventListener('submit', event => {
+document.addEventListener('submit', async event => {
   const el = event.target;
   if (!el.matches('[data-form], #settings')) return;
   event.preventDefault();
   const data = new FormData(el);
   const value = name => String(data.get(name) ?? '').trim();
   const fail = message => { el.querySelector('.error').textContent = message; };
-  const p = el.dataset.player ? state?.players.find(other => other.id === el.dataset.player) : player();
+  const p = el.dataset.player && role === 'facilitator' ? state?.players.find(other => other.id === el.dataset.player) : player();
   const w = p && activeWeek(p), task = w?.tasks.find(t => t.id === el.dataset.id);
   const finish = (message, unlocked) => { closeDialog(); save(message, unlocked); };
   switch (el.dataset.form ?? 'settings') {
@@ -894,21 +974,33 @@ document.addEventListener('submit', event => {
       if (role !== 'learner' || view !== 'shop' || !p || player()?.id !== p.id) return;
       const error = buyUpgrade(p, el.dataset.id);
       if (error) return fail(error);
-      finish(shopItems.find(item => item.id === el.dataset.id).name + ' added to your virtual shop.');
+      finish(shopItems.find(item => item.id === el.dataset.id).name + ' equipped on your profile.');
       break;
     }
-    case 'new-group': {
+    case 'new-group':
+    case 'class-access': {
+      if (!publicRoutes.has(view)) return;
+      const creating = el.dataset.form === 'new-group';
       const name = value('newGroupName');
-      if (!name) return fail('Enter a group name.');
-      const id = uid();
-      workspace.groups.push({ id, data: newGroup(name) });
+      if (creating && !name) return fail('Enter a group name.');
+      if (!/^[0-9]{6,12}$/.test(value('pin'))) return fail('Enter a PIN with 6 to 12 digits.');
+      const id = creating ? uid() : value('classId');
+      const group = creating ? newGroup(name) : groupState(id);
+      if (!creating && (!group || group.kind === 'home' || id === 'test')) return fail('Choose your class.');
+      let digest;
+      try { digest = await classPinDigest(id, value('pin')); }
+      catch { return fail('Open the game over HTTPS or on localhost to use the teacher dashboard.'); }
+      if (!el.isConnected || !dialog.open || !publicRoutes.has(view)) return;
+      if (group.teacherPin && group.teacherPin !== digest) return fail('That PIN does not match this class.');
+      group.teacherPin = digest;
+      if (creating) workspace.groups.push({ id, data: group });
       selectGroup(id);
-      role = 'facilitator';
-      view = 'group';
-      finish('Group created. Add a learner to get started.');
+      openRole('facilitator');
+      finish(creating ? 'Class created. Add a learner to get started.' : '');
       break;
     }
     case 'settings': {
+      if (role !== 'facilitator') return;
       const split = data.getAll('split').map(Number);
       if (split.reduce((sum, n) => sum + n, 0) !== 100) return fail('Bucket percentages must add up to 100.');
       if (!value('group')) return fail(isHomeGame() ? 'Enter a home game name.' : 'Enter a group name.');
@@ -924,6 +1016,14 @@ document.addEventListener('submit', event => {
       state.quizUrl = quizUrl;
       state.rules = { split, tax: Number(value('tax')), bonus: Number(value('bonus')), match: Number(value('match')), cap: Math.round(Number(value('cap')) * 100) };
       save('Settings saved. Money rules apply to newly opened weeks.');
+      break;
+    }
+    case 'edit-goal': {
+      if (role !== 'learner' || !p) return;
+      const goal = value('goal'), target = Math.round(Number(value('target')) * 100);
+      if (!goal || !Number.isSafeInteger(target) || target < 1 || target > 100000000) return fail('Enter a goal and a valid amount.');
+      Object.assign(p, { goal, target });
+      finish('Savings goal updated.');
       break;
     }
     case 'new-home':
@@ -942,12 +1042,15 @@ document.addEventListener('submit', event => {
         finish('Home game ready. Open Parent / caregiver view to plan or review the week together.');
         break;
       }
-      if (el.dataset.form === 'edit-player') Object.assign(p, fields);
+      if (role !== 'facilitator') return;
+      if (el.dataset.form === 'edit-player') {
+        if (!p) return;
+        Object.assign(p, fields);
+      }
       else {
         if (!state || isHomeGame()) return;
         const learner = makePlayer({ ...fields, mode: value('mode'), solo: value('reviewMode') === 'solo' }, state.rules);
         state.players.push(learner);
-        if (role === 'learner') { state.current = learner.id; view = 'dashboard'; }
       }
       finish(el.dataset.form === 'edit-player' ? 'Goal and business saved.' : 'Learner added.');
       break;
@@ -1031,6 +1134,7 @@ document.addEventListener('submit', event => {
       w.transactions = w.transactions.filter(record => record.id !== el.dataset.id || record.sim);
       finish('Entry removed.'); break;
     case 'assign': {
+      if (role !== 'facilitator') return;
       const title = value('title'), prompt = value('prompt');
       if (!title || !prompt) return fail('Enter an activity title and instructions.');
       const eligible = state.players.filter(other => !other.solo && !activeWeek(other).closed && (value('recipient') === 'all' || value('recipient') === other.id));
@@ -1039,6 +1143,7 @@ document.addEventListener('submit', event => {
       finish(`Activity assigned to ${eligible.length} ${eligible.length === 1 ? 'learner' : 'learners'}.`); break;
     }
     case 'review':
+      if (role !== 'facilitator') return;
       if (w.closed || task?.status !== 'submitted') return;
       if (value('decision') === 'revision' && !value('feedback')) return fail('Add feedback so the learner knows what to change.');
       Object.assign(task, { status: value('decision'), feedback: value('feedback') });
@@ -1046,7 +1151,7 @@ document.addEventListener('submit', event => {
     case 'solo-settle':
     case 'close-week': {
       const solo = el.dataset.form === 'solo-settle';
-      if (Boolean(p.solo) !== solo) return;
+      if (Boolean(p.solo) !== solo || role !== (solo ? 'learner' : 'facilitator')) return;
       if (w.closed || !totals(w).ready) return;
       if (!solo && !value('feedback')) return fail('Record feedback or an agreed next step.');
       w.feedback = solo ? w.tasks.find(t => t.id === 'reflection').evidence : value('feedback');
