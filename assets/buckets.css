@@ -11,7 +11,7 @@
 .bucket-total strong { display:block; color:var(--gold); font-size:1.32rem; line-height:1.3; }
 .bucket-guide { margin:0 0 16px; }
 .bucket-guide p { color:var(--muted); margin:5px 0 0; max-width:74ch; }
-.bucket-board { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.bucket-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,225px),1fr)); gap:12px; }
 .bucket-adventure {
   --bucket-tint:#f8bd73;
   display:grid; grid-template-rows:auto 1fr auto; gap:10px; min-width:0; padding:14px;
@@ -34,10 +34,6 @@
 .bucket-back p:first-child { margin-top:0; }
 .bucket-back strong { color:var(--bucket-tint); }
 .bucket-picture { height:clamp(65px,8vw,100px); position:relative; overflow:hidden; border-radius:8px; }
-.bucket-picture > div {
-  position:absolute; width:100%; top:50%; transform:translateY(-50%); aspect-ratio:1.5;
-  background:var(--surface-raised) url('./bucket-art.webp') var(--bucket-position,0 0)/200% 200% no-repeat;
-}
 .bucket-back { visibility:hidden; background:var(--inset); padding:9px; border-radius:8px; }
 .bucket-flipped .bucket-front { visibility:hidden; }
 .bucket-flipped .bucket-back { visibility:visible; animation:bucket-turn 220ms ease-out both; }
@@ -69,12 +65,9 @@
 .bucket-feedback[data-correct="false"] { color:var(--warning-text); }
 .bucket-page-footer { display:flex; justify-content:flex-end; margin-top:16px; }
 
-@media(max-width:920px) {
-  .bucket-board { grid-template-columns:repeat(2,minmax(0,1fr)); }
-}
 @media(max-width:480px) {
   .bucket-page-heading { align-items:start; flex-direction:column; }
-  .bucket-board,.bucket-practice-list { grid-template-columns:1fr; }
+  .bucket-practice-list { grid-template-columns:1fr; }
 }
 
 /* Practice banking surfaces share the arcade palette and account artwork. */
@@ -114,4 +107,30 @@
 @media(max-width:680px) {
   .bank-overview-grid { grid-template-columns:1fr; }
   .bank-accounts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+.bucket-board-heading,.bank-bucket-head { margin:16px 0 10px; }
+.bank-bucket-head h3 { margin:0; }
+.bucket-art-coast { --bucket-tint:#a9bcff; --bucket-photo:url('./coast-ride.webp'); }
+.bucket-art-market { --bucket-tint:#ffcc8b; --bucket-photo:url('./market-lights.webp'); }
+.bucket-picture > :is(div,span) {
+  display:block; position:absolute; width:100%; top:50%; transform:translateY(-50%); aspect-ratio:1.5;
+  background:var(--surface-raised) var(--bucket-photo,url('./bucket-art.webp')) var(--bucket-position,0 0)/200% 200% no-repeat;
+}
+:is(.bucket-art-coast,.bucket-art-market) .bucket-picture > * { background-size:cover; background-position:center; }
+.bucket-art-picker { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,125px),1fr)); gap:8px; }
+.bucket-art-picker label { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:5px; padding:7px; border:1px solid var(--line); border-radius:8px; }
+.bucket-art-picker label:has(input:checked) { border-color:var(--lime); }
+.bucket-art-picker label > .bucket-picture { grid-column:1/-1; grid-row:1; height:60px; }
+.bucket-art-picker label > input { width:auto; margin:0; }
+.sam-brand { width:clamp(120px,19vw,205px); height:auto; }
+.brand-game-name { padding-inline-start:10px; border-inline-start:1px solid var(--line); font-weight:800; font-size:.85rem; }
+.header-controls { display:flex; align-items:center; gap:10px; }
+.game-language { display:grid; gap:2px; font-size:.72rem; }
+.game-language select { width:auto; max-width:150px; padding:5px; font-size:.82rem; }
+.sam-video { display:block; width:100%; aspect-ratio:16/9; border:0; border-radius:8px; background:var(--inset); margin-block:8px; }
+.route .season-week { display:block; text-align:start; text-decoration:none; min-height:38px; padding:6px 0; }
+@media(max-width:720px) { .brand-game-name { display:none; } }
+@media(max-width:360px) {
+  .top-inner { flex-wrap:wrap; gap:5px; padding-block:8px; }
 }

@@ -9,18 +9,21 @@
 <link rel="stylesheet" href="./assets/style.css">
 <link rel="stylesheet" href="./assets/arcade.css">
 <link rel="stylesheet" href="./assets/challenges.css?v=2.6">
-<link rel="stylesheet" href="./assets/buckets.css?v=2.9.1">
-<script type="module" src="./assets/app.js?v=2.9.1"></script>
+<link rel="stylesheet" href="./assets/buckets.css?v=3.0">
+<script type="module" src="./assets/app.js?v=3.0"></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="top"><div class="frame top-inner">
-<button class="brand" aria-label="The Lucas Money Game, home" data-action="view" data-view="home"><span class="brand-mark" aria-hidden="true">$</span><span><strong>The Lucas Money Game</strong><small>Success Avenue Money</small></span></button>
+<button class="brand" aria-label="The Lucas Money Game, home" data-action="view" data-view="home"><img class="sam-brand" src="./assets/sam-logo.png" alt="Success Avenue Money" width="1544" height="350"><span class="brand-game-name">The Lucas Money Game</span></button>
+<div class="header-controls">
+<label class="game-language"><span id="language-label">Language</span><select id="game-language"><option value="en-NZ">English</option><option value="mi" lang="mi">Te reo Māori</option><option value="es" lang="es">Español</option></select></label>
 <div id="role"></div>
+</div>
 </div></header>
 <div class="nav-shell"><nav class="frame nav" aria-label="Game sections" id="nav"></nav></div>
 <main class="frame" id="main" tabindex="-1"></main>
-<footer class="frame footer"><strong>Success Avenue Money</strong><span>12-week programme · Progress is stored in this browser</span></footer>
+<footer class="frame footer"><strong>Success Avenue Money</strong><span id="storage-note">12-week programme · Demo progress is stored in this browser</span></footer>
 <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
 <div id="live" class="sr-only" aria-live="polite"></div>
 </body>

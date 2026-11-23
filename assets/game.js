@@ -90,7 +90,7 @@ export function totals(week) {
   const distributable = Math.max(0, profit - tax);
   const allocations = buckets.map(() => 0);
   if (week.transfers) {
-    for (const move of week.transfers) allocations[move.bucket] += move.cents;
+    for (const move of week.transfers) allocations[move.bucket] = (allocations[move.bucket] ?? 0) + move.cents;
   } else {
     // Historical closed weeks keep their original automatic allocations.
     const raw = week.rules.split.map(rate => distributable * rate);
@@ -107,7 +107,7 @@ export function totals(week) {
 }
 export function accounts(player, replacement) {
   let cash = 0, moved = 0;
-  const balances = buckets.map(() => 0);
+  const balances = Array(buckets.length + (player.customBuckets?.length ?? 0)).fill(0);
   for (const record of player.weeks) {
     const week = replacement?.index === record.index ? replacement : record;
     const t = totals(week);
@@ -139,7 +139,7 @@ export function transactionUpdateError(player, week, transactions) {
 export function transferMoney(player, bucket, cents) {
   const week = player.weeks.at(-1);
   if (!week?.transfers || week.closed) return 'Open a new week before moving money.';
-  if (!Number.isInteger(bucket) || bucket < 0 || bucket >= buckets.length || !Number.isSafeInteger(cents) || cents === 0) {
+  if (!Number.isInteger(bucket) || bucket < 0 || bucket >= buckets.length + (player.customBuckets?.length ?? 0) || !Number.isSafeInteger(cents) || cents === 0) {
     return 'Choose an account and enter an amount greater than zero.';
   }
   const bank = accounts(player);
@@ -266,6 +266,10 @@ export const shopItems = [
   { id: 'spark', kind: 'icon', name: 'Spark', cost: 0, symbol: '⭐', description: 'A little star for big plans.' },
   { id: 'rocket', kind: 'icon', name: 'Rocket', cost: 30, symbol: '🚀', description: 'For ideas that take off.' },
   { id: 'owl', kind: 'icon', name: 'Night Owl', cost: 55, symbol: '🦉', description: 'For learners who look closely.' },
+  { id: 'river', kind: 'icon', name: 'River', cost: 0, image: 'avatar-river.webp', description: 'A teal hoodie and curly hair.' },
+  { id: 'sosie', kind: 'icon', name: 'Sosie', cost: 0, image: 'avatar-sosie.webp', description: 'Round glasses and puff buns.' },
+  { id: 'kai', kind: 'icon', name: 'Kai', cost: 35, image: 'avatar-kai.webp', description: 'A bright orange hoodie.' },
+  { id: 'ash', kind: 'icon', name: 'Ash', cost: 55, image: 'avatar-ash.webp', description: 'A green beanie and freckles.' },
   { id: 'sunset', kind: 'background', name: 'Arcade Sunset', cost: 0, image: 'arcade-hero.webp', description: 'The original dashboard scene.' },
   { id: 'coast', kind: 'background', name: 'Coast Ride', cost: 0, image: 'coast-ride.webp', description: 'Blue skies over a coastal skatepark.' },
   { id: 'market-lights', kind: 'background', name: 'Market Lights', cost: 70, image: 'market-lights.webp', description: 'A weekend market glowing at sunset.' },
