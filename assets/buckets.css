@@ -9,29 +9,50 @@
   border-radius:12px; padding:10px 14px; font-size:.8rem;
 }
 .bucket-total strong { display:block; color:var(--gold); font-size:1.32rem; line-height:1.3; }
-.bucket-board { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; align-items:start; }
+.bucket-guide { margin:0 0 16px; }
+.bucket-guide p { color:var(--muted); margin:5px 0 0; max-width:74ch; }
+.bucket-board { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
 .bucket-adventure {
   --bucket-tint:#f8bd73;
-  overflow:hidden; min-width:0; border:1px solid var(--line-strong); border-radius:var(--panel-radius);
-  background:var(--panel-bg); box-shadow:var(--panel-shadow);
+  display:grid; grid-template-rows:auto 1fr auto; gap:10px; min-width:0; padding:14px;
+  border:1px solid var(--line-strong); border-radius:var(--panel-radius);
+  background:var(--panel-bg); box-shadow:var(--panel-shadow); scroll-margin-top:75px;
 }
 .bucket-art-save { --bucket-tint:#84ddff; --bucket-position:100% 0; }
 .bucket-art-invest { --bucket-tint:#bef284; --bucket-position:0 100%; }
 .bucket-art-give { --bucket-tint:#f3b4fa; --bucket-position:100% 100%; }
-.bucket-picture { position:relative; aspect-ratio:1.5; background:var(--surface-raised) url('./bucket-art.webp') var(--bucket-position,0 0)/200% 200% no-repeat;
-  border-bottom:3px solid var(--bucket-tint); }
-.bucket-amount {
-  position:absolute; right:8px; bottom:8px; color:var(--bucket-tint); font-weight:850;
-  border-radius:8px; padding:4px 9px; border:1px solid var(--bucket-tint); background:var(--inset);
+.bucket-card-copy h2 { color:var(--bucket-tint); font-size:1.28rem; margin:0; }
+.bucket-amount { margin:4px 0 0; }
+.bucket-amount strong {
+  display:block; color:var(--heading); font-size:clamp(1.55rem,3vw,2.2rem); font-weight:900;
+  font-variant-numeric:tabular-nums; line-height:1.1; overflow-wrap:anywhere;
 }
-.bucket-card-copy { padding:13px; }
-.bucket-card-copy h2 { color:var(--bucket-tint); font-size:1.6rem; }
-.bucket-card-copy p { font-size:.9rem; margin-top:6px; color:var(--muted); }
-.bucket-card-copy > p { min-height:3.9em; }
+.bucket-amount small { display:block; color:var(--muted); font-size:.75rem; margin-top:4px; }
+.bucket-faces { display:grid; align-items:stretch; perspective:700px; }
+.bucket-front,.bucket-back { grid-area:1/1; min-width:0; }
+.bucket-front p,.bucket-back p { color:var(--muted); font-size:.9rem; margin:7px 0 0; }
+.bucket-back p:first-child { margin-top:0; }
+.bucket-back strong { color:var(--bucket-tint); }
+.bucket-picture { height:clamp(65px,8vw,100px); position:relative; overflow:hidden; border-radius:8px; }
+.bucket-picture > div {
+  position:absolute; width:100%; top:50%; transform:translateY(-50%); aspect-ratio:1.5;
+  background:var(--surface-raised) url('./bucket-art.webp') var(--bucket-position,0 0)/200% 200% no-repeat;
+}
+.bucket-back { visibility:hidden; background:var(--inset); padding:9px; border-radius:8px; }
+.bucket-flipped .bucket-front { visibility:hidden; }
+.bucket-flipped .bucket-back { visibility:visible; animation:bucket-turn 220ms ease-out both; }
+@keyframes bucket-turn { from { opacity:0; transform:rotateY(-24deg); } to { opacity:1; transform:none; } }
+@media(prefers-reduced-motion:reduce) { .bucket-flipped .bucket-back { animation:none; } }
+.bucket-card-actions { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:6px; }
+.bucket-card-actions .button { min-height:44px; padding:5px 6px; white-space:normal; line-height:1.2; }
+.bucket-card-actions .button:only-child { grid-column:1/-1; }
+.button.bucket-why { color:var(--bucket-tint); }
+.bucket-adventure:focus-visible { outline:3px solid var(--lime); outline-offset:3px; }
+.bucket-practice { margin-top:16px; }
+.bucket-practice-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 10px; }
+.bucket-practice summary { cursor:pointer; font-weight:750; padding:3px 2px; overflow-wrap:anywhere; }
 .bucket-decision,.bucket-topic { margin-top:8px; padding:8px; border:1px solid var(--line); border-radius:8px; }
 .bucket-decision { background:var(--inset); }
-.bucket-card-copy summary { cursor:pointer; font-weight:750; padding:3px 2px; overflow-wrap:anywhere; }
-.bucket-decision summary { color:var(--bucket-tint); }
 .bucket-topic > div { padding:8px 2px 0; }
 .bucket-topic small { color:var(--muted); }
 .bucket-topic .button { margin-top:6px; }
@@ -41,16 +62,14 @@
 .bucket-feedback:empty { margin:0; }
 .bucket-feedback[data-correct="true"] { color:var(--success-text); }
 .bucket-feedback[data-correct="false"] { color:var(--warning-text); }
-.bucket-page-footer { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; margin-top:16px; }
-.bucket-page-footer p { color:var(--muted); font-size:.85rem; }
+.bucket-page-footer { display:flex; justify-content:flex-end; margin-top:16px; }
 
 @media(max-width:920px) {
   .bucket-board { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .bucket-card-copy > p { min-height:0; }
 }
 @media(max-width:480px) {
   .bucket-page-heading { align-items:start; flex-direction:column; }
-  .bucket-board { grid-template-columns:1fr; }
+  .bucket-board,.bucket-practice-list { grid-template-columns:1fr; }
 }
 
 /* Practice banking surfaces share the arcade palette and account artwork. */
@@ -83,11 +102,10 @@
 .ledger-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; }
 .ledger-toolbar .bank-actions { margin-top:0; }
 .ledger-toolbar p { margin-bottom:0; }
-.bucket-amount small { display:block; font-size:.7rem; line-height:1.2; color:var(--muted); }
-.bucket-amount { font-size:1.18rem; max-width:calc(100% - 16px); overflow-wrap:anywhere; }
-.bucket-card-copy > .button { margin-top:6px; }
-.bucket-adventure { scroll-margin-top:75px; }
-.bucket-adventure:focus-visible { outline:3px solid var(--lime); outline-offset:3px; }
+.bank-entry-pair { display:flex; flex-wrap:wrap; gap:8px; }
+.bank-entry-pair .button { min-height:44px; }
+.bank-entry-pair .button span { font-size:1.15em; line-height:1; margin-right:3px; }
+.button.money-out { border-color:var(--warning-text); color:var(--warning-text); }
 @media(max-width:680px) {
   .bank-overview-grid { grid-template-columns:1fr; }
   .bank-accounts { grid-template-columns:repeat(2,minmax(0,1fr)); }

@@ -84,7 +84,7 @@ export function fresh() {
 }
 export function totals(week) {
   const sum = kind => week.transactions.filter(entry => entry.kind === kind).reduce((acc, entry) => acc + entry.cents, 0);
-  const sales = sum('sale'), costs = sum('cost'), rewards = sum('reward');
+  const sales = sum('sale'), costs = sum('cost'), rewards = sum('reward'), spending = sum('spend');
   const profit = sales - costs;
   const tax = Math.round(Math.max(0, profit) * week.rules.tax / 100);
   const distributable = Math.max(0, profit - tax);
@@ -103,7 +103,7 @@ export function totals(week) {
   const ready = week.tasks.every(task => !task.required || task.status === 'approved');
   const bonus = week.closed && ready ? week.rules.bonus : 0;
   const match = week.closed && ready ? Math.min(Math.round(Math.max(0, allocations[1]) * week.rules.match / 100), week.rules.cap) : 0;
-  return { sales, costs, rewards, profit, tax, distributable, allocations, ready, match, points: approved.reduce((acc, task) => acc + task.points, 0) + bonus };
+  return { sales, costs, rewards, spending, profit, tax, distributable, allocations, ready, match, points: approved.reduce((acc, task) => acc + task.points, 0) + bonus };
 }
 export function accounts(player, replacement) {
   let cash = 0, moved = 0;
@@ -118,6 +118,7 @@ export function accounts(player, replacement) {
     }
     if (week.transfers || week.closed) {
       t.allocations.forEach((value, i) => balances[i] += value);
+      balances[0] -= t.spending;
       balances[1] += t.match;
     }
   }
@@ -125,10 +126,14 @@ export function accounts(player, replacement) {
   return { main, available: Math.max(0, main), balances, moved };
 }
 
-export function canUpdateTransactions(player, week, transactions) {
+export function transactionUpdateError(player, week, transactions) {
   const before = accounts(player);
   const after = accounts(player, { ...week, transactions });
-  return after.moved <= 0 || after.main >= Math.min(0, before.main);
+  if (after.balances[0] < 0) return 'There isn’t enough in Spend for that purchase. Move money from Main into Spend, then try again.';
+  if (after.moved > 0 && after.main < Math.min(0, before.main)) {
+    return 'This change needs more in Main. Move money back from a bucket, then try again.';
+  }
+  return '';
 }
 
 export function transferMoney(player, bucket, cents) {

@@ -1,4 +1,4 @@
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, transferMoney, canUpdateTransactions, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=2.8';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=2.9';
 import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
@@ -236,20 +236,24 @@ function weekView(p) {
   </section></div><aside class="aside">${goal(p, true)}<section class="panel route"><h2>Season map</h2><ol>${episodes.map((entry, index) => `<li class="${index === week.index ? 'current' : ''}"><span class="route-dot">${p.weeks[index]?.closed ? '✓' : index + 1}</span><span>${esc(moduleFor(p,index).title)}${index > week.index ? '<small>Locked</small>' : ''}</span></li>`).join('')}</ol></section>
   ${week.index > 0 && !week.closed ? `<section class="panel"><h2>${p.solo ? 'Last week’s note' : 'Last check-in'}</h2><p>${esc(p.weeks[week.index - 1].feedback)}</p></section>` : ''}</aside></div>`;
 }
-const typeNames = { sale: 'Sale', cost: 'Business expense', reward: 'Activity reward' };
+const typeNames = { sale: 'Sale', reward: 'Activity reward', spend: 'Personal purchase', cost: 'Business cost' };
+const isMoneyOut = kind => kind === 'spend' || kind === 'cost';
+const allowsEntry = (p, kind) => Object.hasOwn(typeNames, kind) && (p.mode === 'manual' || ['reward', 'spend'].includes(kind));
 function transactionTable(p, week) {
   if (!week.transactions.length) return '<p>No transactions recorded for this week.</p>';
   return `<div class="table-wrap" role="region" aria-label="Transactions table" tabindex="0"><table><thead><tr><th scope="col">Description</th><th scope="col">Type</th><th scope="col">Amount</th>${week.closed ? '' : '<th scope="col">Action</th>'}</tr></thead><tbody>${week.transactions.map(entry => {
     const attrs = `${playerAttrs(p)} data-id="${esc(entry.id)}"`;
-    return `<tr><td>${esc(entry.label)}</td><td>${typeNames[entry.kind]}</td><td>${money(entry.cents)}</td>${week.closed ? '' : `<td>${entry.sim ? 'Scenario' : button('Edit', 'edit-entry', attrs, 'small') + button('Remove', 'remove-entry', attrs, 'small')}</td>`}</tr>`;
+    return `<tr><td>${esc(entry.label)}</td><td>${typeNames[entry.kind]}</td><td>${isMoneyOut(entry.kind) ? '−' : '+'}${money(entry.cents)}</td>${week.closed ? '' : `<td>${entry.sim ? 'Scenario' : button('Edit', 'edit-entry', attrs, 'small') + button('Remove', 'remove-entry', attrs, 'small')}</td>`}</tr>`;
   }).join('')}</tbody></table></div>`;
 }
 const accountNames = ['Spend account', 'Savings account', 'Investment account', 'Giving account'];
 
 function bankActions(p, { secondary = false, attrs = '' } = {}) {
   if (activeWeek(p).closed) return '';
-  return button('+ Log money in', 'add-entry', `${attrs} data-kind="income"`, 'primary') +
-    (p.mode === 'manual' ? button('Log a cost', 'add-entry', `${attrs} data-kind="cost"`, 'secondary') : '') +
+  return `<div class="bank-entry-pair">
+    ${button('<span aria-hidden="true">+</span> Money in', 'add-entry', `${attrs} data-kind="income"`, 'primary')}
+    ${button('<span aria-hidden="true">−</span> Money out', 'add-entry', `${attrs} data-kind="outgoing"`, 'money-out')}
+    </div>` +
     (secondary ? button('Move money', 'move-money', attrs, 'secondary') : '');
 }
 function transferList(week) {
@@ -274,11 +278,11 @@ function bankOverview(p) {
         <div class="bank-actions">${bankActions(p, { secondary: true })}</div></div>
       <div class="bank-week"><h3>Week ${week.index + 1}</h3><dl>
         <div><dt>Money in</dt><dd>${money(tally.sales + tally.rewards)}</dd></div>
-        <div><dt>Business costs &amp; simulated tax</dt><dd>${money(tally.costs + tally.tax)}</dd></div>
+        <div><dt>Money out &amp; simulated tax</dt><dd>${money(tally.costs + tally.spending + tally.tax)}</dd></div>
       </dl></div>
     </div>
     <div class="bank-accounts">${accountNames.map((name,i) => button(`<span aria-hidden="true">${marks[i]}</span><span>${name}</span><strong>${money(bank.balances[i])}</strong>`, 'view', `data-view="investments" data-account="${i}"`, 'bank-account')).join('')}</div>
-    <div class="bank-recent"><h3>Recent money log</h3>${recent.length ? `<ul class="bank-activity">${recent.map(entry => `<li><span>${esc(entry.label)}</span><strong>${entry.kind === 'cost' ? '−' : '+'}${money(entry.cents)}</strong></li>`).join('')}</ul>` : '<p>Log your first paid job, reward or business cost to see it here.</p>'}</div>
+    <div class="bank-recent"><h3>Recent money log</h3>${recent.length ? `<ul class="bank-activity">${recent.map(entry => `<li><span>${esc(entry.label)}</span><strong>${isMoneyOut(entry.kind) ? '−' : '+'}${money(entry.cents)}</strong></li>`).join('')}</ul>` : '<p>Log your first paid job, reward or purchase to see it here.</p>'}</div>
   </section>`;
 }
 function moneyView(p) {
@@ -291,8 +295,8 @@ function moneyView(p) {
   <label class="inline-field">Week <select id="ledger-week">${p.weeks.map(w => `<option value="${w.index}" ${w === week ? 'selected' : ''}>${w.index + 1} · ${esc(moduleFor(p,w.index).title)}</option>`).join('')}</select></label>
   <section class="panel money-flow" aria-label="Money earned and spent">
     <div><span>Money in · Sales + activity rewards</span><strong>${money(t.sales + t.rewards)}</strong></div>
-    <span aria-hidden="true">−</span><div><span>Business costs &amp; simulated tax</span><strong>${money(t.costs + t.tax)}</strong></div>
-    <span aria-hidden="true">=</span><div><span>This week’s net cash</span><strong>${money(t.profit + t.rewards - t.tax)}</strong></div>
+    <span aria-hidden="true">−</span><div><span>Money out · Purchases, costs &amp; simulated tax</span><strong>${money(t.costs + t.spending + t.tax)}</strong></div>
+    <span aria-hidden="true">=</span><div><span>This week’s net cash</span><strong>${money(t.profit + t.rewards - t.tax - t.spending)}</strong></div>
   </section>
   <div class="stats">${[['Sales',t.sales],['Expenses',t.costs],['Profit before tax',t.profit],['Simulated tax (' + week.rules.tax + '%)',t.tax]].map(([label,cents]) => `<article class="panel"><span>${label}</span><strong>${money(cents)}</strong></article>`).join('')}</div>
   <section class="panel ledger"><div class="section-title"><h2>Transactions</h2>${pill(week.closed ? 'Week closed' : 'Open week', 'green')}</div>
@@ -725,16 +729,24 @@ function dashboardView(p) {
   </div>`;
 }
 const bucketAdventures = [
-  { id:'spend', purpose:'Pay for things you need or want now.', prompt:'You have $10. The bus home costs $4 and a snack costs $7. What could you do?',
+  { id:'spend', purpose:'Pay for things you need or want now.',
+    why:'A spending limit helps you cover what you need and see what’s left for things you want.',
+    example:'Keep your bus fare aside before you buy a snack.', prompt:'You have $10. The bus home costs $4 and a snack costs $7. What could you do?',
     answers:['Buy the snack first','Set aside the bus fare'], correct:1,
     explain:'Keep $4 for the bus first. That leaves $6 to spend or keep.' },
-  { id:'save', purpose:'Put money aside for a goal you can name.', prompt:'You want $45 for sports gear in five weeks. How much can you put aside each week to get there?',
+  { id:'save', purpose:'Put money aside for a goal or a surprise cost.',
+    why:'Keeping savings in their own bucket makes it easier to leave them alone. Small amounts add up over time.',
+    example:'Put $5 away each week and you’ll have $25 after five weeks.', prompt:'You want $45 for sports gear in five weeks. How much can you put aside each week to get there?',
     answers:['$5 each week','$9 each week'], correct:1,
     explain:'Five lots of $9 add up to $45.' },
-  { id:'invest', purpose:'Set money aside for longer-term growth. Its value can rise or fall.', prompt:'A $20 pretend investment rises to $23, then falls to $18. Where did you finish?',
+  { id:'invest', purpose:'Set money aside for a long-term goal.',
+    why:'Investing can grow your money over time, but its value can fall. Keep money you’ll need soon in Save.',
+    example:'Keep money for next month’s school trip in Save.', prompt:'A $20 pretend investment rises to $23, then falls to $18. Where did you finish?',
     answers:['$2 below the start','$2 above the start'], correct:0,
     explain:'Compare $18 with the original $20, even though the value was higher earlier.' },
-  { id:'give', purpose:'Use some money to help people or causes you care about.', prompt:'You have $5 in Give. The school art drive asks for supplies. Which plan uses your Give bucket?',
+  { id:'give', purpose:'Support people or causes you care about.',
+    why:'Planning what you can afford to give helps you support a cause and still cover your own needs.',
+    example:'Put $2 aside for a school fundraiser if it fits your budget.', prompt:'You have $5 in Give. The school art drive asks for supplies. Which plan uses your Give bucket?',
     answers:['Buy $7 of supplies','Choose supplies that cost $5'], correct:1,
     explain:'You can support the art drive and stay within the $5 you set aside.' }
 ];
@@ -756,16 +768,31 @@ function investmentsView(p) {
     <div>${mainAccount(p)}<p>Money you log lands here. Move it to a bucket when you have a plan.</p></div>
     <div class="bank-actions">${bankActions(p, { secondary: true })}</div>
   </section>
+  <section class="panel bucket-guide" aria-labelledby="bucket-guide-title">
+    <h2 id="bucket-guide-title">Why split your money?</h2>
+    <p>Give each dollar a job before you spend it. Keeping your money in separate buckets helps you see what you can use today and what you’re keeping for later. You choose how much goes into each bucket.</p>
+  </section>
   <div class="bucket-board">${bucketAdventures.map((adventure, index) => `<section class="bucket-adventure bucket-art-${adventure.id}" id="bucket-account-${index}" aria-labelledby="bucket-heading-${adventure.id}" tabindex="-1">
-    <div class="bucket-picture">
-      <span class="bucket-amount"><small>Available balance</small>${money(result.balances[index])}</span>
-    </div>
     <div class="bucket-card-copy">
       <h2 id="bucket-heading-${adventure.id}">${accountNames[index]}</h2>
-      <p>${adventure.purpose}</p>
+      <p class="bucket-amount"><strong>${money(result.balances[index])}</strong><small>Available balance</small></p>
+    </div>
+    <div class="bucket-faces">
+      <div class="bucket-front"><div class="bucket-picture" aria-hidden="true"><div></div></div><p>${adventure.purpose}</p></div>
+      <div class="bucket-back" id="bucket-why-${adventure.id}" inert>
+        <p>${adventure.why}</p><p><strong>Try this:</strong> ${adventure.example}</p>
+      </div>
+    </div>
+    <div class="bucket-card-actions">
+      ${button('Why this bucket?', 'bucket-why', `aria-label="Why this bucket? ${accountNames[index]}" aria-expanded="false" aria-controls="bucket-why-${adventure.id}"`, 'small bucket-why')}
       ${week.closed ? '' : button('Move money', 'move-money', `data-index="${index}" aria-label="Move money for ${accountNames[index]}"`, 'small')}
+    </div>
+  </section>`).join('')}</div>
+  <details class="panel bucket-practice">
+    <summary>Practise with a quick decision</summary>
+    <div class="bucket-practice-list">${bucketAdventures.map((adventure, index) => `<div>
       <details class="bucket-decision">
-        <summary>Play a quick decision</summary>
+        <summary>${accountNames[index]}</summary>
         <p>${adventure.prompt}</p>
         <div class="bucket-answers">${adventure.answers.map((answer, option) => button(answer,'bucket-answer',`data-id="${adventure.id}" data-index="${option}" aria-pressed="false"`,'small')).join('')}</div>
         <p class="bucket-feedback" role="status" aria-atomic="true"></p>
@@ -777,10 +804,9 @@ function investmentsView(p) {
         ${bucketLesson(p, 'Shares and funds', 'Explore how a practice investment can go up and down.',8)}
         ${bucketLesson(p, 'KiwiSaver', 'Think about goals that are a long way off, such as saving for retirement.',9)}
       </details>` : ''}
-    </div>
-  </section>`).join('')}</div>
-  <div class="bucket-page-footer"><p>Transfers update your balances straight away. Quick decisions are for practice.</p>
-    ${button('Open my Money log','view','data-view="money"','small')}</div>`;
+    </div>`).join('')}</div>
+  </details>
+  <div class="bucket-page-footer">${button('Open my Money log','view','data-view="money"','small')}</div>`;
 }
 
 function scoreboard(rows, metric) {
@@ -908,7 +934,7 @@ function learnerHelpView() {
         <div><dt>Invest</dt><dd>Money earmarked for longer-term growth in the simulation.</dd></div>
         <div><dt>Give</dt><dd>Money earmarked to support people or causes you choose.</dd></div>
       </dl>
-      <p>Business earnings and activity rewards go into Main. Use Move money to transfer to a bucket or back to Main. Unallocated money stays in Main for next week.</p>
+      <p>Business earnings and activity rewards go into Main. Personal purchases come out of Spend. Business costs come out of Main. Use Move money to transfer to a bucket or back to Main. Unallocated money stays in Main for next week.</p>
     </section>
     <section class="panel help-panel"><h2>Badges and profile rewards</h2>
       <p>In My progress, badges recognise milestones like completing a mission or saving a quarter of your goal. Visit Profile shop to unlock profile icons, backgrounds and titles. Your badges stay in your collection.</p>
@@ -1124,7 +1150,7 @@ function learnerDetail(p) {
   </section>
   <section class="panel spaced">
     <div class="section-title detail-section"><h2>Week ${index+1} money log</h2>${editable ? `<div class="bank-actions">${bankActions(p, { secondary: true, attrs })}</div>` : ''}</div>
-    <dl class="ledger-totals">${[['Sales',tally.sales],['Expenses',tally.costs],['Profit before tax',tally.profit],['Simulated tax (' + week.rules.tax + '%)',tally.tax],['Business profit after tax',tally.profit - tally.tax],['Activity rewards',tally.rewards],['Savings match',tally.match]].map(([label,value])=>`<div><dt>${label}</dt><dd>${money(value)}</dd></div>`).join('')}</dl>
+    <dl class="ledger-totals">${[['Sales',tally.sales],['Business costs',tally.costs],['Personal purchases',tally.spending],['Profit before tax',tally.profit],['Simulated tax (' + week.rules.tax + '%)',tally.tax],['Business profit after tax',tally.profit - tally.tax],['Activity rewards',tally.rewards],['Savings match',tally.match]].map(([label,value])=>`<div><dt>${label}</dt><dd>${money(value)}</dd></div>`).join('')}</dl>
     ${week.result ? `<p><strong>Practice scenario</strong> · ${market[index % market.length].plans[week.choice].label} · ${week.result.tactic} · ${week.result.sold} sales, ${week.result.returning} returning customers</p>` : ''}
     ${transactionTable(p,week)}
     <h3 class="spaced">${week.transfers ? 'Account transfers' : 'Original bucket allocations'}</h3>${week.transfers ? transferList(week) : bucketCards(tally.allocations)}
@@ -1146,17 +1172,24 @@ function moduleDialog(p, index) {
 }
 function entryDialog(p, entry, intent) {
   const choices = Object.entries(typeNames).filter(([kind]) =>
-    (p.mode === 'manual' || kind === 'reward') &&
-    (intent === 'income' ? kind !== 'cost' : intent !== 'cost' || kind === 'cost'));
+    allowsEntry(p, kind) && (!intent || isMoneyOut(kind) === (intent === 'outgoing')));
   if (!choices.length) return;
-  const title = entry?.id ? 'Edit money log entry' : intent === 'income' ? 'Log money in' : intent === 'cost' ? 'Log a cost' : 'Add money entry';
+  const title = entry?.id ? 'Edit money log entry' : intent === 'income' ? 'Log money in' : intent === 'outgoing' ? 'Log money out' : 'Add money entry';
+  const guidance = intent === 'income' ? 'Money you earn goes into Main first.' : intent === 'outgoing'
+    ? (p.mode === 'manual' ? 'Personal purchases come out of Spend. Business costs come out of Main.' : 'Personal purchases come out of Spend.')
+    : '';
+  const kindOptions = choices.map(([kind,label]) => `<option value="${kind}" ${entry?.kind === kind ? 'selected' : ''}>${label}</option>`).join('');
   openDialog(title, form('entry',
-    (intent === 'income' ? '<p>Your money goes into Main first. You can choose where it goes next.</p>' : '') +
-    field('Type', 'kind', 'Choose Sale for money someone paid you for a product or a job. Use Activity reward for money you earned outside your business.', `<select name="kind">${choices.map(([kind,label]) => `<option value="${kind}" ${entry?.kind === kind ? 'selected' : ''}>${label}</option>`).join('')}</select>`) +
-    (p.mode === 'sim' ? '<p class="detail">The practice simulation adds its sales and expenses automatically.</p>' : '') +
-    textField('Description', 'label', 'For example, Saturday lawn mow, reward for folding the washing, or car wash supplies.', entry?.label) +
+    (guidance ? `<p>${guidance}</p>` : '') +
+    (choices.length === 1
+      ? `<input type="hidden" name="kind" value="${choices[0][0]}">`
+      : field('Type', 'kind', intent === 'outgoing'
+        ? 'Use Personal purchase for things you buy for yourself. Use Business cost for things you buy to do a paid job or run your business.'
+        : intent === 'income' ? 'A sale is payment for a product or job. An activity reward is money earned outside your business.'
+        : 'Sales and rewards go into Main. Personal purchases come out of Spend and business costs come out of Main.', `<select name="kind">${kindOptions}</select>`)) +
+    textField('Description', 'label', intent === 'outgoing' ? 'For example, a bus ticket for yourself or car wash soap for your business.' : 'For example, Saturday lawn mow or a reward for folding the washing.', entry?.label) +
     field('Amount (NZD)', 'amount', 'Enter the amount in dollars and cents, such as 12.50.', `<input name="amount" type="number" inputmode="decimal" min=".01" max="1000000" step=".01" value="${entry?.cents ? entry.cents / 100 : ''}" required>`),
-    intent === 'income' ? 'Add to Main' : intent === 'cost' ? 'Record cost' : 'Save entry', `${playerAttrs(p)}${entry?.id ? ' data-id="' + esc(entry.id) + '"' : ''}`));
+    intent === 'income' ? 'Add to Main' : intent === 'outgoing' ? 'Record money out' : 'Save entry', `${playerAttrs(p)}${entry?.id ? ' data-id="' + esc(entry.id) + '"' : ''}`));
 }
 function moveMoneyDialog(p, preset) {
   const week = activeWeek(p), bank = accounts(p);
@@ -1165,7 +1198,7 @@ function moveMoneyDialog(p, preset) {
   const sendFirst = bank.available > 0;
   const scope = role === 'facilitator' ? `<p>Practice accounts for <strong>${esc(p.name)}</strong></p>` : '';
   openDialog('Move money', `${scope}${mainAccount(p)}${noFunds
-    ? '<p>Log money in to add to Main. Once you have money available, you can choose a bucket.</p>' + button('+ Log money in', 'add-entry', playerAttrs(p) + ' data-kind="income"', 'primary')
+    ? '<p>Log money in to add to Main. Once you have money available, you can choose a bucket.</p>' + button('Money in', 'add-entry', playerAttrs(p) + ' data-kind="income"', 'primary')
     : form('move-money',
       field('Direction', 'direction', 'Money you record starts in Main. Move it to a bucket or bring it back if your plan changes.', `<select name="direction">
         <option value="out" ${sendFirst ? 'selected' : ''}>Main → bucket</option><option value="in" ${sendFirst ? '' : 'selected'}>Bucket → Main</option></select>`) +
@@ -1364,6 +1397,17 @@ document.addEventListener('click', event => {
         '<label class="radio"><input type="checkbox" name="chorePaid"> I got paid for this chore and want to record it next.</label>',
         p.solo ? 'Log chore' : 'Send for review'));
       break;
+    case 'bucket-why': {
+      if (role !== 'learner' || view !== 'investments') return;
+      const card = el.closest('.bucket-adventure');
+      const flipped = card.classList.toggle('bucket-flipped');
+      card.querySelector('.bucket-front').inert = flipped;
+      card.querySelector('.bucket-back').inert = !flipped;
+      el.setAttribute('aria-expanded', String(flipped));
+      el.setAttribute('aria-label', (flipped ? 'Show picture for ' : 'Why this bucket? ') + card.querySelector('h2').textContent);
+      el.textContent = flipped ? 'Show picture' : 'Why this bucket?';
+      break;
+    }
     case 'bucket-answer': {
       if (role !== 'learner' || view !== 'investments') return;
       const adventure = bucketAdventures.find(bucket => bucket.id === item);
@@ -1416,7 +1460,7 @@ document.addEventListener('click', event => {
       if (p.mode !== 'sim' || w.choice !== null || w.closed || w.plan === undefined || w.tactic === undefined) return;
       const result = marketResult(p, w, w.plan, w.tactic);
       const transactions = [...w.transactions, { id: uid(), kind: 'sale', label: 'Market day sales', cents: result.sales, sim: true }, { id: uid(), kind: 'cost', label: 'Market day costs', cents: result.costs, sim: true }];
-      if (!canUpdateTransactions(p, w, transactions)) {
+      if (transactionUpdateError(p, w, transactions)) {
         openDialog('Cover your market costs', '<p>Move some money back to Main from a bucket, then run Market Day again.</p>' + button('Move money', 'move-money', '', 'primary'));
         return;
       }
@@ -1735,15 +1779,16 @@ document.addEventListener('submit', async event => {
       if (w.closed) return;
       const label = value('label'), kind = value('kind'), cents = Math.round(Number(value('amount')) * 100);
       if (!label) return fail('Enter a description for this entry.');
-      if (!Number.isSafeInteger(cents) || cents < 1 || cents > 100000000 || !Object.hasOwn(typeNames,kind) || (p.mode === 'sim' && kind !== 'reward')) return fail('Check the type and amount for this entry.');
+      if (!Number.isSafeInteger(cents) || cents < 1 || cents > 100000000 || !allowsEntry(p, kind)) return fail('Check the type and amount for this entry.');
       const existing = w.transactions.find(record => record.id === el.dataset.id && !record.sim);
       if (el.dataset.id && !existing) return;
       const entry = { id: existing?.id ?? uid(), kind, label, cents };
       const transactions = existing ? w.transactions.map(record => record === existing ? entry : record) : [...w.transactions, entry];
-      if (!canUpdateTransactions(p, w, transactions)) return fail('This change needs more in Main. Move money back from a bucket, then try again.');
+      const error = transactionUpdateError(p, w, transactions);
+      if (error) return fail(error);
       w.transactions = transactions;
       if (!existing && role === 'learner' && view === 'money') ledgerWeek = w.index;
-      finish(existing ? 'Money log entry updated.' : kind === 'cost' ? 'Business cost recorded.' : 'Money in recorded. Check what’s available in Main.', grantAwards(p));
+      finish(existing ? 'Money log entry updated.' : isMoneyOut(kind) ? 'Money out recorded.' : 'Money in recorded. Check what’s available in Main.', grantAwards(p));
       break;
     }
     case 'move-money': {
@@ -1783,7 +1828,8 @@ document.addEventListener('submit', async event => {
     case 'remove-entry': {
       if (w.closed) return;
       const transactions = w.transactions.filter(record => record.id !== el.dataset.id || record.sim);
-      if (!canUpdateTransactions(p, w, transactions)) return fail('This change needs more in Main. Move money back from a bucket, then try again.');
+      const error = transactionUpdateError(p, w, transactions);
+      if (error) return fail(error);
       w.transactions = transactions;
       finish('Entry removed.'); break;
     }
