@@ -1,0 +1,54 @@
+.bucket-page-heading {
+  display:flex; align-items:end; justify-content:space-between; gap:14px 24px;
+  margin:12px 0 18px;
+}
+.bucket-page-heading h1 { letter-spacing:-.055em; }
+.bucket-page-heading p { color:var(--muted); margin-top:6px; }
+.bucket-total {
+  flex:none; border:1px solid var(--line); background:var(--surface);
+  border-radius:12px; padding:10px 14px; font-size:.8rem;
+}
+.bucket-total strong { display:block; color:var(--gold); font-size:1.32rem; line-height:1.3; }
+.bucket-board { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; align-items:start; }
+.bucket-adventure {
+  --bucket-tint:#f8bd73;
+  overflow:hidden; min-width:0; border:1px solid var(--line-strong); border-radius:var(--panel-radius);
+  background:var(--panel-bg); box-shadow:var(--panel-shadow);
+}
+.bucket-art-save { --bucket-tint:#84ddff; --bucket-position:100% 0; }
+.bucket-art-invest { --bucket-tint:#bef284; --bucket-position:0 100%; }
+.bucket-art-give { --bucket-tint:#f3b4fa; --bucket-position:100% 100%; }
+.bucket-picture { position:relative; aspect-ratio:1.5; background:var(--surface-raised) url('./bucket-art.webp') var(--bucket-position,0 0)/200% 200% no-repeat;
+  border-bottom:3px solid var(--bucket-tint); }
+.bucket-amount {
+  position:absolute; right:8px; bottom:8px; color:var(--bucket-tint); font-weight:850;
+  border-radius:8px; padding:4px 9px; border:1px solid var(--bucket-tint); background:var(--inset);
+}
+.bucket-card-copy { padding:13px; }
+.bucket-card-copy h2 { color:var(--bucket-tint); font-size:1.6rem; }
+.bucket-card-copy p { font-size:.9rem; margin-top:6px; color:var(--muted); }
+.bucket-card-copy > p { min-height:3.9em; }
+.bucket-decision,.bucket-topic { margin-top:8px; padding:8px; border:1px solid var(--line); border-radius:8px; }
+.bucket-decision { background:var(--inset); }
+.bucket-card-copy summary { cursor:pointer; font-weight:750; padding:3px 2px; overflow-wrap:anywhere; }
+.bucket-decision summary { color:var(--bucket-tint); }
+.bucket-topic > div { padding:8px 2px 0; }
+.bucket-topic small { color:var(--muted); }
+.bucket-topic .button { margin-top:6px; }
+.bucket-answers { display:grid; gap:5px; margin-top:8px; }
+.bucket-answers .button { text-align:left; min-height:42px; }
+.bucket-answers .button[aria-pressed="true"] { color:var(--heading); border-color:var(--bucket-tint); }
+.bucket-feedback:empty { margin:0; }
+.bucket-feedback[data-correct="true"] { color:var(--success-text); }
+.bucket-feedback[data-correct="false"] { color:var(--warning-text); }
+.bucket-page-footer { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; margin-top:16px; }
+.bucket-page-footer p { color:var(--muted); font-size:.85rem; }
+
+@media(max-width:920px) {
+  .bucket-board { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .bucket-card-copy > p { min-height:0; }
+}
+@media(max-width:480px) {
+  .bucket-page-heading { align-items:start; flex-direction:column; }
+  .bucket-board { grid-template-columns:1fr; }
+}

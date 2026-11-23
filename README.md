@@ -1,4 +1,4 @@
-# The Lucas Money Game V2.6
+# The Lucas Money Game V2.7
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 
@@ -12,7 +12,7 @@ A Success Avenue Money pilot for intermediate-school learners. Learners complete
 ## Progress and rewards
 
 - Learning XP drives levels and the class leaderboard. In each week it counts approved missions, up to one approved chore, the completed lesson clip and the passed quiz. Savings balances are personal and do not affect learning XP or rankings.
-- The Profile shop has free starter looks and point unlocks for icons, dashboard backgrounds, and titles. Points spent on the retired virtual shop are available again in the new shop. The progress chart shows cumulative XP and savings by week. Savings milestones and the big personal goal use the learner's own money log. The savings and investing pages introduce savings accounts, KiwiSaver and Sharesies as learning topics.
+- The Profile shop has free starter looks and point unlocks for icons, dashboard backgrounds, and titles. Points spent on the retired virtual shop are available again in the new shop. The progress chart shows cumulative XP and savings by week. Savings milestones and the big personal goal use the learner's own money log. The Money buckets page shows Spend, Save, Invest and Give together. Balances reflect allocations from closed weeks. Each bucket has a playable practice decision, with extra reading on savings accounts, shares and funds, and KiwiSaver.
 - Set both the direct SAM video and matching quiz URLs in **Settings** or in a learner's weekly module. If a weekly override is entered, supply both links there. Without a complete pair, the game uses the SAM libraries for missing links and displays its labelled placeholder lesson. Learners record official completion with a short reflection. Facilitators review it in mentored games. Results do not sync from SAM.
 
 ## Weekly and teacher challenges

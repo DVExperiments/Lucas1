@@ -148,7 +148,7 @@ function openRole(nextRole) {
 }
 const pageArt = {
   week: ['market-lights.webp','📋'], money: ['market-lights.webp','🪙'],
-  investments: ['coast-ride.webp','🌱'], progress: ['coast-ride.webp','🏆'],
+  progress: ['coast-ride.webp','🏆'],
   challenges: ['market-lights.webp','🎮'], shop: ['market-lights.webp','⭐'], 'learner-help': ['coast-ride.webp','💡']
 };
 function pageHeader(label, title, description, action = '') {
@@ -371,7 +371,6 @@ const levels = ['Money Explorer', 'Money Learner', 'Money Builder', 'Money Growe
 const levelIcons = ['🧭', '💡', '🧰', '🌱', '🎯', '🏆'];
 const levelGoals = ['Notice where money goes', 'Learn how money works', 'Build good money habits', 'Plan for the long term', 'Make thoughtful choices', 'Keep your goals in sight'];
 const levelStep = 100;
-let jar = 'savings';
 
 function competitionNotice(p) {
   const open = (state.competitions ?? []).filter(c => !c.results && Object.hasOwn(c.start, p.id));
@@ -680,25 +679,60 @@ function dashboardView(p) {
     ${journey(p,level)}
   </div>`;
 }
-const moneyLessons = {
-  savings: ['Savings account', 'Money for a goal you want to reach sooner.', 'Make a plan for when you’ll need the money and how much you can set aside each week.', 7],
-  investing: ['Shares and funds', 'Explore how an investment can move up and down.', 'Sharesies is one platform people may encounter when learning about investing. This practice tab uses fictional examples.', 8],
-  kiwisaver: ['KiwiSaver', 'Think about long-term goals.', 'Compare a near-term goal with a goal far in the future. This tab is a learning activity with no linked account.', 9]
-};
-const moneyLabExamples = {
-  savings: '<p>You want $45 for sports gear in five weeks. How much would you put aside each week?</p><details><summary>Reveal the answer</summary><p>$9. Five lots of $9 add up to $45.</p></details>',
-  investing: '<p>A $20 practice investment goes up to $23 and then drops to $18. Did you gain or lose money compared with the start?</p><details><summary>Reveal the answer</summary><p>You’re $2 below where you started. Compare $18 with the original $20.</p></details>',
-  kiwisaver: '<p>You need a helmet this term and also want a longer-term savings habit. Which goal would you plan for first?</p><details><summary>Reveal a way to think about it</summary><p>Put a deadline and target on the helmet goal. You can plan a separate amount for the longer-term goal.</p></details>'
-};
-function investmentsView(p) {
-  const [title, lead, detail, index] = moneyLessons[jar];
-  const done = p.weeks.some(w => w.index % programmeLength === index && (w.quizPassed || w.tasks.find(t => t.id === 'learning')?.status === 'approved'));
-  return `${pageHeader('MONEY LAB', 'Savings & investing', 'Explore how different goals need different plans.')}
-  <nav aria-label="Savings and investing topics" class="money-tabs">${Object.entries(moneyLessons).map(([id,[label]])=>button(label,'money-topic',`data-id="${id}" aria-pressed="${jar===id}"`,jar===id?'primary':'secondary')).join('')}</nav>
-  <section class="panel money-topic"><span class="arc-tag">${done ? 'QUIZ COMPLETE' : 'WEEK ' + (index+1)}</span><h2>${title}</h2><p><strong>${lead}</strong></p><p>${detail}</p>
-  <details class="lab-example"><summary>Try a quick money decision</summary>${moneyLabExamples[jar]}</details>
-  ${activeWeek(p).index % programmeLength === index ? button('Open video & quiz','task','data-id="learning"','primary') : button('See my learning journey','view','data-view="dashboard"')}</section>`;
+const bucketAdventures = [
+  { id:'spend', purpose:'Pay for things you need or want now.', prompt:'You have $10. The bus home costs $4 and a snack costs $7. What could you do?',
+    answers:['Buy the snack first','Set aside the bus fare'], correct:1,
+    explain:'Keep $4 for the bus first. That leaves $6 to spend or keep.' },
+  { id:'save', purpose:'Put money aside for a goal you can name.', prompt:'You want $45 for sports gear in five weeks. How much can you put aside each week to get there?',
+    answers:['$5 each week','$9 each week'], correct:1,
+    explain:'Five lots of $9 add up to $45.' },
+  { id:'invest', purpose:'Set money aside for longer-term growth. Its value can rise or fall.', prompt:'A $20 pretend investment rises to $23, then falls to $18. Where did you finish?',
+    answers:['$2 below the start','$2 above the start'], correct:0,
+    explain:'Compare $18 with the original $20, even though the value was higher earlier.' },
+  { id:'give', purpose:'Use some money to help people or causes you care about.', prompt:'You have $5 in Give. The school art drive asks for supplies. Which plan uses your Give bucket?',
+    answers:['Buy $7 of supplies','Choose supplies that cost $5'], correct:1,
+    explain:'You can support the art drive and stay within the $5 you set aside.' }
+];
+
+function bucketLesson(p, name, description, index) {
+  const current = activeWeek(p).index % programmeLength === index;
+  return `<div><strong>${name}</strong><p>${description}</p>
+    ${current ? button('Open this week’s lesson','task','data-id="learning"','small') : `<small>Week ${index+1}</small>`}
+  </div>`;
 }
+
+function investmentsView(p) {
+  const result = progress(p);
+  return `<header class="bucket-page-heading">
+    <div><h1>My money buckets</h1><p>Four jobs for your money. Pick a bucket and see what you could do with it.</p></div>
+    <p class="bucket-total"><span>Total across your buckets</span><strong>${money(result.buckets.reduce((sum, value) => sum + value, 0))}</strong></p>
+  </header>
+  <div class="bucket-board">${bucketAdventures.map((adventure, index) => `<section class="bucket-adventure bucket-art-${adventure.id}" aria-labelledby="bucket-heading-${adventure.id}">
+    <div class="bucket-picture">
+      <span class="bucket-amount"><span class="sr-only">Game balance </span>${money(result.buckets[index])}</span>
+    </div>
+    <div class="bucket-card-copy">
+      <h2 id="bucket-heading-${adventure.id}">${buckets[index]}</h2>
+      <p>${adventure.purpose}</p>
+      <details class="bucket-decision">
+        <summary>Play a quick decision</summary>
+        <p>${adventure.prompt}</p>
+        <div class="bucket-answers">${adventure.answers.map((answer, option) => button(answer,'bucket-answer',`data-id="${adventure.id}" data-index="${option}" aria-pressed="false"`,'small')).join('')}</div>
+        <p class="bucket-feedback" role="status" aria-atomic="true"></p>
+      </details>
+      ${adventure.id === 'save' ? `<details class="bucket-topic"><summary>Savings accounts</summary>
+        ${bucketLesson(p, 'Saving for a goal', 'Choose your target, then work out what to put aside each week.',7)}
+      </details>` : ''}
+      ${adventure.id === 'invest' ? `<details class="bucket-topic"><summary>Shares, funds &amp; KiwiSaver</summary>
+        ${bucketLesson(p, 'Shares and funds', 'Explore how a practice investment can go up and down.',8)}
+        ${bucketLesson(p, 'KiwiSaver', 'Think about goals that are a long way off, such as saving for retirement.',9)}
+      </details>` : ''}
+    </div>
+  </section>`).join('')}</div>
+  <div class="bucket-page-footer"><p>Game balances update when you close a week. Practice decisions leave your balances as they are.</p>
+    ${button('Open my Money log','view','data-view="money"','small')}</div>`;
+}
+
 function scoreboard(rows, metric) {
   return `<div class="table-wrap" role="region" aria-label="Leaderboard table" tabindex="0"><table><thead><tr><th scope="col">Rank</th><th scope="col">Learner</th><th scope="col">${metric}</th></tr></thead>
     <tbody>${rows.map(row => {
@@ -873,7 +907,7 @@ function render() {
   const links = isPublic
     ? [['home','Home'], ['setup','Setup instructions'], ['public-help','About &amp; Help']]
     : role === 'learner'
-      ? [['dashboard','Dashboard'], ['challenges','Challenges'], ['week','Missions'], ['money','Money log'], ['investments','Savings &amp; investing'], ['progress','My progress'], ['shop','Profile shop'], ['learner-help','About &amp; Help']]
+      ? [['dashboard','Dashboard'], ['challenges','Challenges'], ['week','Missions'], ['money','Money log'], ['investments','Money buckets'], ['progress','My progress'], ['shop','Profile shop'], ['learner-help','About &amp; Help']]
       : [['home','Home'], ['group',dashboardLabel()], ['teacher-challenges','Challenges &amp; rewards'], ['settings','Settings'], ['facilitator-help','About &amp; Help']];
   $('#nav').innerHTML = links.map(([id,label]) => `<button type="button" data-action="view" data-view="${id}" ${view === id ? 'aria-current="page"' : ''}>${label}</button>`).join('');
   const sections = { home: homeView, setup: setupView, 'public-help': publicHelpView, 'learner-help': learnerHelpView, 'facilitator-help': facilitatorHelpView, detail: learnerDetail, 'teacher-challenges':teacherChallengesView, challenges:challengesView, dashboard: dashboardView, investments: investmentsView, week: weekView, money: moneyView, progress: progressView, shop: shopView, group: groupView, settings: settingsView };
@@ -1242,9 +1276,20 @@ document.addEventListener('click', event => {
         noteField('What did you learn?','choreNote','Tell us one thing about your effort, time or planning.'),
         p.solo ? 'Log chore' : 'Send for review'));
       break;
-    case 'money-topic':
-      if (role === 'learner' && view === 'investments' && Object.hasOwn(moneyLessons,item)) { jar = item; navigate('investments'); dialog.close(); $('.money-tabs [aria-pressed="true"]').focus(); }
+    case 'bucket-answer': {
+      if (role !== 'learner' || view !== 'investments') return;
+      const adventure = bucketAdventures.find(bucket => bucket.id === item);
+      const decision = el.closest('.bucket-decision');
+      if (!adventure || !decision || !adventure.answers[Number(index)]) return;
+      const correct = Number(index) === adventure.correct;
+      for (const answer of decision.querySelectorAll('[data-action="bucket-answer"]')) {
+        answer.setAttribute('aria-pressed', String(answer === el));
+      }
+      const feedback = decision.querySelector('.bucket-feedback');
+      feedback.dataset.correct = String(correct);
+      feedback.textContent = (correct ? 'Nice choice! ' : 'Try another choice. ') + adventure.explain;
       break;
+    }
     case 'continue-programme':
       if (role === 'learner' && w?.closed && w.index === programmeLength - 1) {
         p.weeks.push(makeWeek(w.index+1,state.rules));
