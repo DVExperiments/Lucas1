@@ -304,7 +304,8 @@ export function learningStats(player, weeksToCount = player.weeks) {
     // One chore earns learning XP per week. More chores still appear in the learner's record.
     const approved = week.tasks.filter(task => task.id !== 'learning' && task.status === 'approved');
     stats.missions += approved.filter(task => task.kind !== 'chore').length + Number(approved.some(task => task.kind === 'chore'));
-    stats.videos += Number(Boolean(week.videoWatched));
+    const recordedSam = week.tasks.some(task => task.id === 'learning' && task.source === 'sam' && task.status === 'approved');
+    stats.videos += Number(Boolean(week.videoWatched || recordedSam));
     stats.quizzes += Number(Boolean(week.quizPassed || week.tasks.some(task => task.id === 'learning' && task.status === 'approved')));
   }
   stats.lessons = stats.videos + stats.quizzes;

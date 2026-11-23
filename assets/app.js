@@ -166,7 +166,7 @@ function taskPrompt(task, p, week) {
   if (task.assignedPrompt && ['submitted','approved'].includes(task.status)) return task.assignedPrompt;
   const info = week.module ?? moduleFor(p, week.index);
   if (task.id === 'business') return info.business;
-  if (task.id === 'learning') return 'Watch the video, then answer two questions about the example.';
+  if (task.id === 'learning') return 'Watch the weekly video first, then take the quiz about that video.';
   if (task.id === 'reflection') return info.outside;
   return task.prompt;
 }
@@ -395,22 +395,41 @@ function weeklyChallengeCard(p) {
     ${button((week.weeklyCertificate ? 'Replay ' : 'Start ') + scenario.title, 'weekly-play', '', 'primary')}
   </section>`;
 }
-function samQuizLink(module, style = 'secondary') {
-  const library = 'https://www.successavenuemoney.com/quizzes';
-  const assigned = [module.quizUrl, state.quizUrl].find(url => url && isHttps(url));
-  const label = assigned && assigned !== library ? 'Open SAM quiz' : 'Open SAM quiz library';
-  return `<a class="button ${style} sam-quiz-link" href="${esc(assigned || library)}" target="_blank" rel="noopener noreferrer">${label}<span class="sr-only"> (opens in a new tab)</span> ↗</a>`;
+const samVideoLibrary = 'https://www.successavenuemoney.com/library';
+const samQuizLibrary = 'https://www.successavenuemoney.com/quizzes';
+function samAssignment(module) {
+  const direct = (url, library) => {
+    if (!url || !isHttps(url)) return false;
+    const parsed = new URL(url);
+    return parsed.pathname.replace(/\/$/, '') !== new URL(library).pathname;
+  };
+  // Keep the video and its quiz in the same assignment scope.
+  const source = module.lessonUrl || module.quizUrl ? module : state;
+  const video = direct(source.lessonUrl, samVideoLibrary) ? source.lessonUrl : samVideoLibrary;
+  const quiz = direct(source.quizUrl, samQuizLibrary) ? source.quizUrl : samQuizLibrary;
+  return { video, quiz, assigned: video !== samVideoLibrary && quiz !== samQuizLibrary };
+}
+function samLink(url, label) {
+  return `<a class="button secondary sam-quiz-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label}<span class="sr-only"> (opens in a new tab)</span> ↗</a>`;
+}
+function samLessonSteps(assignment) {
+  return `<div class="action-row">
+    ${samLink(assignment.video, assignment.video !== samVideoLibrary ? '1. Watch the SAM video' : '1. Open SAM video library')}
+    ${samLink(assignment.quiz, assignment.quiz !== samQuizLibrary ? '2. Open the SAM quiz' : '2. Open SAM quiz library')}
+  </div>`;
 }
 function challengesView(p) {
   const week = activeWeek(p);
   const past = p.weeks.slice(0, -1).reverse();
+  const assignment = samAssignment(moduleFor(p, week.index));
   return `${pageHeader('CHALLENGE ARCADE', 'Challenges', 'Choose this week’s activity, open a teacher challenge, or play a practice game.')}
     ${weeklyChallengeCard(p)}
-    <section class="panel play-card" aria-labelledby="sam-quiz-title">
-      <div class="play-emblem" aria-hidden="true">📚</div>
-      <div><h2 id="sam-quiz-title">Success Avenue Money quizzes</h2>
-      <p>Sign in to SAM to take these quizzes. Use Missions to complete the in-game quiz for this week.</p></div>
-      ${samQuizLink(moduleFor(p, week.index))}
+    <section class="panel spaced" aria-labelledby="sam-quiz-title">
+      <h2 id="sam-quiz-title">Weekly video and quiz on Success Avenue Money</h2>
+      <p>Sign in to SAM. Watch the video first, then take the quiz about that video.</p>
+      ${samLessonSteps(assignment)}
+      ${assignment.assigned ? '' : '<p>This week’s matching SAM video and quiz links haven’t both been assigned. You can try the labelled placeholders in the game.</p>'}
+      <div class="action-row">${button(assignment.assigned ? 'Open weekly lesson' : 'Try the placeholder lesson', 'task', 'data-id="learning"', 'small')}</div>
     </section>
     ${learnerClassChallenges(p, true)}
     <section class="panel practice-market spaced"><div class="eyebrow">FREE PLAY</div><h2>Market Day practice</h2>
@@ -625,12 +644,12 @@ function dashboardView(p) {
   const approved = w.tasks.filter(t => t.required && t.status === 'approved').length;
   const required = w.tasks.filter(t => t.required).length;
   const closed = progress(p).closed;
+  const samAssigned = samAssignment(info).assigned;
   const quizDone = w.quizPassed || ['approved','submitted'].includes(lesson.status);
   const openChallenges = button('Play this week’s challenge', 'open-weekly-challenges', '', w.closed ? 'secondary' : 'primary');
   const next = w.closed ? button('Keep playing', 'continue-programme', '', 'primary')
     : quizDone ? button('See this week’s missions','view','data-view="week"')
-    : w.videoWatched ? button('Start the quiz','lesson-quiz')
-    : button('Watch this week’s video','task','data-id="learning"');
+    : button(samAssigned ? 'Open SAM video and quiz' : 'Open placeholder lesson','task','data-id="learning"');
   return `<div class="arc-dashboard">
     <div class="arc-grid">
       <aside class="arc-profile">${button(avatar(p), 'view', 'data-view="shop" aria-label="Customise my profile"', 'avatar-button')}<strong>${esc(p.name)}</strong><span class="profile-title">${cosmetics(p).title.name}</span><p>${esc(p.business)}</p>
@@ -646,7 +665,7 @@ function dashboardView(p) {
         <div class="arc-actions">
           ${button(`<span aria-hidden="true">${missionIcons.chore}</span>` + '<strong>I did a chore</strong><small>Log a job you finished</small>', 'log-chore', w.closed ? 'disabled' : '', 'mission-action mission-chore')}
           ${button(`<span aria-hidden="true">${missionIcons.business}</span>` + '<strong>Mini business</strong><small>Open your business mission</small>', 'task', 'data-id="business"', 'mission-action mission-business')}
-          ${button(`<span aria-hidden="true">${missionIcons.learning}</span>` + '<strong>Video &amp; quiz</strong><small>' + (w.quizPassed || lesson.status === 'approved' ? 'Quiz complete' : 'Watch and put it to the test') + '</small>', 'task', 'data-id="learning"', 'mission-action mission-learning')}
+          ${button(`<span aria-hidden="true">${missionIcons.learning}</span>` + '<strong>Video &amp; quiz</strong><small>' + (lesson.status === 'submitted' ? 'Awaiting review' : quizDone ? 'Quiz complete' : samAssigned ? 'Watch on SAM, then take the quiz' : 'Placeholder video and quiz') + '</small>', 'task', 'data-id="learning"', 'mission-action mission-learning')}
           ${button(`<span aria-hidden="true">${missionIcons.reflection}</span>` + '<strong>Money habit</strong><small>Try it in real life</small>', 'task', 'data-id="reflection"', 'mission-action mission-reflection')}
         </div></div>
       </section>
@@ -792,7 +811,7 @@ function learnerHelpView() {
       <p>Start with the quest trail on your dashboard. If you don’t have a real job or business, you can still play Challenges using game money.</p>
       <ol>
         <li><strong>Try it in real life.</strong> Agree on a job or product and what you’ll charge. Paid household jobs count. Add your actual earnings and costs to the Money log.</li>
-        <li><strong>Complete your missions.</strong> Try the business mission, take the money quiz and apply the same idea outside your business. Use the question-mark buttons for examples.</li>
+        <li><strong>Complete your missions.</strong> Try the business mission, watch the video and take its matching quiz on SAM, then apply the same idea outside your business. Use the labelled placeholder lesson when the SAM pair is unavailable. Use the question-mark buttons for examples.</li>
         <li><strong>Close the week.</strong> Choose <em>Settle the week</em> in solo practice. In a mentored game, your facilitator reviews the missions and records a check-in.</li>
       </ol>
       ${button('Back to this week', 'view', 'data-view="week"', 'primary')}
@@ -837,7 +856,7 @@ function settingsView() {
   return `${pageHeader('FACILITATOR', 'Pilot settings', 'Changes apply to newly opened weeks. Current and closed weeks retain their existing rules.')}
   <form class="panel settings" id="settings"><div class="fields">
   ${field(isHomeGame() ? 'Home game name' : 'Group name', 'group', 'Use a name you’ll recognise when you resume the game from Home.', `<input name="group" value="${esc(state.group)}" required maxlength="60">`)}
-  ${field('SAM lesson link (optional)', 'lessonUrl', 'Paste an HTTPS address for a Success Avenue Money lesson. It opens from the learner’s money lesson.', `<input type="url" name="lessonUrl" value="${esc(state.lessonUrl)}" placeholder="https://">`)}
+  ${field('SAM video link (optional)', 'lessonUrl', 'Paste a direct SAM video link together with its matching quiz link.', `<input type="url" name="lessonUrl" value="${esc(state.lessonUrl)}" placeholder="https://">`)}
   ${field('SAM quiz link (optional)', 'quizUrl', 'Paste a direct Success Avenue Money quiz link for this class. Learner-specific links take priority.', `<input type="url" name="quizUrl" value="${esc(state.quizUrl)}" placeholder="https://">`)}
   ${field('Simulated tax rate (%)', 'tax', 'The percentage of positive weekly business profit taken as simulated tax before the buckets are filled.', `<input type="number" name="tax" min="0" max="100" required value="${state.rules.tax}">`)}
   ${field('Weekly completion bonus (points)', 'bonus', 'Extra points awarded when all required missions are complete and the week closes.', `<input type="number" name="bonus" min="0" max="1000" required value="${state.rules.bonus}">`)}
@@ -875,7 +894,7 @@ function wireLessonVideo(week) {
     if (week.videoWatched || !watchedEnough(segments, video.duration)) return;
     week.videoWatched = true;
     save();
-    $('#lesson-status').textContent = 'Video complete. Your quiz is ready.';
+    $('#lesson-status').textContent = 'Placeholder video complete. The placeholder quiz is ready.';
     dialog.querySelector('[data-action="lesson-quiz"]').disabled = false;
   };
   video.addEventListener('timeupdate', measure);
@@ -908,24 +927,33 @@ function noteField(label, name, hint, value = '', required = true) {
 function taskDialog(p, week, task, showQuiz = false) {
   const episode = episodeFor(week.index);
   const module = moduleFor(p, week.index);
-  const lessonUrl = module.lessonUrl || state.lessonUrl;
   const editable = !week.closed && ['todo', 'revision'].includes(task.status);
   let content = `<p>${esc(taskPrompt(task, p, week))}</p>`;
   if (task.feedback) content += `<p class="feedback"><strong>Feedback</strong> · ${esc(task.feedback)}</p>`;
   if (task.id === 'learning') {
-    const videoPath = 'assets/lessons/week-' + (episode.index+1) + '.mp4';
-    content += `<div class="lesson video-lesson"><h3>${esc(episode.title)}</h3>
-      ${showQuiz ? '' : `<video id="lesson-film" controls playsinline preload="metadata" src="${videoPath}" aria-label="${esc(episode.title)} lesson video"></video><details><summary>Read the video transcript</summary>${episode.frames.map(frame=>`<p>${esc(frame)}</p>`).join('')}</details>`}
-      ${module.lessonNote ? `<p><strong>Link to your business</strong> · ${esc(module.lessonNote)}</p>` : ''}
-      ${lessonUrl ? `<p><a href="${esc(lessonUrl)}" target="_blank" rel="noopener noreferrer">Open assigned SAM lesson ↗</a></p>` : ''}
-      <p>${samQuizLink(module)}</p></div>`;
-    if (editable && showQuiz && week.videoWatched) {
-      content += form('quiz', `<div class="quiz-questions">${episode.questions.map((q,i)=>`<fieldset><legend>${i+1}. ${esc(q.question)}</legend>
-        <div class="quiz-options">${q.options.map((answer,j)=>`<label><input type="radio" name="answer-${i}" value="${j}" required><span>${String.fromCharCode(65+j)}</span>${esc(answer)}</label>`).join('')}</div></fieldset>`).join('')}</div>
-        ${button('Rewatch the video','task','data-id="learning"','small')}`, 'Check answers');
-    } else if (editable) {
-      content += `<p id="lesson-status" role="status">${week.videoWatched ? 'Video complete. Your quiz is ready.' : 'Watch the full worked example to unlock your quiz.'}</p>
-        ${button('Start quiz','lesson-quiz',week.videoWatched ? '' : 'disabled','primary')}`;
+    const assignment = samAssignment(module);
+    if (assignment.assigned) {
+      content += `<div class="lesson"><h3>Success Avenue Money</h3><p>Sign in to SAM. Watch the assigned video, then take the quiz about it.</p>
+        ${samLessonSteps(assignment)}${module.lessonNote ? `<p>${esc(module.lessonNote)}</p>` : ''}</div>`;
+      if (editable) content += form('sam-lesson-record',
+        '<p>After finishing both on SAM, tell us one thing you learnt from the video or quiz.</p>' +
+        noteField('What did you learn?', 'evidence', 'Write one or two sentences about what you learnt.'),
+        p.solo ? 'Record SAM lesson' : 'Send SAM lesson for review');
+    } else {
+      const videoPath = 'assets/lessons/week-' + (episode.index+1) + '.mp4';
+      content += `<div class="lesson video-lesson"><h3>Placeholder video and quiz</h3><p>This practice activity uses sample content. The official video and its quiz are on SAM.</p>
+        ${button('Find SAM videos and quizzes','open-weekly-challenges','','small')}
+        <p><strong>${esc(episode.title)}</strong></p>
+        ${showQuiz ? '' : `<video id="lesson-film" controls playsinline preload="metadata" src="${videoPath}" aria-label="Placeholder video: ${esc(episode.title)}"></video><details><summary>Read the placeholder video transcript</summary>${episode.frames.map(frame=>`<p>${esc(frame)}</p>`).join('')}</details>`}
+        ${module.lessonNote ? `<p><strong>Link to your business</strong> · ${esc(module.lessonNote)}</p>` : ''}</div>`;
+      if (editable && showQuiz && week.videoWatched) {
+        content += form('quiz', `<h3>Placeholder quiz</h3><div class="quiz-questions">${episode.questions.map((q,i)=>`<fieldset><legend>${i+1}. ${esc(q.question)}</legend>
+          <div class="quiz-options">${q.options.map((answer,j)=>`<label><input type="radio" name="answer-${i}" value="${j}" required><span>${String.fromCharCode(65+j)}</span>${esc(answer)}</label>`).join('')}</div></fieldset>`).join('')}</div>
+          ${button('Rewatch placeholder video','task','data-id="learning"','small')}`, 'Check answers');
+      } else if (editable) {
+        content += `<p id="lesson-status" role="status">${week.videoWatched ? 'Placeholder video complete. The placeholder quiz is ready.' : 'Watch the placeholder video to unlock its example quiz.'}</p>
+          ${button('Start placeholder quiz','lesson-quiz',week.videoWatched ? '' : 'disabled','primary')}`;
+      }
     }
   } else if (editable) {
     if (task.id === 'business' && p.mode === 'sim' && week.choice === null) {
@@ -937,7 +965,7 @@ function taskDialog(p, week, task, showQuiz = false) {
   if (!editable) content += task.evidence ? `<div class="lesson"><strong>Your submission</strong><p>${esc(task.evidence)}</p></div>` : `<p>${statuses[task.status]}</p>`;
   dialog.classList.toggle('arc-quiz', task.id === 'learning');
   openDialog(esc(taskName(task, p)), content);
-  if (task.id === 'learning' && editable && !showQuiz && !week.videoWatched) wireLessonVideo(week);
+  if (task.id === 'learning' && editable && !showQuiz && !week.videoWatched && $('#lesson-film')) wireLessonVideo(week);
 
 }
 function playerDialog(p, homeSetup = false) {
@@ -987,7 +1015,7 @@ function learnerDetail(p) {
       <div><dt>Outside the business</dt><dd>${esc(module.outside)}</dd></div>
       ${module.lessonNote ? `<div><dt>Lesson connection</dt><dd>${esc(module.lessonNote)}</dd></div>` : ''}
       ${module.lessonUrl ? `<div><dt>Lesson link</dt><dd><a href="${esc(module.lessonUrl)}" target="_blank" rel="noopener noreferrer">Open assigned lesson (new tab)</a></dd></div>` : ''}
-      <div><dt>SAM quiz</dt><dd>${samQuizLink(module, 'small')}</dd></div>
+      <div><dt>SAM video and quiz</dt><dd>${samLessonSteps(samAssignment(module))}</dd></div>
     </dl>
   </section>
   ${week ? `<section class="panel spaced">
@@ -1013,13 +1041,13 @@ function isHttps(value) {
 }
 function moduleDialog(p, index) {
   const module = moduleFor(p, index);
-  openDialog('Customise week ' + (index + 1), `<p>These changes apply to ${esc(p.name)}. The short quiz stays with the week’s financial topic. Submitted responses keep the instructions they answered.</p>
+  openDialog('Customise week ' + (index + 1), `<p>These changes apply to ${esc(p.name)}. Assign a SAM video and the quiz that goes with it. Submitted responses keep the instructions they answered.</p>
     ${form('edit-module', `${textField('Module title', 'moduleTitle', 'Name the focus in the learner’s own context, such as Price two lawn-mowing jobs.', module.title)}
       ${noteField('Weekly context', 'moduleContext', 'Explain how this week’s topic connects to their business or savings goal.', module.summary)}
       ${noteField('Business mission', 'businessMission', 'Give one useful thing to try or measure in their real business.', module.business)}
       ${noteField('Outside-business mission', 'outsideMission', 'Ask them to apply the same money idea to an everyday situation.', module.outside)}
       ${noteField('Lesson connection (optional)', 'lessonNote', 'Add a short example using the learner’s goal or business numbers.', module.lessonNote, false)}
-      ${field('Lesson link (optional)', 'moduleLink', 'Add an HTTPS link for this learner and week. It appears alongside the built-in lesson.', `<input name="moduleLink" type="url" value="${esc(module.lessonUrl)}">`)}
+      ${field('SAM video link (optional)', 'moduleLink', 'Paste the direct video link together with its matching quiz link.', `<input name="moduleLink" type="url" value="${esc(module.lessonUrl)}">`)}
       ${field('SAM quiz link (optional)', 'moduleQuiz', 'Paste the direct Success Avenue Money quiz link for this learner and week. It appears in Challenges and the lesson.', `<input name="moduleQuiz" type="url" value="${esc(module.quizUrl)}">`)}`, 'Save module', `${playerAttrs(p)} data-index="${index}"`)}`);
 }
 function entryDialog(p, entry) {
@@ -1510,15 +1538,26 @@ document.addEventListener('submit', async event => {
       finish(el.dataset.form === 'edit-player' ? 'Goal and business saved.' : 'Learner added.');
       break;
     }
+    case 'sam-lesson-record': {
+      const learning = w?.tasks.find(t => t.id === 'learning');
+      if (role !== 'learner' || !learning || w.closed || !['todo','revision'].includes(learning.status)
+        || !samAssignment(moduleFor(p,w.index)).assigned) return;
+      if (!value('evidence')) return fail('Tell us one thing you learnt.');
+      Object.assign(learning, { source:'sam', status:p.solo ? 'approved' : 'submitted',
+        evidence:value('evidence'), feedback:'' });
+      finish(p.solo ? 'SAM lesson recorded.' : 'SAM lesson sent for review.', grantAwards(p));
+      break;
+    }
     case 'quiz': {
       const learning = w?.tasks.find(t => t.id === 'learning');
-      if (role !== 'learner' || !learning || !w.videoWatched || w.closed || !['todo', 'revision'].includes(learning.status)) return;
+      if (role !== 'learner' || !learning || !w.videoWatched || w.closed || !['todo', 'revision'].includes(learning.status) || samAssignment(moduleFor(p,w.index)).assigned) return;
       const episode = episodeFor(w.index);
       if (episode.questions.some((q,i) => value('answer-' + i) === '' || Number(value('answer-' + i)) !== q.answer)) return fail('One or more answers need another look. Replay the example or try again.');
       w.quizPassed = true;
       learning.status = p.solo ? 'approved' : 'submitted';
-      learning.evidence = 'Completed the video and passed both questions.';
-      finish(p.solo ? 'Quiz complete · +20 learning XP' : 'Quiz passed · sent for check-in', grantAwards(p));
+      learning.source = 'placeholder';
+      learning.evidence = 'Completed the placeholder video and passed both placeholder questions.';
+      finish(p.solo ? 'Placeholder quiz complete.' : 'Placeholder quiz passed · sent for check-in', grantAwards(p));
       break;
     }
     case 'chore': {
