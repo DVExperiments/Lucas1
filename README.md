@@ -1,4 +1,4 @@
-# The Lucas Money Game V3.0
+# The Lucas Money Game V3.1
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 
@@ -35,6 +35,10 @@ In a class, use **Open teacher dashboard** from Home and enter the class PIN. Us
 
 The PIN controls the interface on this browser. Use sample names for classroom demonstrations. A classroom rollout across student devices requires authenticated SAM accounts, server-side class and role permissions, and shared persistence. The SAM embed and credit for SAM-hosted video and quiz completions will need the owner's integration details and approved content URLs.
 
+## Group leaderboard
+
+The Facilitator dashboard has a **Show leaderboard on learner dashboards** toggle for each group. Sharing is off for real groups until the facilitator enables it and on in the sample group by default. In a group with at least two learners, the board appears at the end of the learner dashboard with the current learner’s row marked **You**. Standings use Learning XP and learners with the same score share the same rank. Home games have no group board.
+
 ## Vimeo for the school demo
 
 In facilitator **Settings** or an individual weekly module, paste the Vimeo share link, player URL or Vimeo embed code into **SAM or Vimeo video**. The app extracts the player address and keeps the unlisted hash when present. Vimeo streams the video, so the game ZIP does not need to contain the large video file. If a matching quiz is pending, learners see the assigned video and a clearly labelled, separate practice video and quiz.
@@ -45,4 +49,4 @@ Vimeo’s **Private** setting limits playback to the owner and permitted Vimeo t
 
 - **Accounts and progress:** Identify the SAM membership system and hosting platform, provide a staging environment and approved test accounts, and confirm the learner, facilitator, parent and school entitlement rules. A deployment for student use needs server-side SAM session and entitlement checks and a progress store scoped to the signed-in learner and authorised school staff. The GitHub Pages build remains a staff-demo prototype with browser storage.
 - **Official lesson content:** Supply an approved Vimeo embed and the matching quiz PDFs or direct links. The PDFs will need to be adapted to in-game questions and approved separately.
-- **Languages:** The prototype includes draft te reo Māori and Spanish translations for navigation, selected banking controls, buckets and Season map labels. Remaining copy, quizzes, missions, captions and videos need translation or approved localized replacements. Review the draft translations with fluent speakers before school rollout.
+- **Languages:** The prototype includes draft te reo Māori and Spanish translations for the main learner screens, controls, bucket practice, and the Week 1 sample transcript and quiz. Some copy, later lessons and challenges, captions and videos still need localized replacements. Review the draft translations with fluent speakers before school rollout.

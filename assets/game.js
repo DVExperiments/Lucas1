@@ -80,7 +80,7 @@ export function fresh() {
   peer.weeks[0].transactions.push({ id: uid(), kind: 'sale', label: 'Two potted herbs', cents: 1200 }, { id: uid(), kind: 'cost', label: 'Pots and potting mix', cents: 400 });
   peer.weeks[0].tasks[0].status = 'submitted';
   peer.weeks[0].tasks[0].evidence = 'The pots and mix cost $4 for two herbs. I asked my aunt and my neighbour, then chose $6 per plant.';
-  return { ...newGroup('Test group'), current: player.id, players: [player, peer] };
+  return { ...newGroup('Test group'), showLearnerLeaderboard:true, current: player.id, players: [player, peer] };
 }
 export function totals(week) {
   const sum = kind => week.transactions.filter(entry => entry.kind === kind).reduce((acc, entry) => acc + entry.cents, 0);

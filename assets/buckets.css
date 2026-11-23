@@ -134,3 +134,9 @@
 @media(max-width:360px) {
   .top-inner { flex-wrap:wrap; gap:5px; padding-block:8px; }
 }
+
+.leaderboard-sharing { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin-block:10px; }
+.leaderboard-sharing .button[aria-pressed="true"] { border-color:var(--lime); color:var(--lime); }
+.learner-leaderboard { margin-top:16px; }
+.learner-leaderboard .my-leaderboard-row > td { background:var(--surface-raised); }
+.my-leaderboard-row .pill { margin-inline-start:8px; }

@@ -1,9 +1,9 @@
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.0';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.1';
 import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
 
-import { languages, translate } from './locale.js';
+import { languages, translate } from './locale.js?v=3.1';
 import { vimeoPlayer } from './vimeo.js';
 
 const assetUrl = image => new URL('./assets/' + image, location.href).href;
@@ -11,7 +11,14 @@ const sitePath = location.pathname.replace(/index\.html$/, '');
 const key = 'sam-lucas-workspace-v1:' + sitePath;
 const formatters = Object.fromEntries(Object.keys(languages).map(key => [key, new Intl.NumberFormat(key, { style: 'currency', currency: 'NZD' })]));
 const money = cents => formatters[language].format(cents / 100);
-const tr = text => translate(language, text);
+const tr = (text, values) => {
+  const translated = translate(language,text);
+  return values ? translated.replace(/\{(\w+)\}/g, (match,key) => values[key] ?? match) : translated;
+};
+function localMission(text) {
+  const extra = ' Ask an adult to help if you need it.';
+  return text?.endsWith(extra) ? tr(text.slice(0,-extra.length)) + ' ' + tr(extra.trim()) : tr(text);
+}
 const moduleTitle = (p, index) => tr(moduleFor(p, index).title);
 const $ = selector => document.querySelector(selector);
 const dialog = $('#dialog');
@@ -50,6 +57,7 @@ let marketAttempt;
 let marketTimer;
 const unlockedClasses = new Set();
 
+if (workspace.sample) workspace.sample.showLearnerLeaderboard ??= true;
 for (const group of [...workspace.groups.map(entry => entry.data), workspace.sample].filter(Boolean)) {
   for (const learner of group.players) {
     if (!group.ageBandsV2) learner.track = learner.track === 1 ? 2 : 1;
@@ -105,17 +113,17 @@ function switchTeacherGroup(id) {
   save();
   $('#teacher-group')?.focus({ preventScroll: true });
 }
-const button = (label, action, attrs = '', style = 'secondary') => `<button type="button" class="button ${style}" data-action="${action}" ${attrs}>${label}</button>`;
+const button = (label, action, attrs = '', style = 'secondary') => `<button type="button" class="button ${style}" data-action="${action}" ${attrs}>${tr(label)}</button>`;
 const playerAttrs = p => `data-player="${esc(p.id)}"`;
-const pill = (label, tone = '') => `<span class="pill ${tone}">${label}</span>`;
-function announce(message) { $('#live').textContent = message; }
+const pill = (label, tone = '') => `<span class="pill ${tone}">${tr(label)}</span>`;
+function announce(message) { $('#live').textContent = tr(message); }
 function save(message, unlocked = []) {
   try { localStorage.setItem(key, JSON.stringify(workspace)); }
   catch { message = 'Browser storage is unavailable. Recent changes may be lost on reload.'; }
   render();
   if (message || unlocked.length) {
     const toast = $('#notice');
-    toast.textContent = [message, ...unlocked.map(award => 'Badge unlocked: ' + award.title + ' (+' + award.points + ' pts).')].filter(Boolean).join(' ');
+    toast.textContent = [tr(message), ...unlocked.map(award => 'Badge unlocked: ' + award.title + ' (+' + award.points + ' pts).')].filter(Boolean).join(' ');
     toast.classList.toggle('reward-toast', Boolean(unlocked.length));
     toast.hidden = false;
     toast.focus({ preventScroll: true });
@@ -162,7 +170,7 @@ const pageArt = {
 };
 function pageHeader(label, title, description, action = '') {
   const art = role === 'learner' ? pageArt[view] : undefined;
-  return `<div class="page-header ${art ? 'story-header' : ''}" ${art ? `style="--page-art:url('${esc(assetUrl(art[0]))}')"` : ''}>${art ? `<span class="story-icon" aria-hidden="true">${art[1]}</span>` : ''}<div><div class="eyebrow">${label}</div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;
+  return `<div class="page-header ${art ? 'story-header' : ''}" ${art ? `style="--page-art:url('${esc(assetUrl(art[0]))}')"` : ''}>${art ? `<span class="story-icon" aria-hidden="true">${art[1]}</span>` : ''}<div><div class="eyebrow">${tr(label)}</div><h1>${tr(title)}</h1><p>${tr(description)}</p></div>${action}</div>`;
 }
 function pct(p) { return Math.min(100, Math.floor(progress(p).buckets[1] * 100 / p.target)); }
 function taskName(task, p) {
@@ -180,9 +188,9 @@ function taskPrompt(task, p, week) {
   return task.prompt;
 }
 function goal(p, dark = false) {
-  return `<section class="goal ${dark ? 'goal-dark' : 'panel'}"><div class="eyebrow">MY SAVINGS GOAL</div><h2>${esc(p.goal)}</h2>
+  return `<section class="goal ${dark ? 'goal-dark' : 'panel'}"><div class="eyebrow">${esc(tr("MY SAVINGS GOAL"))}</div><h2>${esc(p.goal)}</h2>
     <div class="goal-amount"><strong>${money(progress(p).buckets[1])}</strong> <span>of ${money(p.target)}</span></div>
-    <progress value="${pct(p)}" max="100" aria-label="Savings goal progress"></progress><div class="goal-bottom"><span>${pct(p)}% of goal</span>${button('Edit goal', 'edit-goal', '', 'quiet')}</div></section>`;
+    <progress value="${pct(p)}" max="100" aria-label="${esc(tr("Savings goal progress"))}"></progress><div class="goal-bottom"><span>${tr('{percent}% of goal', {percent:pct(p)})}</span>${button('Edit goal', 'edit-goal', '', 'quiet')}</div></section>`;
 }
 function bucketCards(amounts, p) {
   return `<div class="bucket-grid">${(p ? allAccounts(p) : buckets).map((name, index) => `<article class="bucket bucket-${index}"><div class="bucket-icon" aria-hidden="true">${marks[index] ?? '◎'}</div><div><div class="bucket-label">${esc(name)}</div><strong>${money(amounts[index] ?? 0)}</strong></div></article>`).join('')}</div>`;
@@ -194,7 +202,7 @@ function marketControls(p, week) {
     const t = totals(week);
     return `<div class="real-week"><h2>Your business this week</h2>
       <div class="real-business">${p.offer ? `<p><strong>What you offer</strong> · ${esc(p.offer)}</p>` : ''}${p.customers ? `<p><strong>Who it’s for</strong> · ${esc(p.customers)}</p>` : ''}</div>
-      <div class="market-numbers"><div><span>Sales and paid jobs</span><strong>${money(t.sales)}</strong></div><div><span>Business costs</span><strong>${money(t.costs)}</strong></div><div><span>Profit before tax</span><strong>${money(t.profit)}</strong></div></div>
+      <div class="market-numbers"><div><span>Sales and paid jobs</span><strong>${money(t.sales)}</strong></div><div><span>Business costs</span><strong>${money(t.costs)}</strong></div><div><span>${esc(tr("Profit before tax"))}</span><strong>${money(t.profit)}</strong></div></div>
       <p class="detail">Log actual business income and costs. If you had no sales this week, record any costs and explain what happened in your mission.</p>
       <div class="action-row">${bankActions(p)}${button('Open money log', 'view', 'data-view="money"')}</div></div>`;
   }
@@ -223,20 +231,20 @@ function weekView(p) {
   const required = week.tasks.filter(task => task.required).length;
   const approved = week.tasks.filter(task => task.required && task.status === 'approved').length;
   const status = task => p.solo && task.status === 'approved' ? 'Complete' : statuses[task.status];
-  return `${pageHeader(esc(p.business) + ' · WEEK ' + (week.index + 1), week.closed ? 'Campaign complete' : esc(tr(info.title)), week.closed ? 'Look back on your business decisions and see how far you got towards your goal.' : esc(info.summary))}
+  return `${pageHeader(esc(p.business) + ' · WEEK ' + (week.index + 1), week.closed ? 'Campaign complete' : esc(tr(info.title)), week.closed ? 'Look back on your business decisions and see how far you got towards your goal.' : esc(tr(info.summary)))}
   <div class="game-shell"><div class="play-area"><section class="scene" aria-label="Market board">
     <div class="scene-header"><strong>${p.mode === 'sim' ? market[week.index % market.length].place : 'My business'}</strong><span>WEEK ${week.index + 1}</span></div>
     ${p.mode === 'sim' ? `<ol class="market-steps" aria-label="Market day stages">${['Choose a plan', 'Respond to news', 'See results'].map((label, i) => {
       const stage = week.choice !== null ? 2 : week.plan !== undefined ? 1 : 0;
       return `<li ${stage === i ? 'aria-current="step"' : ''}><span class="step-number" aria-hidden="true">${i < stage ? '✓' : i+1}</span>${label}</li>`;
     }).join('')}</ol>` : ''}
-    <div class="scene-footer"><span>${p.mode === 'sim' ? goodwill(p) + ' potential regulars' : 'Real business'}</span><span>${path.points} points</span></div>
+    <div class="scene-footer"><span>${p.mode === 'sim' ? goodwill(p) + ' potential regulars' : 'Real business'}</span><span>${tr('{points} points', {points:path.points})}</span></div>
     <div class="market-controls">${marketControls(p, week)}</div></section>
-  <section class="quest-log" aria-labelledby="tasks-heading"><div class="section-title"><div><h2 id="tasks-heading">Weekly missions</h2><p>${approved} of ${required} required missions ${p.solo ? 'complete' : 'approved'}</p></div>${pill(week.closed ? 'Week closed' : tally.ready ? (p.solo ? 'Ready to settle' : 'Ready for check-in') : 'In progress', 'green')}</div>
+  <section class="quest-log" aria-labelledby="tasks-heading"><div class="section-title"><div><h2 id="tasks-heading">${esc(tr("Weekly missions"))}</h2><p>${approved} of ${required} required missions ${p.solo ? 'complete' : 'approved'}</p></div>${pill(week.closed ? 'Week closed' : tally.ready ? (p.solo ? 'Ready to settle' : 'Ready for check-in') : 'In progress', 'green')}</div>
   <div class="tasks">${week.tasks.map(task => {
     const kind = task.kind === 'chore' ? 'chore' : task.id;
     const category = Object.hasOwn(missionIcons, kind) ? kind : 'custom';
-    return `<article class="task"><div class="task-icon mission-${category}" aria-hidden="true">${task.status === 'approved' ? '✓' : missionIcons[category] ?? '★'}</div><div class="task-copy"><div class="task-type">${task.kind === 'chore' ? 'Chore' : taskLabels[task.id] ?? taskLabels.custom} · +${task.points} pts${task.required ? '' : ' · Optional'}</div><h3>${esc(taskName(task, p))}</h3><p>${esc(taskPrompt(task, p, week))}</p>${task.feedback ? `<p class="feedback"><strong>Feedback</strong> · ${esc(task.feedback)}</p>` : ''}</div><div class="task-actions">${pill(status(task), task.status === 'approved' ? 'green' : task.status === 'revision' ? 'amber' : '')}${button(week.closed || ['submitted','approved'].includes(task.status) ? 'View' : 'Open', 'task', `data-id="${esc(task.id)}"`, 'small')}</div></article>`;
+    return `<article class="task"><div class="task-icon mission-${category}" aria-hidden="true">${task.status === 'approved' ? '✓' : missionIcons[category] ?? '★'}</div><div class="task-copy"><div class="task-type">${task.kind === 'chore' ? 'Chore' : taskLabels[task.id] ?? taskLabels.custom} · +${task.points} pts${task.required ? '' : ' · Optional'}</div><h3>${esc(tr(taskName(task, p)))}</h3><p>${esc(localMission(taskPrompt(task, p, week)))}</p>${task.feedback ? `<p class="feedback"><strong>${esc(tr("Feedback"))}</strong> · ${esc(task.feedback)}</p>` : ''}</div><div class="task-actions">${pill(status(task), task.status === 'approved' ? 'green' : task.status === 'revision' ? 'amber' : '')}${button(week.closed || ['submitted','approved'].includes(task.status) ? 'View' : 'Open', 'task', `data-id="${esc(task.id)}"`, 'small')}</div></article>`;
   }).join('')}</div>
   ${p.solo && tally.ready && !week.closed ? `<div class="settle">${button('Settle the week', 'solo-settle', '', 'primary')}</div>` : ''}
   </section></div><aside class="aside">${goal(p, true)}<section class="panel route"><h2>${tr('Season map')}</h2><p>${tr('Choose a week to see what you’ll learn.')}</p><ol>${episodes.map((entry, index) => `<li class="${index === week.index ? 'current' : ''}"><span class="route-dot" aria-hidden="true">${p.weeks[index]?.closed ? '✓' : index + 1}</span>${button(esc(moduleTitle(p,index)) + (index > week.index ? '<small>' + tr('Preview') + '</small>' : ''), 'season-preview', `data-index="${index}"`, 'quiet season-week')}</li>`).join('')}</ol></section>
@@ -246,8 +254,8 @@ const typeNames = { sale: 'Sale', reward: 'Activity reward', spend: 'Personal pu
 const isMoneyOut = kind => kind === 'spend' || kind === 'cost';
 const allowsEntry = (p, kind) => Object.hasOwn(typeNames, kind) && (p.mode === 'manual' || ['reward', 'spend'].includes(kind));
 function transactionTable(p, week) {
-  if (!week.transactions.length) return '<p>No transactions recorded for this week.</p>';
-  return `<div class="table-wrap" role="region" aria-label="Transactions table" tabindex="0"><table><thead><tr><th scope="col">Description</th><th scope="col">Type</th><th scope="col">Amount</th>${week.closed ? '' : '<th scope="col">Action</th>'}</tr></thead><tbody>${week.transactions.map(entry => {
+  if (!week.transactions.length) return `<p>${esc(tr("No transactions recorded for this week."))}</p>`;
+  return `<div class="table-wrap" role="region" aria-label="${esc(tr("Transactions table"))}" tabindex="0"><table><thead><tr><th scope="col">Description</th><th scope="col">Type</th><th scope="col">${esc(tr("Amount"))}</th>${week.closed ? '' : `<th scope="col">${esc(tr("Action"))}</th>`}</tr></thead><tbody>${week.transactions.map(entry => {
     const attrs = `${playerAttrs(p)} data-id="${esc(entry.id)}"`;
     return `<tr><td>${esc(entry.label)}</td><td>${tr(typeNames[entry.kind])}</td><td>${isMoneyOut(entry.kind) ? '−' : '+'}${money(entry.cents)}</td>${week.closed ? '' : `<td>${entry.sim ? 'Scenario' : button('Edit', 'edit-entry', attrs, 'small') + button('Remove', 'remove-entry', attrs, 'small')}</td>`}</tr>`;
   }).join('')}</tbody></table></div>`;
@@ -270,9 +278,9 @@ function bankActions(p, { secondary = false, attrs = '' } = {}) {
     (secondary ? button(tr('Move money'), 'move-money', attrs, 'secondary') : '');
 }
 function transferList(p, week) {
-  if (!week.transfers?.length) return '<p>No transfers this week.</p>';
+  if (!week.transfers?.length) return `<p>${esc(tr("No transfers this week."))}</p>`;
   return `<ul class="bank-activity">${week.transfers.slice().reverse().map(({ bucket, cents }) => `<li>
-    <span>${cents > 0 ? 'Main → ' + esc(bucketName(p, bucket)) : esc(bucketName(p, bucket)) + ' → Main'}</span><strong>${money(Math.abs(cents))}</strong></li>`).join('')}</ul>`;
+    <span>${tr(cents > 0 ? 'Main → {name}' : '{name} → Main', {name:esc(bucketName(p,bucket))})}</span><strong>${money(Math.abs(cents))}</strong></li>`).join('')}</ul>`;
 }
 function mainAccount(p) {
   const bank = accounts(p);
@@ -284,19 +292,19 @@ function bankOverview(p) {
   const week = activeWeek(p), tally = totals(week);
   const recent = p.weeks.flatMap(w => w.transactions).slice(-3).reverse();
   return `<section class="panel bank-overview" aria-labelledby="dashboard-bank">
-    <div class="section-title"><div><span class="eyebrow">GAME MONEY</span><h2 id="dashboard-bank">${tr('My money')}</h2></div>
+    <div class="section-title"><div><span class="eyebrow">${esc(tr("GAME MONEY"))}</span><h2 id="dashboard-bank">${tr('My money')}</h2></div>
       ${button('Open Money log', 'view', 'data-view="money"', 'secondary')}</div>
     <div class="bank-overview-grid">
       <div>${mainAccount(p)}
         <div class="bank-actions">${bankActions(p, { secondary: true })}</div></div>
-      <div class="bank-week"><h3>Week ${week.index + 1}</h3><dl>
-        <div><dt>Money in</dt><dd>${money(tally.sales + tally.rewards)}</dd></div>
-        <div><dt>Money out &amp; simulated tax</dt><dd>${money(tally.costs + tally.spending + tally.tax)}</dd></div>
+      <div class="bank-week"><h3>${tr('Week')} ${week.index + 1}</h3><dl>
+        <div><dt>${esc(tr("Money in"))}</dt><dd>${money(tally.sales + tally.rewards)}</dd></div>
+        <div><dt>${esc(tr("Money out & simulated tax"))}</dt><dd>${money(tally.costs + tally.spending + tally.tax)}</dd></div>
       </dl></div>
     </div>
     <div class="section-title bank-bucket-head"><h3>${tr('Money buckets')}</h3>${button(tr('View all buckets'),'view','data-view="investments"','small')}</div>
     <div class="bank-accounts">${allAccounts(p).slice(0,8).map((name,i) => button(`<span aria-hidden="true">${marks[i] ?? '◎'}</span><span>${esc(name)}</span><strong>${money(bank.balances[i])}</strong>`, 'view', `data-view="investments" data-account="${i}"`, 'bank-account')).join('')}</div>
-    <div class="bank-recent"><h3>Recent money log</h3>${recent.length ? `<ul class="bank-activity">${recent.map(entry => `<li><span>${esc(entry.label)}</span><strong>${isMoneyOut(entry.kind) ? '−' : '+'}${money(entry.cents)}</strong></li>`).join('')}</ul>` : '<p>Log your first paid job, reward or purchase to see it here.</p>'}</div>
+    <div class="bank-recent"><h3>${esc(tr("Recent money log"))}</h3>${recent.length ? `<ul class="bank-activity">${recent.map(entry => `<li><span>${esc(entry.label)}</span><strong>${isMoneyOut(entry.kind) ? '−' : '+'}${money(entry.cents)}</strong></li>`).join('')}</ul>` : `<p>${esc(tr("Log your first paid job, reward or purchase to see it here."))}</p>`}</div>
   </section>`;
 }
 function moneyView(p) {
@@ -308,14 +316,14 @@ function moneyView(p) {
   </section>
   <label class="inline-field">Week <select id="ledger-week">${p.weeks.map(w => `<option value="${w.index}" ${w === week ? 'selected' : ''}>${w.index + 1} · ${esc(moduleTitle(p,w.index))}</option>`).join('')}</select></label>
   <section class="panel money-flow" aria-label="Money earned and spent">
-    <div><span>Money in · Sales + activity rewards</span><strong>${money(t.sales + t.rewards)}</strong></div>
-    <span aria-hidden="true">−</span><div><span>Money out · Purchases, costs &amp; simulated tax</span><strong>${money(t.costs + t.spending + t.tax)}</strong></div>
-    <span aria-hidden="true">=</span><div><span>This week’s net cash</span><strong>${money(t.profit + t.rewards - t.tax - t.spending)}</strong></div>
+    <div><span>${esc(tr("Money in · Sales + activity rewards"))}</span><strong>${money(t.sales + t.rewards)}</strong></div>
+    <span aria-hidden="true">−</span><div><span>${esc(tr("Money out · Purchases, costs & simulated tax"))}</span><strong>${money(t.costs + t.spending + t.tax)}</strong></div>
+    <span aria-hidden="true">=</span><div><span>${esc(tr("This week’s net cash"))}</span><strong>${money(t.profit + t.rewards - t.tax - t.spending)}</strong></div>
   </section>
-  <div class="stats">${[['Sales',t.sales],['Expenses',t.costs],['Profit before tax',t.profit],['Simulated tax (' + week.rules.tax + '%)',t.tax]].map(([label,cents]) => `<article class="panel"><span>${label}</span><strong>${money(cents)}</strong></article>`).join('')}</div>
-  <section class="panel ledger"><div class="section-title"><h2>Transactions</h2>${pill(week.closed ? 'Week closed' : 'Open week', 'green')}</div>
+  <div class="stats">${[['Sales',t.sales],['Expenses',t.costs],['Profit before tax',t.profit],[tr('Simulated tax') + ' (' + week.rules.tax + '%)',t.tax]].map(([label,cents]) => `<article class="panel"><span>${tr(label)}</span><strong>${money(cents)}</strong></article>`).join('')}</div>
+  <section class="panel ledger"><div class="section-title"><h2>${esc(tr("Transactions"))}</h2>${pill(week.closed ? 'Week closed' : 'Open week', 'green')}</div>
   ${transactionTable(p, week)}</section>
-  <section class="panel spaced"><h2>${week.transfers ? 'Account transfers' : 'Original bucket allocations'}</h2>
+  <section class="panel spaced"><h2>${tr(week.transfers ? 'Account transfers' : 'Original bucket allocations')}</h2>
   ${week.transfers ? transferList(p, week) : bucketCards(t.allocations)}
   ${t.match ? `<p>Simulated savings match · ${money(t.match)}</p>` : ''}</section>`;
 }
@@ -338,14 +346,14 @@ function awardShelf(p, result) {
     const unlocked = earned.includes(award);
     return `<li class="award-card ${unlocked ? 'unlocked' : ''}">
       <span class="award-mark" aria-hidden="true">${award.icon}</span>
-      <div><strong>${award.title}</strong><p>${award.description}</p><small>${unlocked ? 'Earned' : 'To unlock'} · +${award.points} pts</small></div>
+      <div><strong>${tr(award.title)}</strong><p>${tr(award.description)}</p><small>${unlocked ? 'Earned' : 'To unlock'} · +${award.points} pts</small></div>
     </li>`;
   }).join('')}</ul>`;
   return `<section class="panel award-shelf" aria-labelledby="award-heading">
-    <div class="section-title"><div><h2 id="award-heading">Milestone rewards</h2><p>${earned.length} of ${skills.length + savings.length} badges earned</p></div>${pill('+' + result.awardPoints + ' reward points','green')}</div>
+    <div class="section-title"><div><h2 id="award-heading">${esc(tr("Milestone rewards"))}</h2><p>${earned.length} of ${skills.length + savings.length} badges earned</p></div>${pill('+' + result.awardPoints + ' reward points','green')}</div>
     <div class="next-reward"><strong>${nextTitle}</strong><p>${nextNote}</p></div>
-    <h3>Savings journey</h3>${renderAwards(savings)}
-    <h3>Business and money skills</h3>${renderAwards(skills)}
+    <h3>${esc(tr("Savings journey"))}</h3>${renderAwards(savings)}
+    <h3>${esc(tr("Business and money skills"))}</h3>${renderAwards(skills)}
   </section>`;
 }
 function progressView(p) {
@@ -353,15 +361,15 @@ function progressView(p) {
   return `${pageHeader('MY BUSINESS', 'My progress', 'See what you saved and what you learnt along the way.')}
   ${certificateShelf(p)}
   ${trendChart(p)}
-  <div class="progress-layout spaced">${goal(p, true)}<div class="stats progress-stats"><article class="panel"><span>Weeks closed</span><strong>${result.closed}</strong></article><article class="panel"><span>Shop points earned</span><strong>${result.points}</strong><p class="detail">${result.points - result.awardPoints - result.challengePoints} from missions and weeks · ${result.awardPoints} from badges · ${result.challengePoints} from challenges</p></article></div></div>
-  <section class="panel shop-callout"><div><h2>Make your profile yours</h2><p><strong>${wallet.balance} points available</strong> · ${wallet.spent} spent. Your badges stay in your collection.</p></div>${button('Open Profile shop', 'view', 'data-view="shop"', 'primary')}</section>
+  <div class="progress-layout spaced">${goal(p, true)}<div class="stats progress-stats"><article class="panel"><span>${esc(tr("Weeks closed"))}</span><strong>${result.closed}</strong></article><article class="panel"><span>${esc(tr("Shop points earned"))}</span><strong>${result.points}</strong><p class="detail">${result.points - result.awardPoints - result.challengePoints} from missions and weeks · ${result.awardPoints} from badges · ${result.challengePoints} from challenges</p></article></div></div>
+  <section class="panel shop-callout"><div><h2>${esc(tr("Make your profile yours"))}</h2><p><strong>${wallet.balance} points available</strong> · ${wallet.spent} spent. Your badges stay in your collection.</p></div>${button('Open Profile shop', 'view', 'data-view="shop"', 'primary')}</section>
   ${awardShelf(p, result)}
-  <div class="section-title spaced"><div><h2>Money buckets</h2><p>Current account balances. Save includes any simulated match.</p></div></div>
+  <div class="section-title spaced"><div><h2>${esc(tr("Money buckets"))}</h2><p>${esc(tr("Current account balances. Save includes any simulated match."))}</p></div></div>
   ${bucketCards(result.buckets,p)}
-  <section class="panel ledger spaced"><h2>${p.solo ? 'Business history' : 'Check-in history'}</h2>${p.weeks.some(w => w.closed) ? `<ul class="history">${p.weeks.filter(w => w.closed).map(w => {
+  <section class="panel ledger spaced"><h2>${tr(p.solo ? 'Business history' : 'Check-in history')}</h2>${p.weeks.some(w => w.closed) ? `<ul class="history">${p.weeks.filter(w => w.closed).map(w => {
     const tally = totals(w);
-    return `<li><strong>Week ${w.index + 1} · ${esc(moduleTitle(p,w.index))}</strong>${w.result ? `<p>${market[w.index % market.length].plans[w.choice].label} · ${w.result.tactic} · ${w.result.sold} sold</p>` : ''}<p>${money(tally.profit)} before simulated tax · ${money(tally.allocations[1] + tally.match)} net change in Save</p><p>${esc(w.feedback)}</p></li>`;
-  }).join('')}</ul>` : '<p>Your weekly notes will appear after you close your first week.</p>'}
+    return `<li><strong>${tr('Week')} ${w.index + 1} · ${esc(moduleTitle(p,w.index))}</strong>${w.result ? `<p>${market[w.index % market.length].plans[w.choice].label} · ${w.result.tactic} · ${w.result.sold} sold</p>` : ''}<p>${money(tally.profit)} before simulated tax · ${money(tally.allocations[1] + tally.match)} net change in Save</p><p>${esc(w.feedback)}</p></li>`;
+  }).join('')}</ul>` : `<p>${esc(tr("Your weekly notes will appear after you close your first week."))}</p>`}
   </section>`;
 }
 function avatar(p, compact = false) {
@@ -372,7 +380,7 @@ function portrait(item, compact = false) {
   return `<span class="arc-avatar ${item.symbol ? 'avatar-symbol' : ''} ${compact ? 'avatar-compact' : ''}" aria-hidden="true"${image}>${item.symbol ?? ''}</span>`;
 }
 function identity(p) {
-  return `<span class="learner-identity">${avatar(p, true)}<span><strong>${esc(p.name)}</strong><small>${cosmetics(p).title.name}</small></span></span>`;
+  return `<span class="learner-identity">${avatar(p, true)}<span><strong>${esc(p.name)}</strong><small>${tr(cosmetics(p).title.name)}</small></span></span>`;
 }
 function artwork(p) {
   return `style="--scene-image:url('${esc(assetUrl(cosmetics(p).background.image))}')"`;
@@ -387,30 +395,30 @@ function shopView(p) {
       ? `<span class="style-scene" style="background-image:url('${esc(assetUrl(item.image))}')" aria-hidden="true"></span>`
       : item.kind === 'icon'
         ? portrait(item)
-        : `<span class="style-title"><span aria-hidden="true">✦</span> ${item.name}</span>`;
-    return `<li class="style-card">${preview}<div class="style-card-copy"><h3>${item.name}</h3><p>${item.description}</p>
+        : `<span class="style-title"><span aria-hidden="true">✦</span> ${tr(item.name)}</span>`;
+    return `<li class="style-card">${preview}<div class="style-card-copy"><h3>${tr(item.name)}</h3><p>${tr(item.description)}</p>
       <div class="catalog-actions">${wearing ? pill('Equipped', 'green')
-        : owned ? button('Equip', 'shop-equip', attrs + ` aria-label="Equip ${item.name}"`, 'small')
+        : owned ? button('Equip', 'shop-equip', attrs + ` aria-label="Equip ${tr(item.name)}"`, 'small')
         : item.rewardOnly ? pill(item.rewardOnly)
-        : `${wallet.balance >= item.cost ? button('Buy · ' + item.cost + ' pts', 'shop-buy', attrs + ` aria-label="Buy ${item.name} for ${item.cost} points"`, 'primary small') : pill(item.cost + ' pts · ' + (item.cost - wallet.balance) + ' to go')}
-        ${target?.id === item.id ? pill('Saving for this', 'green') : button('Save for this', 'shop-target', attrs + ` aria-label="Save for ${item.name}"`, 'small')}`}</div></div></li>`;
+        : `${wallet.balance >= item.cost ? button(tr('Buy · {cost} pts', {cost:item.cost}), 'shop-buy', attrs + ` aria-label="Buy ${tr(item.name)} for ${item.cost} points"`, 'primary small') : pill(tr('{cost} pts · {points} to go', {cost:item.cost,points:item.cost-wallet.balance}))}
+        ${target?.id === item.id ? pill('Saving for this', 'green') : button('Save for this', 'shop-target', attrs + ` aria-label="Save for ${tr(item.name)}"`, 'small')}`}</div></div></li>`;
   };
   return `${pageHeader('PROFILE SHOP', 'Make it yours', 'Choose an icon, dashboard background or title. Spend points now or save up for something you want.')}
   <div class="style-overview">
-    <section class="style-preview" ${artwork(p)} aria-label="Your equipped profile">${avatar(p)}<div><h2>${esc(p.name)}</h2><span class="style-title">✦ ${equipped.title.name}</span><p>${equipped.background.name}</p></div></section>
-    <section class="panel points-wallet"><h2>Game points</h2><p class="wallet-balance"><strong>${wallet.balance}</strong> <span>available to spend</span></p>
-    ${target ? `<p>Saving for <strong>${target.name}</strong> · ${Math.max(0,target.cost-wallet.balance)} pts to go</p><progress value="${Math.min(wallet.balance,target.cost)}" max="${target.cost}" aria-label="Points towards ${target.name}"></progress>${button('Clear goal', 'shop-target', '', 'quiet small')}` : `<p>Set a point goal with <strong>Save for this</strong>.</p>${button('See how I earn points','view','data-view="progress"','small')}`}</section>
+    <section class="style-preview" ${artwork(p)} aria-label="Your equipped profile">${avatar(p)}<div><h2>${esc(p.name)}</h2><span class="style-title">✦ ${tr(equipped.title.name)}</span><p>${tr(equipped.background.name)}</p></div></section>
+    <section class="panel points-wallet"><h2>${esc(tr("Game points"))}</h2><p class="wallet-balance"><strong>${wallet.balance}</strong> <span>${esc(tr("available to spend"))}</span></p>
+    ${target ? `<p>${tr('Saving for {item} · {points} pts to go', {item:'<strong>' + esc(tr(target.name)) + '</strong>',points:Math.max(0,target.cost-wallet.balance)})}</p><progress value="${Math.min(wallet.balance,target.cost)}" max="${target.cost}" aria-label="${esc(tr('Points towards {item}', {item:tr(target.name)}))}"></progress>${button('Clear goal', 'shop-target', '', 'quiet small')}` : `<p>${esc(tr("Set a point goal with"))} <strong>${esc(tr("Save for this"))}</strong>.</p>${button('See how I earn points','view','data-view="progress"','small')}`}</section>
   </div>
-  ${[['icon','Profile icons'],['background','Dashboard backgrounds'],['title','Titles']].map(([kind,label])=>`<section class="style-catalog"><h2>${label}</h2><ul>${shopItems.filter(item=>item.kind===kind).map(card).join('')}</ul></section>`).join('')}`;
+  ${[['icon','Profile icons'],['background','Dashboard backgrounds'],['title','Titles']].map(([kind,label])=>`<section class="style-catalog"><h2>${tr(label)}</h2><ul>${shopItems.filter(item=>item.kind===kind).map(card).join('')}</ul></section>`).join('')}`;
 }
 function shopPurchaseDialog(p, item) {
   const wallet = shopWallet(p);
   if (wallet.owned.has(item.id) || wallet.balance < item.cost) return;
   const remaining = wallet.balance - item.cost;
   const target = shopItems.find(other => other.id === p.shop?.target && other.id !== item.id);
-  openDialog('Buy ' + item.name + '?', `<p>This costs <strong>${item.cost} game points</strong> and leaves you with <strong>${remaining} points</strong>.</p>
+  openDialog(tr('Buy {item}?', {item:esc(tr(item.name))}), `<p>This costs <strong>${item.cost} game points</strong> and leaves you with <strong>${remaining} points</strong>.</p>
     ${target && remaining < target.cost ? `<p class="shop-tradeoff">You’ll need ${target.cost - remaining} more points for ${target.name}.</p>` : ''}
-    ${form('shop-buy', '', 'Spend ' + item.cost + ' points', `${playerAttrs(p)} data-id="${item.id}"`)}`);
+    ${form('shop-buy', '', tr('Spend {cost} points', {cost:item.cost}), `${playerAttrs(p)} data-id="${item.id}"`)}`);
 }
 
 let chartMetric = 'xp';
@@ -420,15 +428,15 @@ function trendChart(p, showProgressLink = false) {
   const selected = history.find(point => point.week === chartWeek) ?? history.at(-1);
   const step = savings ? 500 : 20;
   const max = Math.max(step, Math.ceil(Math.max(...history.map(point => point[chartMetric])) / step) * step);
-  const format = amount => savings ? money(amount) : amount + ' XP';
-  return `<section class="arc-trend" aria-label="Progress chart">
-    <div class="trend-head"><div><h2>Progress over time</h2><p>${savings ? 'Money added to Save at check-ins' : 'Total Learning XP from missions, videos and quizzes'}</p></div>
+  const format = amount => savings ? money(amount) : tr('{points} XP', {points:amount});
+  return `<section class="arc-trend" aria-label="${esc(tr("Progress chart"))}">
+    <div class="trend-head"><div><h2>${esc(tr("Progress over time"))}</h2><p>${tr(savings ? 'Money added to Save at check-ins' : 'Total Learning XP from missions, videos and quizzes')}</p></div>
     ${showProgressLink ? button('My progress →','view','data-view="progress"','small') : ''}</div>
-    <div class="trend-tools"><div class="trend-tabs" aria-label="Chart metric">
+    <div class="trend-tools"><div class="trend-tabs" aria-label="${esc(tr("Chart metric"))}">
       ${[['xp','Learning XP'],['saved','Savings']].map(([id,label])=>button(label,'chart-metric',`data-id="${id}" aria-pressed="${chartMetric===id}"`,'small')).join('')}
-    </div><p><strong>${format(selected[chartMetric])}</strong> · Week ${selected.week}</p></div>
+    </div><p><strong>${format(selected[chartMetric])}</strong> · ${tr('Week')} ${selected.week}</p></div>
     <div class="trend-plot"><div class="trend-axis" aria-hidden="true"><span>${format(max)}</span><span>${savings ? '$0' : '0'}</span></div>
-    <div class="trend-columns" style="--count:${history.length}">${history.map(point=>`<button type="button" class="trend-column" data-action="chart-week" data-index="${point.week}" aria-pressed="${selected.week===point.week}" aria-label="Week ${point.week}, ${format(point[chartMetric])}"><span class="trend-bar" style="--height:${112*point[chartMetric]/max}px"></span><small>${point.week}</small></button>`).join('')}</div></div>
+    <div class="trend-columns" style="--count:${history.length}">${history.map(point=>`<button type="button" class="trend-column" data-action="chart-week" data-index="${point.week}" aria-pressed="${selected.week===point.week}" aria-label="${tr('Week')} ${point.week}, ${format(point[chartMetric])}"><span class="trend-bar" style="--height:${112*point[chartMetric]/max}px"></span><small>${point.week}</small></button>`).join('')}</div></div>
   </section>`;
 }
 
@@ -446,17 +454,17 @@ function competitionNotice(p) {
   }).join('')}</section>`;
 }
 function journey(p, level) {
-  return `<section class="arc-journey"><div class="arc-section-head"><div><span>12-WEEK PROGRAMME</span><h2>Your money journey</h2></div>${button('See all weeks', 'view', 'data-view="week"', 'small')}</div>
-    <ol>${levels.map((name,i) => `<li class="journey-step level-${i} ${i === level ? 'here' : ''}" ${i === level ? 'aria-current="step"' : ''}><b>LEVEL ${i+1}</b><span class="journey-icon" aria-hidden="true">${levelIcons[i]}</span><strong>${name}</strong><small>${levelGoals[i]}</small></li>`).join('')}</ol>
-    <div class="arc-week-grid" aria-label="Programme weeks">${episodes.map((episode,i) => `<span title="${i+1} · ${esc(episode.title)}" class="${p.weeks[i]?.closed ? 'done' : p.weeks[i] ? 'current' : ''}">${i+1}</span>`).join('')}</div></section>`;
+  return `<section class="arc-journey"><div class="arc-section-head"><div><span>${esc(tr("12-WEEK PROGRAMME"))}</span><h2>${esc(tr("Your money journey"))}</h2></div>${button('See all weeks', 'view', 'data-view="week"', 'small')}</div>
+    <ol>${levels.map((name,i) => `<li class="journey-step level-${i} ${i === level ? 'here' : ''}" ${i === level ? 'aria-current="step"' : ''}><b>${tr('LEVEL')} ${i+1}</b><span class="journey-icon" aria-hidden="true">${levelIcons[i]}</span><strong>${tr(name)}</strong><small>${tr(levelGoals[i])}</small></li>`).join('')}</ol>
+    <div class="arc-week-grid" aria-label="${esc(tr("Programme weeks"))}">${episodes.map((episode,i) => `<span title="${i+1} · ${esc(tr(episode.title))}" class="${p.weeks[i]?.closed ? 'done' : p.weeks[i] ? 'current' : ''}">${i+1}</span>`).join('')}</div></section>`;
 }
 function weeklyChallengeCard(p) {
   const week = activeWeek(p), scenario = challengeFor(week.index);
   return `<section class="panel play-card">
     <div class="play-emblem" aria-hidden="true">🎮</div>
-    <div><div class="eyebrow">WEEK ${week.index + 1} CHALLENGE</div><h2>${scenario.title}</h2>
-    <p>${week.weeklyCertificate ? 'Certificate earned. Play again or choose another activity.' : 'Play to earn a weekly certificate and ' + weeklyPoints + ' Shop points.'}</p></div>
-    ${button((week.weeklyCertificate ? 'Replay ' : 'Start ') + scenario.title, 'weekly-play', '', 'primary')}
+    <div><div class="eyebrow">${tr('WEEK {number} CHALLENGE', {number:week.index+1})}</div><h2>${tr(scenario.title)}</h2>
+    <p>${week.weeklyCertificate ? tr('Certificate earned. Play again or choose another activity.') : tr('Play to earn a weekly certificate and {points} Shop points.', {points:weeklyPoints})}</p></div>
+    ${button(tr(week.weeklyCertificate ? 'Replay {activity}' : 'Start {activity}', {activity:tr(scenario.title)}), 'weekly-play', '', 'primary')}
   </section>`;
 }
 const samVideoLibrary = 'https://www.successavenuemoney.com/library';
@@ -478,11 +486,11 @@ function samAssignment(module) {
   return { video, quiz, embed: vimeoPlayer(video), assigned: video !== samVideoLibrary && quiz !== samQuizLibrary };
 }
 function samLink(url, label) {
-  return `<a class="button secondary sam-quiz-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label}<span class="sr-only"> (opens in a new tab)</span> ↗</a>`;
+  return `<a class="button secondary sam-quiz-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${tr(label)}<span class="sr-only"> (opens in a new tab)</span> ↗</a>`;
 }
 function samLessonSteps(assignment, inline = false) {
   const watch = assignment.embed
-    ? (inline ? `<p><strong>1. Watch the SAM video</strong></p>${vimeoFrame(assignment.embed)}` : button('1. Watch the SAM video', 'task', 'data-id="learning"'))
+    ? (inline ? `<p><strong>${esc(tr("1. Watch the SAM video"))}</strong></p>${vimeoFrame(assignment.embed)}` : button('1. Watch the SAM video', 'task', 'data-id="learning"'))
     : samLink(assignment.video, assignment.video !== samVideoLibrary ? '1. Watch the SAM video' : '1. Open SAM video library');
   return `${inline && assignment.embed ? watch : ''}<div class="action-row">
     ${inline && assignment.embed ? '' : watch}
@@ -496,18 +504,18 @@ function challengesView(p) {
   return `${pageHeader('CHALLENGE ARCADE', 'Challenges', 'Choose this week’s activity, open a teacher challenge, or play a practice game.')}
     ${weeklyChallengeCard(p)}
     <section class="panel spaced" aria-labelledby="sam-quiz-title">
-      <h2 id="sam-quiz-title">Weekly video and quiz on Success Avenue Money</h2>
-      <p>Sign in to SAM. Watch the video first, then take the quiz about that video.</p>
+      <h2 id="sam-quiz-title">${esc(tr("Weekly video and quiz on Success Avenue Money"))}</h2>
+      <p>${esc(tr("Sign in to SAM. Watch the video first, then take the quiz about that video."))}</p>
       ${samLessonSteps(assignment)}
       ${assignment.assigned ? '' : '<p>This week’s matching SAM video and quiz links haven’t both been assigned. You can try the labelled placeholders in the game.</p>'}
       ${assignment.embed ? '' : `<div class="action-row">${button(assignment.assigned ? 'Open weekly lesson' : 'Try the placeholder lesson', 'task', 'data-id="learning"', 'small')}</div>`}
     </section>
     ${learnerClassChallenges(p, true)}
-    <section class="panel practice-market spaced"><div class="eyebrow">FREE PLAY</div><h2>Market Day practice</h2>
-    <p>Try another stall plan with $40 in game money. Weekly certificates come from the weekly challenge above.</p>
+    <section class="panel practice-market spaced"><div class="eyebrow">${esc(tr("FREE PLAY"))}</div><h2>${esc(tr("Market Day practice"))}</h2>
+    <p>${esc(tr("Try another stall plan with $40 in game money. Weekly certificates come from the weekly challenge above."))}</p>
     ${button('Play Market Day practice', 'practice-market')}</section>
-    ${past.length ? `<section class="panel spaced"><h2>Earlier challenges</h2>
-    <ul class="challenge-list">${past.map(w => `<li><div><strong>Week ${w.index + 1} · ${challengeFor(w.index).title}</strong>
+    ${past.length ? `<section class="panel spaced"><h2>${esc(tr("Earlier challenges"))}</h2>
+    <ul class="challenge-list">${past.map(w => `<li><div><strong>${tr('Week')} ${w.index + 1} · ${tr(challengeFor(w.index).title)}</strong>
       <p>${w.weeklyCertificate ? 'Certificate earned' : 'Available to catch up'}</p></div>
       ${button(w.weeklyCertificate ? 'Replay' : 'Play', 'weekly-play', `data-index="${w.index}" aria-label="Play week ${w.index + 1} challenge"`, 'small')}</li>`).join('')}</ul></section>` : ''}`;
 }
@@ -521,23 +529,23 @@ function startScenario(index, previous) {
   if (scenario.kind === 'market') {
     const stock = previous?.stock ?? 8, price = previous?.price ?? 4;
     const plan = runSchoolMarket(scenario, stock, price);
-    openDialog('Market Day', `<p>${scenario.story}</p>
+    openDialog('Market Day', `<p>${tr(scenario.story)}</p>
       <div class="market-game-art" aria-hidden="true"></div>
-      <div class="game-money"><span>STARTING BUDGET</span><strong>${money(scenario.budget * 100)}</strong></div>
+      <div class="game-money"><span>${esc(tr("STARTING BUDGET"))}</span><strong>${money(scenario.budget * 100)}</strong></div>
       ${form('school-market', `<p>Hire the stall for ${money(scenario.fee * 100)}. Stock costs ${money(scenario.unitCost * 100)} per drink. Choose how many to buy and what to charge.</p>
-      <fieldset class="market-picker"><legend>Drinks to buy</legend><div>
+      <fieldset class="market-picker"><legend>${esc(tr("Drinks to buy"))}</legend><div>
         ${stockOptions.filter(q => scenario.fee + q * scenario.unitCost <= scenario.budget).map(q => `<label><input type="radio" name="stock" value="${q}" ${q === stock ? 'checked' : ''} required><span>${q}</span></label>`).join('')}
       </div></fieldset>
-      <fieldset class="market-picker"><legend>Sale price per drink</legend><div>
+      <fieldset class="market-picker"><legend>${esc(tr("Sale price per drink"))}</legend><div>
         ${prices.map(v => `<label><input type="radio" name="price" value="${v}" ${v === price ? 'checked' : ''} required><span>${money(v * 100)}</span></label>`).join('')}
       </div></fieldset>
-      <div class="plan-meter"><progress id="market-plan-meter" value="${plan.cost}" max="${scenario.budget}" aria-label="Budget used on stock and stall hire"></progress>
+      <div class="plan-meter"><progress id="market-plan-meter" value="${plan.cost}" max="${scenario.budget}" aria-label="${esc(tr("Budget used on stock and stall hire"))}"></progress>
       <p class="game-buffer" id="market-buffer" role="status">${marketBudgetText(plan)}</p></div>
       ${previous ? `<p class="detail">Last try: ${previous.stock} drinks at ${money(previous.price * 100)} each · ${previous.covered ? money(previous.profit * 100) + ' after costs' : 'could not pay the surprise cost'}.</p>` : ''}`, 'Open the stall', attrs)}`);
     return;
   }
-  openDialog(esc(scenario.title), `<p>${scenario.story}</p>${form('weekly-decisions',
-    `<div class="quiz-questions">${scenario.questions.map((q,i) => `<fieldset><legend>${i+1}. ${q.prompt}</legend><div class="decision-options">
+  openDialog(esc(tr(scenario.title)), `<p>${tr(scenario.story)}</p>${form('weekly-decisions',
+    `<div class="quiz-questions">${scenario.questions.map((q,i) => `<fieldset><legend>${i+1}. ${tr(q.prompt)}</legend><div class="decision-options">
     ${q.answers.map((answer,n) => `<label class="radio"><input type="radio" name="q${i}" value="${n}" required> ${answer}</label>`).join('')}</div></fieldset>`).join('')}</div>`,
     'Check my choices', attrs)}`);
 }
@@ -606,7 +614,7 @@ function nextCertificateReward(count) {
   return 'Next unlock: ' + shopItems.find(item => item.id === milestone.item).name + ' · ' + remaining + ' certificate' + (remaining === 1 ? '' : 's') + ' to go';
 }
 function certificateShelf(p) {
-  const weekly = weeklyCertificates(p).map(w => `<li><div><strong>Week ${w.index + 1} · ${challengeFor(w.index).title}</strong><p>Weekly challenge certificate</p></div>${button('View certificate','show-certificate',scenarioAttrs(w.index),'small')}</li>`);
+  const weekly = weeklyCertificates(p).map(w => `<li><div><strong>${tr('Week')} ${w.index + 1} · ${tr(challengeFor(w.index).title)}</strong><p>Weekly challenge certificate</p></div>${button('View certificate','show-certificate',scenarioAttrs(w.index),'small')}</li>`);
   const custom = (state.classChallenges ?? []).filter(c => c.certificate && c.learners.includes(p.id) && c.entries[p.id]?.status === 'approved')
     .map(c => `<li><div><strong>${esc(c.title)}</strong><p>Teacher challenge certificate</p></div>${button('View certificate','show-certificate',`data-id="${c.id}"`,'small')}</li>`);
   return `<section class="panel spaced"><div class="section-title"><div><h2>Certificates</h2>
@@ -644,7 +652,7 @@ function teacherChallengesView() {
   const roster = state.players;
   return `${pageHeader('CLASSROOM', 'Challenges & rewards', 'Set a challenge, review learners’ work, and keep track of rewards.',
     roster.length ? button('Create teacher challenge','new-class-challenge','','primary') : '')}
-    <section class="panel"><h2>Weekly certificates</h2>
+    <section class="panel"><h2>${esc(tr("Weekly certificates"))}</h2>
     ${roster.length ? `<ul class="challenge-list">${roster.map(p => `<li><strong>${esc(p.name)}</strong>
       <span>${weeklyCertificates(p).length} earned</span></li>`).join('')}</ul>` : '<p>Add learners from the Group dashboard to start.</p>'}</section>
     ${(state.classChallenges ?? []).map(c => `<section class="panel spaced"><div class="section-title"><div>
@@ -655,7 +663,7 @@ function teacherChallengesView() {
       <ul class="challenge-list">${roster.filter(p => c.learners.includes(p.id)).map(p => {
         const entry = c.entries[p.id], attrs = `data-id="${c.id}" ${playerAttrs(p)}`;
         const status = {pending:'Awaiting review', approved:'Approved', revise:'Needs revision'}[entry?.status] ?? 'To do';
-        return `<li><div><strong>${esc(p.name)}</strong><p>${status}${entry?.delivered ? ' · Reward delivered' : ''}</p>
+        return `<li><div><strong>${esc(p.name)}</strong><p>${tr(status)}${entry?.delivered ? ' · Reward delivered' : ''}</p>
           ${entry?.status === 'approved' ? `<p class="challenge-work">${esc(entry.work)}</p>` : ''}</div>
           <div class="action-row">${entry?.status === 'pending' && !c.closed ? button('Review submission','class-review',attrs,'small') : ''}
           ${c.realReward && !c.classTarget && entry?.status === 'approved' && !entry.delivered ? button('Mark reward delivered','class-delivered',attrs,'small') : ''}</div></li>`;
@@ -671,7 +679,7 @@ function createClassChallengeDialog() {
     + noteField('What should learners do and submit?','brief','Explain what to do and how they can show you what they learnt.')
     + field('Assign to','recipient','Choose an individual learner or everyone currently in this group.',`<select name="recipient"><option value="all">All learners</option>${roster.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>`)
     + '<label class="radio"><input type="checkbox" name="certificate" checked> Award a printable certificate on approval</label>'
-    + field('Avatar reward','avatar','Optional. Each approved learner receives this in the Profile Shop.',`<select name="avatar"><option value="">None</option>${rewardItems.map(item=>`<option value="${item.id}">${item.name}</option>`).join('')}</select>`)
+    + field('Avatar reward','avatar','Optional. Each approved learner receives this in the Profile Shop.',`<select name="avatar"><option value="">None</option>${rewardItems.map(item=>`<option value="${item.id}">${tr(item.name)}</option>`).join('')}</select>`)
     + textField('Classroom reward (optional)','realReward','For example, Class lunch. You organise and deliver it.','',80,false)
     + field('Class target (optional)','classTarget','For a shared reward, enter how many learners must be approved. Leave blank for individual rewards.',`<input type="number" name="classTarget" min="1" max="${roster.length}" step="1">`),
     'Publish challenge'));
@@ -696,15 +704,15 @@ function questTrail(p) {
   const steps = [
     ['🎮', 'Play the weekly challenge', week.weeklyCertificate ? 'Certificate earned' : 'Optional · earns a certificate', week.weeklyCertificate,
       button('Open Challenges','open-weekly-challenges','','small')],
-    ['⚡', 'Finish your missions', complete + ' of ' + required.length + ' approved', complete === required.length,
+    ['⚡', 'Finish your missions', tr('{done} of {total} approved', {done:complete,total:required.length}), complete === required.length,
       next ? button('Open next mission','task',`data-id="${esc(next.id)}"`,'small') : ''],
     ['🚩', 'Unlock the next week', week.closed ? 'Week complete' : complete < required.length
       ? 'Finish the required missions first' : p.solo ? 'Ready to close this week' : 'Ready for an adult check-in', week.closed,
       p.solo && complete === required.length && !week.closed ? button('Settle the week','solo-settle','','small') : '']
   ];
-  return `<section class="panel quest-trail"><h2>Week ${week.index + 1} quest trail</h2><ol>
+  return `<section class="panel quest-trail"><h2>${tr('Week {number} quest trail', {number:week.index+1})}</h2><ol>
     ${steps.map(([icon,label,note,done,action]) => `<li class="${done?'step-done':''}"><span class="quest-symbol" aria-hidden="true">${done?'✓':icon}</span>
-      <div><strong>${label}</strong><p>${note}</p></div>${action}</li>`).join('')}
+      <div><strong>${tr(label)}</strong><p>${tr(note)}</p></div>${action}</li>`).join('')}
     </ol></section>`;
 }
 function shopGoalCard(p) {
@@ -713,8 +721,8 @@ function shopGoalCard(p) {
   if (!item) return '';
   const remaining = Math.max(0, item.cost - wallet.balance);
   return `<section class="arc-card shop-goal-card"><span>${tr('SHOP SAVING GOAL')}</span>
-    <h2>${button(esc(item.name), 'view', 'data-view="shop"', 'card-link')}</h2>
-    <progress value="${Math.min(item.cost,wallet.balance)}" max="${item.cost}" aria-label="${esc(item.name)}"></progress>
+    <h2>${button(esc(tr(item.name)), 'view', 'data-view="shop"', 'card-link')}</h2>
+    <progress value="${Math.min(item.cost,wallet.balance)}" max="${item.cost}" aria-label="${esc(tr(item.name))}"></progress>
     <p>${remaining ? remaining + ' ' + tr('points to go') : tr('Ready to buy in the Profile shop')}</p></section>`;
 }
 function dashboardView(p) {
@@ -734,26 +742,26 @@ function dashboardView(p) {
     : button(samAssigned ? 'Open weekly lesson' : 'Open placeholder lesson','task','data-id="learning"');
   return `<div class="arc-dashboard">
     <div class="arc-grid">
-      <aside class="arc-profile">${button(avatar(p), 'view', 'data-view="shop" aria-label="Customise my profile"', 'avatar-button')}<strong>${esc(p.name)}</strong><span class="profile-title">${cosmetics(p).title.name}</span><p>${esc(p.business)}</p>
-      <div class="arc-level">LEVEL ${level+1}<br><span>${levels[level]}</span></div>
-      <dl><div><dt>✦ Learning XP</dt><dd>${stats.xp}</dd></div><div><dt>◉ Shop points</dt><dd>${shopWallet(p).balance}</dd></div><div><dt>✓ Weeks closed</dt><dd>${closed}</dd></div></dl>
+      <aside class="arc-profile">${button(avatar(p), 'view', 'data-view="shop" aria-label="Customise my profile"', 'avatar-button')}<strong>${esc(p.name)}</strong><span class="profile-title">${tr(cosmetics(p).title.name)}</span><p>${esc(p.business)}</p>
+      <div class="arc-level">${tr('LEVEL')} ${level+1}<br><span>${tr(levels[level])}</span></div>
+      <dl><div><dt>✦ ${tr('Learning XP')}</dt><dd>${stats.xp}</dd></div><div><dt>◉ ${tr('Shop points')}</dt><dd>${shopWallet(p).balance}</dd></div><div><dt>✓ ${tr('Weeks closed')}</dt><dd>${closed}</dd></div></dl>
       </aside>
       <section class="arc-main"><div class="arc-hero" ${artwork(p)}>
-        <div class="arc-hero-copy"><span class="arc-tag">${w.index >= programmeLength ? 'KEEP GOING' : 'WEEK ' + (w.index+1) + ' / 12'}</span>
-          <div class="hero-mobile-identity">${identity(p)}</div><h1>${w.closed ? '12 weeks complete!' : 'Ready, ' + esc(p.name) + '?'}</h1><p>${esc(tr(info.title))}${p.track === 0 ? ' · Play with a grown-up' : ''}</p>
+        <div class="arc-hero-copy"><span class="arc-tag">${w.index >= programmeLength ? tr('Keep going') : tr('Week').toUpperCase() + ' ' + (w.index+1) + ' / 12'}</span>
+          <div class="hero-mobile-identity">${identity(p)}</div><h1>${w.closed ? tr('12 weeks complete!') : tr('Ready, {name}?', {name:esc(p.name)})}</h1><p>${esc(tr(info.title))}${p.track === 0 ? ' · ' + tr('Play with a grown-up') : ''}</p>
           <div class="hero-choices">${w.closed ? next + openChallenges : openChallenges + next}</div>
         </div></div>
-        <div class="arc-missions"><div class="arc-section-head"><div><span>YOUR NEXT MOVE</span><h2>${tr('This week’s missions')}</h2></div>${pill(approved + ' / ' + required + ' approved', 'green')}</div>
+        <div class="arc-missions"><div class="arc-section-head"><div><span>${esc(tr("YOUR NEXT MOVE"))}</span><h2>${tr('This week’s missions')}</h2></div>${pill(tr('{done} of {total} approved', {done:approved,total:required}), 'green')}</div>
         <div class="arc-actions">
-          ${button(`<span aria-hidden="true">${missionIcons.chore}</span>` + `<strong>${tr('I did a chore')}</strong><small>Log a job you finished</small>`, 'log-chore', w.closed ? 'disabled' : '', 'mission-action mission-chore')}
-          ${button(`<span aria-hidden="true">${missionIcons.business}</span>` + `<strong>${tr('Business mission')}</strong><small>` + (p.mode === 'sim' ? 'Try one move in your practice market' : 'Try one move in your real business') + '</small>', 'task', 'data-id="business"', 'mission-action mission-business')}
-          ${button(`<span aria-hidden="true">${missionIcons.learning}</span>` + `<strong>${esc(tr('Video & quiz'))}</strong><small>` + (lesson.status === 'submitted' ? 'Awaiting review' : quizDone ? 'Quiz complete' : samAssigned ? 'Watch on SAM, then take the quiz' : 'Placeholder video and quiz') + '</small>', 'task', 'data-id="learning"', 'mission-action mission-learning')}
-          ${button(`<span aria-hidden="true">${missionIcons.reflection}</span>` + `<strong>${tr('Money habit')}</strong><small>Try it in real life</small>`, 'task', 'data-id="reflection"', 'mission-action mission-reflection')}
+          ${button(`<span aria-hidden="true">${missionIcons.chore}</span>` + `<strong>${tr('I did a chore')}</strong><small>${esc(tr("Log a job you finished"))}</small>`, 'log-chore', w.closed ? 'disabled' : '', 'mission-action mission-chore')}
+          ${button(`<span aria-hidden="true">${missionIcons.business}</span>` + `<strong>${tr('Business mission')}</strong><small>` + tr(p.mode === 'sim' ? 'Try one move in your practice market' : 'Try one move in your real business') + '</small>', 'task', 'data-id="business"', 'mission-action mission-business')}
+          ${button(`<span aria-hidden="true">${missionIcons.learning}</span>` + `<strong>${esc(tr('Video & quiz'))}</strong><small>` + tr(lesson.status === 'submitted' ? 'Awaiting review' : quizDone ? 'Quiz complete' : samAssigned ? 'Watch on SAM, then take the quiz' : 'Placeholder video and quiz') + '</small>', 'task', 'data-id="learning"', 'mission-action mission-learning')}
+          ${button(`<span aria-hidden="true">${missionIcons.reflection}</span>` + `<strong>${tr('Money habit')}</strong><small>${esc(tr("Try it in real life"))}</small>`, 'task', 'data-id="reflection"', 'mission-action mission-reflection')}
         </div></div>
       </section>
-      <aside class="arc-side"><section class="arc-card"><span>YOUR PROGRESS</span><h2>${button(level === 5 ? 'Top level reached' : 'Next level', 'view', 'data-view="progress" aria-label="Your progress"', 'card-link')}</h2><progress max="100" value="${levelProgress}" aria-label="Learning XP to next level"></progress><p>${level === 5 ? 'Keep practising your money habits.' : (levelStep - levelProgress) + ' XP to Level ' + (level+2)}</p></section>
-      <section class="arc-card arc-gold"><span>MY BIG GOAL</span><h2>${button(esc(p.goal), 'view', 'data-view="progress" aria-label="My big goal and savings progress"', 'card-link')}</h2><progress max="100" value="${pct(p)}" aria-label="Savings goal progress"></progress><p>${pct(p)}% of goal · ${closed} ${closed === 1 ? 'week' : 'weeks'} checked in</p></section>
-      ${shopGoalCard(p)}<section class="arc-card arc-chart"><span>LEARNING THIS WEEK</span><h2>${button(week.xp + ' XP earned', 'view', 'data-view="week" aria-label="See this week’s learning"', 'card-link')}</h2><dl>${[['Missions',week.missions,w.tasks.filter(t=>t.id!=='learning' && t.kind!=='chore').length + Number(w.tasks.some(t=>t.kind==='chore'))],['Videos',week.videos,1],['Quizzes',week.quizzes,1]].map(([label,n,max])=>`<div><dt>${label}</dt><dd><progress aria-label="${label} completed this week" max="${Math.max(1,max)}" value="${n}"></progress><b>${n}</b></dd></div>`).join('')}</dl></section></aside>
+      <aside class="arc-side"><section class="arc-card"><span>${esc(tr("YOUR PROGRESS"))}</span><h2>${button(level === 5 ? 'Top level reached' : 'Next level', 'view', 'data-view="progress" aria-label="Your progress"', 'card-link')}</h2><progress max="100" value="${levelProgress}" aria-label="Learning XP to next level"></progress><p>${level === 5 ? tr('Keep practising your money habits.') : tr('{points} XP to Level {level}', {points:levelStep-levelProgress,level:level+2})}</p></section>
+      <section class="arc-card arc-gold"><span>${esc(tr("MY BIG GOAL"))}</span><h2>${button(esc(p.goal), 'view', 'data-view="progress" aria-label="My big goal and savings progress"', 'card-link')}</h2><progress max="100" value="${pct(p)}" aria-label="${esc(tr("Savings goal progress"))}"></progress><p>${tr('{percent}% of goal · {weeks} checked in', {percent:pct(p),weeks:closed})}</p></section>
+      ${shopGoalCard(p)}<section class="arc-card arc-chart"><span>${esc(tr("LEARNING THIS WEEK"))}</span><h2>${button(tr('{count} XP earned', {count:week.xp}), 'view', 'data-view="week" aria-label="See this week’s learning"', 'card-link')}</h2><dl>${[['Missions',week.missions,w.tasks.filter(t=>t.id!=='learning' && t.kind!=='chore').length + Number(w.tasks.some(t=>t.kind==='chore'))],['Videos',week.videos,1],['Quizzes',week.quizzes,1]].map(([label,n,max])=>`<div><dt>${tr(label)}</dt><dd><progress aria-label="${label} completed this week" max="${Math.max(1,max)}" value="${n}"></progress><b>${n}</b></dd></div>`).join('')}</dl></section></aside>
     </div>
     ${bankOverview(p)}
     ${questTrail(p)}
@@ -761,6 +769,7 @@ function dashboardView(p) {
     ${trendChart(p, true)}
     ${competitionNotice(p)}
     ${journey(p,level)}
+    ${learnerLeaderboard(p)}
   </div>`;
 }
 const bucketAdventures = [
@@ -788,8 +797,8 @@ const bucketAdventures = [
 
 function bucketLesson(p, name, description, index) {
   const current = activeWeek(p).index % programmeLength === index;
-  return `<div><strong>${name}</strong><p>${description}</p>
-    ${current ? button('Open this week’s lesson','task','data-id="learning"','small') : `<small>Week ${index+1}</small>`}
+  return `<div><strong>${tr(name)}</strong><p>${tr(description)}</p>
+    ${current ? button('Open this week’s lesson','task','data-id="learning"','small') : `<small>${tr('Week')} ${index+1}</small>`}
   </div>`;
 }
 
@@ -810,7 +819,7 @@ function bucketDialog(p) {
 function investmentsView(p) {
   const result = accounts(p), week = activeWeek(p);
   return `<header class="bucket-page-heading">
-    <div><span class="eyebrow">GAME BANK</span><h1>${tr('My money buckets')}</h1><p>${tr('Give each dollar a job. These practice accounts use the money you record in the game.')}</p></div>
+    <div><span class="eyebrow">${esc(tr("GAME BANK"))}</span><h1>${tr('My money buckets')}</h1><p>${tr('Give each dollar a job. These practice accounts use the money you record in the game.')}</p></div>
     <p class="bucket-total"><span>${tr('Total in Main and buckets')}</span><strong>${money(result.available + result.balances.reduce((sum, value) => sum + value, 0))}</strong></p>
   </header>
   <section class="panel bank-overview ledger-toolbar" aria-label="Main account">
@@ -844,8 +853,8 @@ function investmentsView(p) {
     <summary>${tr('Practise with a quick decision')}</summary>
     <div class="bucket-practice-list">${bucketAdventures.map((adventure, index) => `<details class="bucket-decision">
       <summary>${accountNames[index]}</summary>
-      <p>${adventure.prompt}</p>
-      <div class="bucket-answers">${adventure.answers.map((answer, option) => button(answer,'bucket-answer',`data-id="${adventure.id}" data-index="${option}" aria-pressed="false"`,'small')).join('')}</div>
+      <p>${tr(adventure.prompt)}</p>
+      <div class="bucket-answers">${adventure.answers.map((answer, option) => button(tr(answer),'bucket-answer',`data-id="${adventure.id}" data-index="${option}" aria-pressed="false"`,'small')).join('')}</div>
       <p class="bucket-feedback" role="status" aria-atomic="true"></p>
     </details>`).join('')}</div>
     <section class="bucket-practice-lessons" aria-labelledby="bucket-practice-lessons-title">
@@ -854,7 +863,7 @@ function investmentsView(p) {
         <details class="bucket-topic"><summary>Savings accounts</summary>
           ${bucketLesson(p, 'Saving for a goal', 'Choose your target, then work out what to put aside each week.',7)}
         </details>
-        <details class="bucket-topic"><summary>Shares, funds &amp; KiwiSaver</summary>
+        <details class="bucket-topic"><summary>${esc(tr("Shares, funds & KiwiSaver"))}</summary>
           ${bucketLesson(p, 'Shares and funds', 'Explore how a practice investment can go up and down.',8)}
           ${bucketLesson(p, 'KiwiSaver', 'Think about goals that are a long way off, such as saving for retirement.',9)}
         </details>
@@ -864,17 +873,36 @@ function investmentsView(p) {
   <div class="bucket-page-footer">${button(tr('Open my Money log'),'view','data-view="money"','small')}</div>`;
 }
 
-function scoreboard(rows, metric) {
-  return `<div class="table-wrap" role="region" aria-label="Leaderboard table" tabindex="0"><table><thead><tr><th scope="col">Rank</th><th scope="col">Learner</th><th scope="col">${metric}</th></tr></thead>
-    <tbody>${rows.map(row => {
+function groupStandings() {
+  return state.players.map(p => ({ id:p.id, name:p.name, score:learningStats(p).xp }))
+    .sort((a,b) => b.score - a.score || a.name.localeCompare(b.name,language));
+}
+function learnerLeaderboard(p) {
+  if (isHomeGame() || !state.showLearnerLeaderboard || state.players.length < 2) return '';
+  return `<section class="panel list-section learner-leaderboard" aria-labelledby="learner-leaderboard-title">
+    <h2 id="learner-leaderboard-title">${tr('Group leaderboard')}</h2>
+    <p>${tr('See where you stand in your group. Rankings use Learning XP.')}</p>
+    ${scoreboard(groupStandings(), 'Learning XP', p.id)}</section>`;
+}
+function scoreboard(rows, metric, currentId) {
+  let rank = 0;
+  return `<div class="table-wrap" role="region" aria-label="${tr('Leaderboard table')}" tabindex="0"><table>
+    <thead><tr><th scope="col">${tr('Rank')}</th><th scope="col">${tr('Learner')}</th><th scope="col">${tr(metric)}</th></tr></thead>
+    <tbody>${rows.map((row,i) => {
+      if (i === 0 || row.score !== rows[i-1].score) rank = i + 1;
       const learner = state.players.find(p => p.id === row.id);
-      return `<tr><td>${rows.findIndex(other => other.score === row.score) + 1}</td><td>${learner ? identity(learner) : esc(row.name)}</td><td><strong>${row.score}</strong></td></tr>`;
-    }).join('') || '<tr><td colspan="3">Add learners to see the leaderboard.</td></tr>'}</tbody></table></div>`;
+      const current = currentId === row.id;
+      return `<tr${current ? ' class="my-leaderboard-row"' : ''}><td>${rank}</td>
+        <td>${learner ? identity(learner) : esc(row.name)}${current ? pill(tr('You'), 'green') : ''}</td><td><strong>${row.score}</strong></td></tr>`;
+    }).join('') || `<tr><td colspan="3">${tr('Add learners to see the leaderboard.')}</td></tr>`}</tbody></table></div>`;
 }
 function classCompetitions() {
-  const board = state.players.map(p=>({id:p.id,name:p.name,score:learningStats(p).xp})).sort((a,b)=>b.score-a.score || a.name.localeCompare(b.name));
-  return `<section class="panel list-section"><div class="section-title"><div><h2>Class leaderboard</h2><p>Ranked by completed learning activities.</p></div>
-    ${state.players.length ? button('Create competition','new-competition','','primary') : ''}</div>${scoreboard(board,'Learning XP')}</section>
+  const board = groupStandings();
+  return `<section class="panel list-section"><div class="section-title"><div><h2>${esc(tr("Class leaderboard"))}</h2><p>${esc(tr("Ranked by completed learning activities."))}</p></div>
+    ${state.players.length ? button('Create competition','new-competition','','primary') : ''}</div>
+    <div class="leaderboard-sharing">${button(tr('Show leaderboard on learner dashboards'), 'toggle-leaderboard', `aria-pressed="${Boolean(state.showLearnerLeaderboard)}"`, 'secondary')}
+      <span class="detail">${tr(state.showLearnerLeaderboard ? 'Visible to learners in this group' : 'Hidden from learners in this group')}</span></div>
+    ${scoreboard(board,'Learning XP')}</section>
     ${(state.competitions ?? []).map(c=>`<section class="panel list-section"><div class="section-title"><div><h2>${esc(c.title)}</h2><p>${esc(c.message)} · Target: ${c.target} ${competitionMetrics[c.metric]}</p></div>
     ${c.results ? pill('Ended','green') : button('End competition','end-competition',`data-id="${c.id}"`,'small')}</div>${scoreboard(competitionBoard(c,state.players), competitionMetrics[c.metric])}</section>`).join('')}`;
 }
@@ -893,17 +921,17 @@ function groupView() {
   const ready = state.players.filter(p => !p.solo && !activeWeek(p).closed && totals(activeWeek(p)).ready);
   return `${pageHeader('FACILITATOR', esc(state.group), 'Assign activities, review submissions and close out each learner’s week.', button('Add learner', 'add-player', '', 'primary'))}
   ${state.players.length ? '' : `<section class="panel setup-panel"><h2>Add your first learner</h2><p>Give them a business or paid job and a savings goal. You can tailor their first week from their learner record.</p>${button('View setup instructions', 'view', 'data-view="setup"', 'small')}</section>`}
-  <div class="stats">${[['Learners',state.players.length],['Awaiting review',pending.length],['Ready for check-in',ready.length],['Finished programme',state.players.filter(p => p.weeks[programmeLength - 1]?.closed).length]].map(([label,value]) => `<article class="panel"><span>${label}</span><strong>${value}</strong></article>`).join('')}</div>
+  <div class="stats">${[['Learners',state.players.length],['Awaiting review',pending.length],['Ready for check-in',ready.length],['Finished programme',state.players.filter(p => p.weeks[programmeLength - 1]?.closed).length]].map(([label,value]) => `<article class="panel"><span>${tr(label)}</span><strong>${value}</strong></article>`).join('')}</div>
   ${classCompetitions()}
-  <section class="panel ledger"><div class="section-title"><h2>Review queue</h2>${state.players.some(p => !p.solo && !activeWeek(p).closed) ? button('Assign activity', 'assign') : ''}</div>
-  ${pending.length ? `<ul class="review-list">${pending.map(({ p, t }) => `<li><div><strong>${esc(p.name)} · ${esc(taskName(t, p))}</strong><p>Week ${activeWeek(p).index + 1} · ${tracks[p.track]}</p></div>${button('Review', 'review', `data-player="${p.id}" data-id="${t.id}"`, 'small')}</li>`).join('')}</ul>` : '<p>New submissions will appear here.</p>'}</section>
-  <section class="panel ledger spaced"><h2>Learners</h2><div class="table-wrap" role="region" aria-label="Learner roster" tabindex="0"><table><thead><tr><th scope="col">Learner</th><th scope="col">Current module</th><th scope="col">This week</th><th scope="col">Missions</th><th scope="col">Videos</th><th scope="col">Quizzes</th><th scope="col">XP</th><th scope="col">Action</th></tr></thead>
+  <section class="panel ledger"><div class="section-title"><h2>${esc(tr("Review queue"))}</h2>${state.players.some(p => !p.solo && !activeWeek(p).closed) ? button('Assign activity', 'assign') : ''}</div>
+  ${pending.length ? `<ul class="review-list">${pending.map(({ p, t }) => `<li><div><strong>${esc(p.name)} · ${esc(tr(taskName(t, p)))}</strong><p>${tr('Week')} ${activeWeek(p).index + 1} · ${tracks[p.track]}</p></div>${button('Review', 'review', `data-player="${p.id}" data-id="${t.id}"`, 'small')}</li>`).join('')}</ul>` : '<p>New submissions will appear here.</p>'}</section>
+  <section class="panel ledger spaced"><h2>${esc(tr("Learners"))}</h2><div class="table-wrap" role="region" aria-label="Learner roster" tabindex="0"><table><thead><tr><th scope="col">${esc(tr("Learner"))}</th><th scope="col">${esc(tr("Current module"))}</th><th scope="col">${esc(tr("This week"))}</th><th scope="col">Missions</th><th scope="col">${esc(tr("Videos"))}</th><th scope="col">${esc(tr("Quizzes"))}</th><th scope="col">XP</th><th scope="col">${esc(tr("Action"))}</th></tr></thead>
   <tbody>${state.players.map(p => {
     const w = activeWeek(p), stats = learningStats(p);
     const required = w.tasks.filter(task => task.required);
     const completed = required.filter(task => task.status === 'approved').length;
     const status = p.solo ? (w.closed ? 'Solo complete' : 'Solo practice') : w.closed ? 'Pilot complete' : totals(w).ready ? 'Ready for check-in' : w.tasks.some(t => t.status === 'submitted') ? 'Awaiting review' : w.tasks.some(t => t.status !== 'todo') || w.transactions.length ? 'In progress' : 'To start';
-    return `<tr><td>${identity(p)}<div class="detail">${tracks[p.track]}</div></td><td><strong>Week ${w.index + 1}</strong><div class="detail">${esc(moduleTitle(p,w.index))}</div></td><td>${pill(status, status === 'Ready for check-in' || w.closed ? 'green' : '')}<div class="detail">${completed} / ${required.length} required complete</div></td><td>${stats.missions}</td><td>${stats.videos}</td><td>${stats.quizzes}</td><td>${stats.xp}</td><td>${button('Open learner', 'learner-detail', `data-player="${p.id}"`, 'small')}${!p.solo && totals(w).ready && !w.closed ? button('Check in', 'close-week', `data-player="${p.id}"`, 'small') : ''}</td></tr>`;
+    return `<tr><td>${identity(p)}<div class="detail">${tracks[p.track]}</div></td><td><strong>${tr('Week')} ${w.index + 1}</strong><div class="detail">${esc(moduleTitle(p,w.index))}</div></td><td>${pill(status, status === 'Ready for check-in' || w.closed ? 'green' : '')}<div class="detail">${completed} / ${required.length} required complete</div></td><td>${stats.missions}</td><td>${stats.videos}</td><td>${stats.quizzes}</td><td>${stats.xp}</td><td>${button('Open learner', 'learner-detail', `data-player="${p.id}"`, 'small')}${!p.solo && totals(w).ready && !w.closed ? button('Check in', 'close-week', `data-player="${p.id}"`, 'small') : ''}</td></tr>`;
   }).join('')}</tbody></table></div></section>
   <p class="detail">${workspace.active === 'test' ? 'Sample learners and activity for trying the teacher view.' : 'This class shares one browser. The facilitator PIN gates the teacher view on this device.'}</p>`;
 }
@@ -914,38 +942,38 @@ function homeView() {
   const classLearner = classGame?.data.players.find(p => p.id === classGame.data.current);
   return `<section class="welcome">
     <div><div class="eyebrow">SUCCESS AVENUE MONEY</div><h1>The Lucas Money Game</h1>
-      <p>Do chores. Take on a mini business. Build money habits that bring your big goal closer.</p>
+      <p>${esc(tr("Do chores. Take on a mini business. Build money habits that bring your big goal closer."))}</p>
       <div class="action-row">${button(workspace.sample ? 'Resume demo' : 'Play the demo', 'test-group', '', 'primary')}${button('Start at home', 'new-home')}${button('Start a class', 'new-group')}</div></div>
-    <div class="welcome-route"><strong>Savings milestones</strong><div class="welcome-milestones">${savingsMilestones.map(percent => `<span>${percent}%</span>`).join('')}</div><p>Earn badges as you close in on your goal.</p></div>
+    <div class="welcome-route"><strong>${esc(tr("Savings milestones"))}</strong><div class="welcome-milestones">${savingsMilestones.map(percent => `<span>${percent}%</span>`).join('')}</div><p>${esc(tr("Earn badges as you close in on your goal."))}</p></div>
   </section>
   <div class="welcome-grid">
-    <section class="panel start-panel"><h2>Continue a saved game</h2>
+    <section class="panel start-panel"><h2>${esc(tr("Continue a saved game"))}</h2>
       ${classLearner ? `<p>Class learner on this device · <strong>${esc(classLearner.name)}</strong></p>${button('Continue class game','resume-class','', 'primary')}` : ''}
-      ${homeGame ? `<label for="home-group">Home game<select id="home-group">${homeGames.map(({id,data})=>`<option value="${esc(id)}" ${id===homeGame.id?'selected':''}>${esc(data.group)}</option>`).join('')}</select></label>
+      ${homeGame ? `<label for="home-group">${esc(tr("Home game"))}<select id="home-group">${homeGames.map(({id,data})=>`<option value="${esc(id)}" ${id===homeGame.id?'selected':''}>${esc(data.group)}</option>`).join('')}</select></label>
         <div class="action-row">${button('Continue home game','resume-home',`data-id="${esc(homeGame.id)}"`,'primary')}${button('Open parent view','resume-parent',`data-id="${esc(homeGame.id)}"`)}</div>` : ''}
       ${classGroups().length ? button('Open teacher dashboard','open-facilitator') : ''}
       ${workspace.sample ? button('Open demo teacher dashboard','open-demo-teacher','', 'small') : ''}
-      ${!homeGame && !classGroups().length && !workspace.sample ? '<p>Saved games will appear here.</p>' : ''}
+      ${!homeGame && !classGroups().length && !workspace.sample ? `<p>${esc(tr("Saved games will appear here."))}</p>` : ''}
     </section>
-    <section class="panel start-panel"><h2>First time playing?</h2><p>Play at home with one learner and a parent or caregiver. For a class or club, set up a group and add learners.</p>
-    <p>The test group lets you try the game with sample learners and submissions.</p>${button('View setup instructions', 'view', 'data-view="setup"')}</section>
+    <section class="panel start-panel"><h2>${esc(tr("First time playing?"))}</h2><p>${esc(tr("Play at home with one learner and a parent or caregiver. For a class or club, set up a group and add learners."))}</p>
+    <p>${esc(tr("The test group lets you try the game with sample learners and submissions."))}</p>${button('View setup instructions', 'view', 'data-view="setup"')}</section>
   </div>`;
 }
 function setupView() {
   return `${pageHeader('GETTING STARTED', 'Setup instructions', 'Choose how you want to play on this device.')}
   <div class="help-grid">
-    <section class="panel help-panel"><h2>Play at home</h2>
+    <section class="panel help-panel"><h2>${esc(tr("Play at home"))}</h2>
       <ol class="setup-steps">
         <li>Set up one learner with a business or paid household job and a savings goal.</li>
-        <li>Use <strong>Parent / caregiver view</strong> to tailor the first week or add a mission you can do together.</li>
-        <li>In <strong>Learner view</strong>, record earnings and costs and submit the missions. Review them together in the parent view and record the check-in to open the next week.</li>
+        <li>Use <strong>${esc(tr("Parent / caregiver view"))}</strong> to tailor the first week or add a mission you can do together.</li>
+        <li>In <strong>${esc(tr("Learner view"))}</strong>, record earnings and costs and submit the missions. Review them together in the parent view and record the check-in to open the next week.</li>
       </ol>${button('Start at home', 'new-home', '', 'primary')}
     </section>
     <section class="panel help-panel"><h2>Play with a group</h2>
       <ol class="setup-steps">
         <li>Create a group for your class, club or household with multiple learners.</li>
-        <li>In <strong>Facilitator view</strong>, set the weekly money rules in Settings if needed, then use <strong>Add learner</strong> to set up each person.</li>
-        <li>Open a learner record to review their work or choose <strong>Hand device to learner</strong> to open that learner’s dashboard.</li>
+        <li>In <strong>${esc(tr("Facilitator view"))}</strong>, set the weekly money rules in Settings if needed, then use <strong>${esc(tr("Add learner"))}</strong> to set up each person.</li>
+        <li>Open a learner record to review their work or choose <strong>${esc(tr("Hand device to learner"))}</strong> to open that learner’s dashboard.</li>
       </ol><div class="action-row">${button('Start a new group', 'new-group')}${button(workspace.sample ? 'Resume demo' : 'Play the demo', 'test-group')}</div>
     </section>
   </div><p class="detail spaced">Games and progress are saved in this browser. Learners and facilitators use the same saved game on this device.</p>`;
@@ -953,16 +981,16 @@ function setupView() {
 
 function aboutPanel() {
   return `<section class="panel help-panel">
-    <h2>About Success Avenue Money</h2>
+    <h2>${esc(tr("About Success Avenue Money"))}</h2>
     <p>Success Avenue Money helps people learn practical money skills through stories, lessons and quizzes. The game gives learners a place to try those skills over 12 weeks, with more practice afterwards.</p>
-    <p>Profiles and progress are stored in this browser. The game uses practice account balances and simulated tax.</p>
-    <p><a href="https://www.successavenuemoney.com/about" target="_blank" rel="noopener noreferrer">Visit Success Avenue Money (new tab)</a></p>
+    <p>${esc(tr("Profiles and progress are stored in this browser. The game uses practice account balances and simulated tax."))}</p>
+    <p><a href="https://www.successavenuemoney.com/about" target="_blank" rel="noopener noreferrer">${esc(tr("Visit Success Avenue Money (new tab)"))}</a></p>
   </section>`;
 }
 function publicHelpView() {
   return `${pageHeader('THE LUCAS MONEY GAME', 'About & Help', 'A 12-week business game for practising everyday decisions about earning, spending and saving.')}
   <div class="help-grid">
-    <section class="panel help-panel"><h2>Getting started</h2>
+    <section class="panel help-panel"><h2>${esc(tr("Getting started"))}</h2>
       <p>From Home, start a home game, try the test group or set up a group for multiple learners. The setup guide walks you through choosing a way to play and preparing the first week.</p>
       <div class="action-row">${button('View setup instructions', 'view', 'data-view="setup"', 'primary')}${button('Back to Home', 'view', 'data-view="home"')}</div>
     </section>
@@ -972,26 +1000,26 @@ function publicHelpView() {
 function learnerHelpView() {
   return `${pageHeader('LEARNER', 'About & Help', 'Get help with your weekly missions, money log and rewards.')}
   <div class="help-grid">
-    <section class="panel help-panel"><h2>How to play</h2>
+    <section class="panel help-panel"><h2>${esc(tr("How to play"))}</h2>
       <p>Start with the quest trail on your dashboard. If you don’t have a real job or business, you can still play Challenges using game money.</p>
       <ol>
         <li><strong>Try it in real life.</strong> Agree on a job or product and what you’ll charge. Paid household jobs count. Add your actual earnings and costs to the Money log.</li>
         <li><strong>Complete your missions.</strong> Try the business mission, watch the video and take its matching quiz on SAM, then apply the same idea outside your business. Use the labelled placeholder lesson when the SAM pair is unavailable. Use the question-mark buttons for examples.</li>
-        <li><strong>Close the week.</strong> Choose <em>Settle the week</em> in solo practice. In a mentored game, your facilitator reviews the missions and records a check-in.</li>
+        <li><strong>Close the week.</strong> Choose <em>${esc(tr("Settle the week"))}</em> in solo practice. In a mentored game, your facilitator reviews the missions and records a check-in.</li>
       </ol>
       ${button('Back to this week', 'view', 'data-view="week"', 'primary')}
     </section>
-    <section class="panel help-panel"><h2>How the money works</h2>
+    <section class="panel help-panel"><h2>${esc(tr("How the money works"))}</h2>
       <p><strong>Sales − costs = profit before tax.</strong> A simulated tax rate applies when there’s a profit. If costs are higher than sales, the loss stays in your history. Main shows how much you still need to cover.</p>
       <dl class="bucket-help">
-        <div><dt>Spend</dt><dd>Money for things you need or want now.</dd></div>
-        <div><dt>Save</dt><dd>Money set aside for your goal. Your goal meter uses this bucket.</dd></div>
-        <div><dt>Invest</dt><dd>Money earmarked for longer-term growth in the simulation.</dd></div>
-        <div><dt>Give</dt><dd>Money earmarked to support people or causes you choose.</dd></div>
+        <div><dt>${esc(tr("Spend"))}</dt><dd>Money for things you need or want now.</dd></div>
+        <div><dt>${esc(tr("Save"))}</dt><dd>Money set aside for your goal. Your goal meter uses this bucket.</dd></div>
+        <div><dt>${esc(tr("Invest"))}</dt><dd>Money earmarked for longer-term growth in the simulation.</dd></div>
+        <div><dt>${esc(tr("Give"))}</dt><dd>Money earmarked to support people or causes you choose.</dd></div>
       </dl>
       <p>Business earnings and activity rewards go into Main. Personal purchases come out of Spend. Business costs come out of Main. Use Move money to transfer to a bucket or back to Main. Unallocated money stays in Main for next week.</p>
     </section>
-    <section class="panel help-panel"><h2>Badges and profile rewards</h2>
+    <section class="panel help-panel"><h2>${esc(tr("Badges and profile rewards"))}</h2>
       <p>In My progress, badges recognise milestones like completing a mission or saving a quarter of your goal. Visit Profile shop to unlock profile icons, backgrounds and titles. Your badges stay in your collection.</p>
       <p>Click the game logo to return to Home.</p>
     </section>
@@ -1028,7 +1056,7 @@ function settingsView() {
   ${field('Simulated savings match (%)', 'match', 'Adds a percentage of what the learner moved into Save that week, after any transfers back when the week closes. At 50%, $10 saved earns a $5 match before the cap.', `<input type="number" name="match" min="0" max="100" required value="${state.rules.match}">`)}
   ${field('Weekly match cap (NZD)', 'cap', 'The most the game can add to Save through matching in one week, in New Zealand dollars.', `<input type="number" name="cap" min="0" max="100000" step=".01" required value="${state.rules.cap / 100}">`)}</div>
   <fieldset><legend>Suggested bucket split</legend><div class="fields split">${buckets.map((name,i) => field(name + ' (%)', 'split-' + i, 'Suggested percentage to put into ' + name + '. The four percentages must add up to 100.', `<input name="split" type="number" min="0" max="100" required value="${state.rules.split[i]}">`)).join('')}</div></fieldset>
-  <p class="detail">Bucket percentages must add up to 100.</p><p class="error" role="alert"></p><button class="button primary">Save settings</button></form>`;
+  <p class="detail">Bucket percentages must add up to 100.</p><p class="error" role="alert"></p><button class="button primary">${esc(tr("Save settings"))}</button></form>`;
 }
 function render() {
   document.documentElement.lang = language;
@@ -1051,7 +1079,7 @@ function render() {
   document.body.dataset.role = role ?? 'public';
   document.body.dataset.skin = !isPublic && role === 'facilitator' ? 'staff' : p?.track === 0 ? 'junior' : p?.track === 2 ? 'teen' : 'arcade';
   const translationNote = language === 'en-NZ' ? '' : `<p class="group-context" lang="${language}">${tr('Some learning content is in English.')}</p>`;
-  const context = !isPublic && state ? `<p class="group-context">${workspace.active === 'test' ? 'Test group · Sample data' : esc(state.group)}</p>` : '';
+  const context = !isPublic && state ? `<p class="group-context">${workspace.active === 'test' ? tr('Test group · Sample data') : esc(state.group)}</p>` : '';
   $('#main').innerHTML = '<p id="notice" class="toast" role="status" tabindex="-1" hidden></p>' + context + translationNote + teacherGroupControls() + sections[view](view === 'detail' ? state.players.find(other => other.id === detailPlayerId) : p);
 }
 
@@ -1066,7 +1094,7 @@ function wireLessonVideo(week) {
     if (week.videoWatched || !watchedEnough(segments, video.duration)) return;
     week.videoWatched = true;
     save();
-    $('#lesson-status').textContent = 'Placeholder video complete. The placeholder quiz is ready.';
+    $('#lesson-status').textContent = tr('Placeholder video complete. The placeholder quiz is ready.');
     dialog.querySelector('[data-action="lesson-quiz"]').disabled = false;
   };
   video.addEventListener('timeupdate', measure);
@@ -1078,17 +1106,17 @@ function wireLessonVideo(week) {
 }
 dialog.addEventListener('close', () => { if (!dialog.open) { resetMarketDay(); dialog.classList.remove('arc-quiz'); } });
 function openDialog(title, body) {
-  dialog.innerHTML = `<div class="dialog-head"><h2 id="dialog-title" tabindex="-1">${title}</h2>${button(tr('Close'), 'dismiss', 'aria-label="Close dialog"', 'small')}</div>${body}`;
+  dialog.innerHTML = `<div class="dialog-head"><h2 id="dialog-title" tabindex="-1">${tr(title)}</h2>${button(tr('Close'), 'dismiss', `aria-label="${esc(tr('Close dialog'))}"`, 'small')}</div>${body}`;
   if (!dialog.open) dialog.showModal();
   $('#dialog-title').focus();
 }
 function form(action, body, label, attrs = '') {
-  return `<form data-form="${action}" ${attrs}>${body}<p class="error" role="alert"></p><div class="dialog-actions"><button class="button primary">${label}</button></div></form>`;
+  return `<form data-form="${action}" ${attrs}>${body}<p class="error" role="alert"></p><div class="dialog-actions"><button class="button primary">${tr(label)}</button></div></form>`;
 }
 function field(label, id, hint, control) {
   const input = control.replace(/^<(input|select|textarea)/, `<$1 id="${id}" aria-describedby="tip-${id}"`);
-  return `<div class="field"><div class="field-heading"><label for="${id}">${label}</label><button type="button" class="field-tip" data-action="field-tip" aria-label="Help for ${esc(label)}" aria-expanded="false" aria-controls="tip-${id}">?</button></div>
-    ${input}<div class="tip-text" id="tip-${id}" hidden>${esc(hint)}</div></div>`;
+  return `<div class="field"><div class="field-heading"><label for="${id}">${tr(label)}</label><button type="button" class="field-tip" data-action="field-tip" aria-label="Help for ${esc(label)}" aria-expanded="false" aria-controls="tip-${id}">?</button></div>
+    ${input}<div class="tip-text" id="tip-${id}" hidden>${esc(tr(hint))}</div></div>`;
 }
 function textField(label, name, hint, value = '', limit = 80, required = true) {
   return field(label, name, hint, `<input name="${name}" value="${esc(value)}" maxlength="${limit}" ${required ? 'required' : ''}>`);
@@ -1100,8 +1128,8 @@ function taskDialog(p, week, task, showQuiz = false) {
   const episode = episodeFor(week.index);
   const module = moduleFor(p, week.index);
   const editable = !week.closed && ['todo', 'revision'].includes(task.status);
-  let content = `<p>${esc(taskPrompt(task, p, week))}</p>`;
-  if (task.feedback) content += `<p class="feedback"><strong>Feedback</strong> · ${esc(task.feedback)}</p>`;
+  let content = `<p>${esc(localMission(taskPrompt(task, p, week)))}</p>`;
+  if (task.feedback) content += `<p class="feedback"><strong>${esc(tr("Feedback"))}</strong> · ${esc(task.feedback)}</p>`;
   if (task.id === 'business' && p.mode === 'manual' && editable) {
     const tally = totals(week);
     content += `<div class="lesson"><h3>Use your own business</h3>
@@ -1115,7 +1143,7 @@ function taskDialog(p, week, task, showQuiz = false) {
   if (task.id === 'learning') {
     const assignment = samAssignment(module);
     if (assignment.assigned) {
-      content += `<div class="lesson"><h3>Success Avenue Money</h3><p>Watch the assigned video, then take the quiz about it on SAM.</p>
+      content += `<div class="lesson"><h3>Success Avenue Money</h3><p>${esc(tr("Watch the assigned video, then take the quiz about it on SAM."))}</p>
         ${samLessonSteps(assignment, true)}${module.lessonNote ? `<p>${esc(module.lessonNote)}</p>` : ''}</div>`;
       if (editable) content += form('sam-lesson-record',
         '<p>After finishing both on SAM, tell us one thing you learnt from the video or quiz.</p>' +
@@ -1123,19 +1151,19 @@ function taskDialog(p, week, task, showQuiz = false) {
         p.solo ? 'Record SAM lesson' : 'Send SAM lesson for review');
     } else {
       const videoPath = 'assets/lessons/week-' + (episode.index+1) + '.mp4';
-      if (assignment.embed) content += `<div class="lesson"><h3>Assigned SAM video</h3>${vimeoFrame(assignment.embed)}
-        <p>The matching SAM quiz is pending. The practice activity below uses its own sample video and quiz.</p></div>`;
-      content += `<div class="lesson video-lesson"><h3>Placeholder video and quiz</h3><p>This practice activity uses sample content. The official video and its quiz are on SAM.</p>
+      if (assignment.embed) content += `<div class="lesson"><h3>${esc(tr("Assigned SAM video"))}</h3>${vimeoFrame(assignment.embed)}
+        <p>${esc(tr("The matching SAM quiz is pending. The practice activity below uses its own sample video and quiz."))}</p></div>`;
+      content += `<div class="lesson video-lesson"><h3>${esc(tr("Placeholder video and quiz"))}</h3><p>${esc(tr("This practice activity uses sample content. The official video and its quiz are on SAM."))}</p>
         ${button('Find SAM videos and quizzes','open-weekly-challenges','','small')}
-        <p><strong>${esc(episode.title)}</strong></p>
-        ${showQuiz ? '' : `<video id="lesson-film" controls playsinline preload="metadata" src="${videoPath}" aria-label="Placeholder video: ${esc(episode.title)}"></video><details><summary>Read the placeholder video transcript</summary>${episode.frames.map(frame=>`<p>${esc(frame)}</p>`).join('')}</details>`}
+        <p><strong>${esc(tr(episode.title))}</strong></p>
+        ${showQuiz ? '' : `<video id="lesson-film" controls playsinline preload="metadata" src="${videoPath}" aria-label="Placeholder video: ${esc(tr(episode.title))}"></video><details><summary>${esc(tr("Read the placeholder video transcript"))}</summary>${episode.frames.map(frame=>`<p>${esc(tr(frame))}</p>`).join('')}</details>`}
         ${module.lessonNote ? `<p><strong>Link to your business</strong> · ${esc(module.lessonNote)}</p>` : ''}</div>`;
       if (editable && showQuiz && week.videoWatched) {
-        content += form('quiz', `<h3>Placeholder quiz</h3><div class="quiz-questions">${episode.questions.map((q,i)=>`<fieldset><legend>${i+1}. ${esc(q.question)}</legend>
-          <div class="quiz-options">${q.options.map((answer,j)=>`<label><input type="radio" name="answer-${i}" value="${j}" required><span>${String.fromCharCode(65+j)}</span>${esc(answer)}</label>`).join('')}</div></fieldset>`).join('')}</div>
+        content += form('quiz', `<h3>${esc(tr("Placeholder quiz"))}</h3><div class="quiz-questions">${episode.questions.map((q,i)=>`<fieldset><legend>${i+1}. ${esc(tr(q.question))}</legend>
+          <div class="quiz-options">${q.options.map((answer,j)=>`<label><input type="radio" name="answer-${i}" value="${j}" required><span>${String.fromCharCode(65+j)}</span>${esc(tr(answer))}</label>`).join('')}</div></fieldset>`).join('')}</div>
           ${button('Rewatch placeholder video','task','data-id="learning"','small')}`, 'Check answers');
       } else if (editable) {
-        content += `<p id="lesson-status" role="status">${week.videoWatched ? 'Placeholder video complete. The placeholder quiz is ready.' : 'Watch the placeholder video to unlock its example quiz.'}</p>
+        content += `<p id="lesson-status" role="status">${tr(week.videoWatched ? 'Placeholder video complete. The placeholder quiz is ready.' : 'Watch the placeholder video to unlock its example quiz.')}</p>
           ${button('Start placeholder quiz','lesson-quiz',week.videoWatched ? '' : 'disabled','primary')}`;
       }
     }
@@ -1146,9 +1174,9 @@ function taskDialog(p, week, task, showQuiz = false) {
       content += form('task', noteField('Your response', 'evidence', task.id === 'business' ? 'Try: “I tried… I noticed… Next time I’ll…” Add a price, cost or other figure that helped you decide.' : task.id === 'reflection' ? 'One or two sentences are enough. Say what you noticed and what you would do next.' : 'Use the instructions above to describe what you did or share what you found.', task.evidence), p.solo ? 'Complete mission' : 'Submit for review', `data-id="${task.id}"`);
     }
   }
-  if (!editable) content += task.evidence ? `<div class="lesson"><strong>Your submission</strong><p>${esc(task.evidence)}</p></div>` : `<p>${statuses[task.status]}</p>`;
+  if (!editable) content += task.evidence ? `<div class="lesson"><strong>${esc(tr("Your submission"))}</strong><p>${esc(task.evidence)}</p></div>` : `<p>${statuses[task.status]}</p>`;
   dialog.classList.toggle('arc-quiz', task.id === 'learning');
-  openDialog(esc(taskName(task, p)), content);
+  openDialog(esc(tr(taskName(task, p))), content);
   if (task.id === 'learning' && editable && !showQuiz && !week.videoWatched && $('#lesson-film')) wireLessonVideo(week);
 
 }
@@ -1164,7 +1192,7 @@ function playerDialog(p, homeSetup = false) {
 }
 function reviewDialog(p, t) {
   const w = activeWeek(p);
-  openDialog('Review ' + esc(p.name) + '’s submission', `<h3>${esc(taskName(t, p))}</h3><p>${esc(taskPrompt(t, p, w))}</p><div class="lesson"><p>${esc(t.evidence)}</p></div>
+  openDialog('Review ' + esc(p.name) + '’s submission', `<h3>${esc(tr(taskName(t, p)))}</h3><p>${esc(taskPrompt(t, p, w))}</p><div class="lesson"><p>${esc(t.evidence)}</p></div>
     ${form('review', `${field('Decision', 'decision', 'Approve to give credit for this mission. Ask for a revision when the learner needs to try again.', `<select name="decision"><option value="approved">Approve</option><option value="revision">Ask for a revision</option></select>`)}${noteField('Feedback', 'feedback', 'Say what worked or what to change. Feedback is required when asking for a revision.', '', false)}`, 'Save review', `data-player="${p.id}" data-id="${t.id}"`)}`);
 }
 function learnerDetail(p) {
@@ -1183,16 +1211,16 @@ function learnerDetail(p) {
     <section class="panel"><h2>Business and goal</h2><dl class="learner-facts">
       <div><dt>Offer</dt><dd>${esc(p.offer || 'Add what the business offers in Edit learner profile.')}</dd></div>
       <div><dt>Customers</dt><dd>${esc(p.customers || 'Add who the business serves in Edit learner profile.')}</dd></div>
-      <div><dt>Savings goal</dt><dd>${esc(p.goal)} · ${money(result.buckets[1])} of ${money(p.target)} (${pct(p)}%)</dd></div>
+      <div><dt>${esc(tr("Savings goal"))}</dt><dd>${esc(p.goal)} · ${money(result.buckets[1])} of ${money(p.target)} (${pct(p)}%)</dd></div>
       <div><dt>Progress</dt><dd>${result.closed} weeks closed · ${learningStats(p).xp} learning XP · ${result.points} points</dd></div>
-      <div><dt>Profile shop</dt><dd>${wallet.balance} pts available · ${wallet.spent} spent · ${cosmetics(p).title.name}</dd></div>
+      <div><dt>Profile shop</dt><dd>${wallet.balance} pts available · ${wallet.spent} spent · ${tr(cosmetics(p).title.name)}</dd></div>
       <div><dt>Badges</dt><dd>${earnedAwards(p).map(award => award.title).join(' · ') || 'None earned yet'}</dd></div>
     </dl>${button('Hand device to learner', 'switch-player', attrs, 'small')}</section>
-    <section class="panel learner-buckets"><h2>Money buckets to date</h2><p>Current account balances. Save includes any simulated match.</p>${mainAccount(p)}${bucketCards(result.buckets,p)}</section>
+    <section class="panel learner-buckets"><h2>Money buckets to date</h2><p>${esc(tr("Current account balances. Save includes any simulated match."))}</p>${mainAccount(p)}${bucketCards(result.buckets,p)}</section>
   </div>
   <section class="panel spaced" aria-labelledby="module-overview-title">
     <div class="section-title detail-section"><div><h2 id="module-overview-title">Weekly record</h2><p>Review completed weeks or plan a future module for this learner.</p></div>
-      <label class="inline-field">Week <select id="detail-week">${Array.from({length:Math.max(programmeLength,p.weeks.length)},(_,i) => `<option value="${i}" ${i === index ? 'selected' : ''}>Week ${i+1} · ${p.weeks[i]?.closed ? 'Closed' : p.weeks[i] ? 'Open' : 'Upcoming'}</option>`).join('')}</select></label></div>
+      <label class="inline-field">Week <select id="detail-week">${Array.from({length:Math.max(programmeLength,p.weeks.length)},(_,i) => `<option value="${i}" ${i === index ? 'selected' : ''}>${tr('Week')} ${i+1} · ${p.weeks[i]?.closed ? 'Closed' : p.weeks[i] ? 'Open' : 'Upcoming'}</option>`).join('')}</select></label></div>
     <div class="section-title detail-section"><div><h3>${esc(module.title)}</h3><p>${esc(module.summary)}</p></div>${week?.closed ? pill('Week closed', 'green') : button('Customise module', 'edit-module', indexAttrs, 'small')}</div>
     <dl class="learner-facts module-facts">
       <div><dt>In the business</dt><dd>${esc(module.business)}</dd></div>
@@ -1205,19 +1233,19 @@ function learnerDetail(p) {
   ${week ? `<section class="panel spaced">
     <div class="section-title detail-section"><div><h2>Missions and submissions</h2><p>${week.tasks.filter(t => t.status === 'approved').length} of ${week.tasks.length} complete or approved · ${tally.points} points this week</p></div>
     <div class="action-row">${isHomeGame() && editable ? button('Assign activity', 'assign', '', 'small') : ''}${editable && !p.solo && tally.ready ? button('Record check-in', 'close-week', attrs, 'primary') : ''}</div></div>
-    <div class="record-missions">${week.tasks.map(task => `<article class="record-mission"><div class="section-title detail-section"><div><h3>${esc(taskName(task, p))}</h3><p>${task.required ? 'Required' : 'Optional'} · ${task.points} pts</p></div>${pill(statuses[task.status], task.status === 'approved' ? 'green' : '')}</div>
-      <p>${esc(taskPrompt(task,p,week))}</p>
+    <div class="record-missions">${week.tasks.map(task => `<article class="record-mission"><div class="section-title detail-section"><div><h3>${esc(tr(taskName(task, p)))}</h3><p>${task.required ? 'Required' : 'Optional'} · ${task.points} pts</p></div>${pill(statuses[task.status], task.status === 'approved' ? 'green' : '')}</div>
+      <p>${esc(localMission(taskPrompt(task,p,week)))}</p>
       ${task.evidence ? `<p class="record-answer"><strong>Submission</strong><span>${esc(task.evidence)}</span></p>` : '<p>No submission yet.</p>'}
-      ${task.feedback ? `<p class="record-answer"><strong>Feedback</strong><span>${esc(task.feedback)}</span></p>` : ''}
+      ${task.feedback ? `<p class="record-answer"><strong>${esc(tr("Feedback"))}</strong><span>${esc(task.feedback)}</span></p>` : ''}
       ${editable && task.status === 'submitted' ? button('Review submission', 'review', `${attrs} data-id="${esc(task.id)}"`, 'small') : ''}</article>`).join('')}</div>
     ${week.closed ? `<div class="check-in-note"><h3>Check-in note</h3><p>${esc(week.feedback || 'No note recorded.')}</p>${!p.solo ? button('Edit check-in note', 'edit-check-in', indexAttrs, 'small') : ''}</div>` : ''}
   </section>
   <section class="panel spaced">
-    <div class="section-title detail-section"><h2>Week ${index+1} money log</h2>${editable ? `<div class="bank-actions">${bankActions(p, { secondary: true, attrs })}</div>` : ''}</div>
-    <dl class="ledger-totals">${[['Sales',tally.sales],['Business costs',tally.costs],['Personal purchases',tally.spending],['Profit before tax',tally.profit],['Simulated tax (' + week.rules.tax + '%)',tally.tax],['Business profit after tax',tally.profit - tally.tax],['Activity rewards',tally.rewards],['Savings match',tally.match]].map(([label,value])=>`<div><dt>${label}</dt><dd>${money(value)}</dd></div>`).join('')}</dl>
+    <div class="section-title detail-section"><h2>${tr('Week')} ${index+1} money log</h2>${editable ? `<div class="bank-actions">${bankActions(p, { secondary: true, attrs })}</div>` : ''}</div>
+    <dl class="ledger-totals">${[['Sales',tally.sales],['Business costs',tally.costs],['Personal purchases',tally.spending],['Profit before tax',tally.profit],[tr('Simulated tax') + ' (' + week.rules.tax + '%)',tally.tax],['Business profit after tax',tally.profit - tally.tax],['Activity rewards',tally.rewards],['Savings match',tally.match]].map(([label,value])=>`<div><dt>${tr(label)}</dt><dd>${money(value)}</dd></div>`).join('')}</dl>
     ${week.result ? `<p><strong>Practice scenario</strong> · ${market[index % market.length].plans[week.choice].label} · ${week.result.tactic} · ${week.result.sold} sales, ${week.result.returning} returning customers</p>` : ''}
     ${transactionTable(p,week)}
-    <h3 class="spaced">${week.transfers ? 'Account transfers' : 'Original bucket allocations'}</h3>${week.transfers ? transferList(p, week) : bucketCards(tally.allocations)}
+    <h3 class="spaced">${tr(week.transfers ? 'Account transfers' : 'Original bucket allocations')}</h3>${week.transfers ? transferList(p, week) : bucketCards(tally.allocations)}
   </section>` : '<p class="detail spaced">Missions and money entries appear here when this week opens.</p>'}`;
 }
 function isHttps(value) {
@@ -1244,7 +1272,7 @@ function entryDialog(p, entry, intent) {
     : '';
   const kindOptions = choices.map(([kind,label]) => `<option value="${kind}" ${entry?.kind === kind ? 'selected' : ''}>${tr(label)}</option>`).join('');
   openDialog(tr(title), form('entry',
-    (guidance ? `<p>${guidance}</p>` : '') +
+    (guidance ? `<p>${tr(guidance)}</p>` : '') +
     (choices.length === 1
       ? `<input type="hidden" name="kind" value="${choices[0][0]}">`
       : field(tr('Type'), 'kind', intent === 'outgoing'
@@ -1265,10 +1293,10 @@ function moveMoneyDialog(p, preset) {
     ? '<p>Log money in to add to Main. Once you have money available, you can choose a bucket.</p>' + button(tr('Money in'), 'add-entry', playerAttrs(p) + ' data-kind="income"', 'primary')
     : form('move-money',
       field(tr('Direction'), 'direction', 'Money you record starts in Main. Move it to a bucket or bring it back if your plan changes.', `<select name="direction">
-        <option value="out" ${sendFirst ? 'selected' : ''}>Main → bucket</option><option value="in" ${sendFirst ? '' : 'selected'}>Bucket → Main</option></select>`) +
+        <option value="out" ${sendFirst ? 'selected' : ''}>${esc(tr("Main → bucket"))}</option><option value="in" ${sendFirst ? '' : 'selected'}>${esc(tr("Bucket → Main"))}</option></select>`) +
       field(tr('Bucket account'), 'bucket', 'Pick the account you want to use. The amount beside each name is what it currently holds.', `<select name="bucket">${allAccounts(p).map((name,i) => `<option value="${i}" ${i === selected ? 'selected' : ''}>${esc(name)} · ${money(bank.balances[i])}</option>`).join('')}</select>`) +
       field(tr('Amount to move (NZD)'), 'move-amount', 'Choose an amount you can afford. For a savings goal, think about how much you want to set aside this week.', '<input name="move-amount" type="number" min=".01" step=".01" inputmode="decimal" required>') +
-      `<details class="lesson"><summary>Need an idea for splitting your money?</summary><p>Suggested split: ${buckets.map((name, i) => name + ' ' + week.rules.split[i] + '%').join(' · ')}. Decide how much to move based on your own plan.</p></details>`,
+      `<details class="lesson"><summary>${esc(tr("Need an idea for splitting your money?"))}</summary><p>${tr('Suggested split')} · ${buckets.map((name, i) => tr(name) + ' ' + week.rules.split[i] + '%').join(' · ')}. Decide how much to move based on your own plan.</p></details>`,
       tr('Confirm transfer'), playerAttrs(p))}`);
 }
 
@@ -1287,6 +1315,12 @@ document.addEventListener('click', event => {
   const contest = state?.classChallenges?.find(c => c.id === item);
   switch (action) {
     case 'dismiss': closeDialog(); break;
+    case 'toggle-leaderboard':
+      if (role !== 'facilitator' || view !== 'group' || isHomeGame()) return;
+      state.showLearnerLeaderboard = !state.showLearnerLeaderboard;
+      save();
+      $('[data-action="toggle-leaderboard"]')?.focus({ preventScroll:true });
+      break;
     case 'view':
       closeDialog(); navigate(next);
       if (view === 'investments' && el.dataset.account !== undefined) $('#bucket-account-' + el.dataset.account)?.focus();
@@ -1456,7 +1490,7 @@ document.addEventListener('click', event => {
     case 'log-chore':
       if (role === 'learner' && w && !w.closed) openDialog(tr('I did a chore'), form('chore',
         textField('What did you do?','choreTitle','For example, mowed the lawn or washed the car.') +
-        '<div class="lesson"><strong>Think about your job</strong><p>Pick one thing: Did it take longer than you expected? Did a tool make it easier? What would you do differently next time?</p><p>Example: “Washing the car took 40 minutes. Next time I’ll put the bucket and cloths out first so I can start sooner.”</p></div>' +
+        `<div class="lesson"><strong>${esc(tr("Think about your job"))}</strong><p>Pick one thing: Did it take longer than you expected? Did a tool make it easier? What would you do differently next time?</p><p>Example: “Washing the car took 40 minutes. Next time I’ll put the bucket and cloths out first so I can start sooner.”</p></div>` +
         noteField('What did you learn?','choreNote','Start with “I noticed…” or “Next time I’ll…”. One or two sentences is enough.') +
         '<label class="radio"><input type="checkbox" name="chorePaid"> I got paid for this chore and want to record it next.</label>',
         p.solo ? 'Log chore' : 'Send for review'));
@@ -1468,8 +1502,8 @@ document.addEventListener('click', event => {
       const status = p.weeks[n]?.closed ? 'Completed' : n > w.index ? 'Opens when you reach this week.' : 'Current week';
       openDialog(tr('Week') + ' ' + (n + 1) + ' · ' + esc(moduleTitle(p,n)),
         `<p class="eyebrow">${tr(status)}</p><p>${esc(tr(info.summary))}</p>
-        <div class="lesson"><h3>${tr('Business mission')}</h3><p>${esc(info.business)}</p>
-        <h3>${tr('Money habit')}</h3><p>${esc(info.outside)}</p></div>`);
+        <div class="lesson"><h3>${tr('Business mission')}</h3><p>${esc(localMission(info.business))}</p>
+        <h3>${tr('Money habit')}</h3><p>${esc(tr(info.outside))}</p></div>`);
       break;
     }
     case 'add-bucket':
@@ -1497,7 +1531,7 @@ document.addEventListener('click', event => {
       }
       const feedback = decision.querySelector('.bucket-feedback');
       feedback.dataset.correct = String(correct);
-      feedback.textContent = (correct ? 'Nice choice! ' : 'Try another choice. ') + adventure.explain;
+      feedback.textContent = tr(correct ? 'Nice choice!' : 'Try another choice.') + ' ' + tr(adventure.explain);
       break;
     }
     case 'continue-programme':
@@ -1575,7 +1609,7 @@ document.addEventListener('click', event => {
     }
     case 'assign':
       if (role !== 'facilitator') return;
-      openDialog('Assign activity', form('assign', `${isHomeGame() ? `<input type="hidden" name="recipient" value="${esc(p.id)}">` : field('Assign to', 'recipient', 'Choose one learner or assign to everyone with an open mentored week.', `<select name="recipient"><option value="all">All mentored learners with an open week</option>${state.players.filter(other => !other.solo && !activeWeek(other).closed).map(other => `<option value="${other.id}">${esc(other.name)} · Week ${activeWeek(other).index + 1}</option>`).join('')}</select>`)}
+      openDialog('Assign activity', form('assign', `${isHomeGame() ? `<input type="hidden" name="recipient" value="${esc(p.id)}">` : field('Assign to', 'recipient', 'Choose one learner or assign to everyone with an open mentored week.', `<select name="recipient"><option value="all">All mentored learners with an open week</option>${state.players.filter(other => !other.solo && !activeWeek(other).closed).map(other => `<option value="${other.id}">${esc(other.name)} · ${tr('Week')} ${activeWeek(other).index + 1}</option>`).join('')}</select>`)}
       ${textField('Activity title', 'title', 'Use a short title the learner can recognise, such as Compare two prices.')}${noteField('What should they do and submit?', 'prompt', 'Give one clear task and say what to return. For example, compare two prices and send one sentence explaining your choice.')}${field('Points', 'points', 'How many points should approval of this activity award?', `<input type="number" name="points" value="10" min="0" max="100" required>`)}
       <label class="radio"><input type="checkbox" name="required"> Required for check-in</label>`, 'Assign activity')); break;
     case 'review': if (role === 'facilitator' && task?.status === 'submitted' && !w.closed) reviewDialog(p, task); break;
@@ -1597,7 +1631,7 @@ document.addEventListener('click', event => {
     case 'close-week':
       if (role === 'facilitator' && !p.solo && totals(w).ready && !w.closed) openDialog('Check in with ' + esc(p.name), `<p>All required activities are approved. Review the business result and agree on one next step.</p>
       ${w.tasks.some(t => !t.required && t.status === 'submitted') ? '<p>Optional submissions are still awaiting review. Review them before closing the week if you want them to count.</p>' : ''}
-      <div class="lesson"><strong>Week ${w.index + 1}</strong><p>${money(totals(w).profit)} profit before simulated tax · ${money(totals(w).allocations[1])} net transfers to Save</p></div>
+      <div class="lesson"><strong>${tr('Week')} ${w.index + 1}</strong><p>${money(totals(w).profit)} profit before simulated tax · ${money(totals(w).allocations[1])} net transfers to Save</p></div>
       ${form('close-week', noteField('Feedback and next step', 'feedback', 'Summarise one thing the learner noticed and agree on one action to try next week.'), w.index === programmeLength - 1 ? 'Finish programme' : 'Close week and open next', `data-player="${p.id}"`)}`); break;
   }
 });
@@ -1637,7 +1671,7 @@ document.addEventListener('submit', async event => {
   event.preventDefault();
   const data = new FormData(el);
   const value = name => String(data.get(name) ?? '').trim();
-  const fail = message => { el.querySelector('.error').textContent = message; };
+  const fail = message => { el.querySelector('.error').textContent = tr(message); };
   const p = el.dataset.player && role === 'facilitator' ? state?.players.find(other => other.id === el.dataset.player) : player();
   const w = p && activeWeek(p), task = w?.tasks.find(t => t.id === el.dataset.id);
   const finish = (message, unlocked) => { closeDialog(); save(message, unlocked); };
@@ -1892,7 +1926,7 @@ document.addEventListener('submit', async event => {
       const error = transferMoney(p, bucket, direction === 'in' ? -cents : cents);
       if (error) return fail(error);
       if (view === 'money') ledgerWeek = w.index;
-      finish(money(cents) + ' moved to ' + (direction === 'in' ? 'Main' : bucketName(p,bucket)) + '.');
+      finish(tr('{amount} moved to {account}.', {amount:money(cents),account:direction === 'in' ? (language === 'en-NZ' ? 'Main' : tr('Main account')) : bucketName(p,bucket)}));
       break;
     }
     case 'edit-module': {
@@ -1950,7 +1984,7 @@ document.addEventListener('submit', async event => {
       if (view === 'detail' || (view === 'group' && isHomeGame())) detailWeek = w.index === programmeLength - 1 ? w.index : w.index + 1;
       if (w.index !== programmeLength - 1) {
         p.weeks.push(makeWeek(w.index + 1, state.rules));
-        finish(`Week ${w.index + 1} closed. Week ${w.index + 2} is open.`, unlocked);
+        finish(`${tr('Week')} ${w.index + 1} closed. ${tr('Week')} ${w.index + 2} is open.`, unlocked);
       } else finish('12 weeks complete! Open the learner dashboard to see your progress or keep playing.', unlocked);
       break;
     }
