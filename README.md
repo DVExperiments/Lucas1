@@ -1,4 +1,4 @@
-# The Lucas Money Game V2.2
+# The Lucas Money Game V2.3
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 
@@ -14,6 +14,12 @@ A Success Avenue Money pilot for intermediate-school learners. Learners complete
 - Learning XP drives levels and the class leaderboard. In each week it counts approved missions, up to one approved chore, the completed lesson clip and the passed quiz. Savings balances are personal and do not affect learning XP or rankings.
 - The Profile shop has free starter looks and point unlocks for icons, dashboard backgrounds, and titles. Points spent on the retired virtual shop are available again in the new shop. The progress chart shows cumulative XP and savings by week. Savings milestones and the big personal goal use the learner's own money log. The savings and investing pages introduce savings accounts, KiwiSaver and Sharesies as learning topics.
 - The facilitator can set SAM lesson and quiz URLs for the group in **Settings** or for an individual week in the learner's module. External links open in a new tab. The included clip and quiz provide the in-game credit during the pilot.
+
+## Weekly and teacher challenges
+
+- Choose **Play this week’s challenge** from the dashboard. Each programme week has its own activity. Finish it for a printable certificate and 15 Shop points. Play again for practice or catch up on earlier weeks in **Challenges**. There is one reward per programme week, independent of weekly check-ins. Earn one, four and eight certificates to unlock profile rewards.
+- **Market Day** is open to every learner. Plan a school fair stall, set prices, keep a cash buffer and adapt after an unexpected cost. The standalone practice activity is available at any time. Only the weekly version counts towards its certificate.
+- In the teacher or caregiver view, use **Challenges & rewards** to publish a task for the group or selected learner. Choose a certificate, avatar item, classroom reward or a combination. Learners submit their work, and adults approve it or request changes. For a shared reward such as a class lunch, set the number of learners who must be approved. Adults organise the reward and record when they have delivered it. Certificates and avatar rewards are issued individually on approval.
 
 ## Publish on GitHub Pages
 

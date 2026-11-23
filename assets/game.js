@@ -1,4 +1,5 @@
 import { programmeLength, episodeFor } from './curriculum.js';
+import { weeklyCertificates, weeklyPoints, weeklyAvatarRewards } from './challenges.js';
 
 export const tracks = ['Ages 8–10', 'Ages 11–13 · Intermediate', 'Ages 14–17'];
 export const buckets = ['Spend', 'Save', 'Invest', 'Give'];
@@ -100,6 +101,7 @@ export function totals(week) {
 }
 export function progress(player) {
   const awardPoints = earnedAwards(player).reduce((sum, award) => sum + award.points, 0);
+  const challengePoints = weeklyCertificates(player).length * weeklyPoints;
   return player.weeks.reduce((sum, week) => {
     const t = totals(week);
     if (week.closed) {
@@ -109,7 +111,7 @@ export function progress(player) {
     }
     sum.points += t.points;
     return sum;
-  }, { buckets: [0, 0, 0, 0], points: awardPoints, awardPoints, closed: 0 });
+  }, { buckets: [0, 0, 0, 0], points: awardPoints + challengePoints, awardPoints, challengePoints, closed: 0 });
 }
 
 export const market = [
@@ -225,6 +227,10 @@ export const shopItems = [
   { id: 'rookie', kind: 'title', name: 'Money Rookie', cost: 0, description: 'Every good habit starts somewhere.' },
   { id: 'goal-getter', kind: 'title', name: 'Goal Getter', cost: 35, description: 'A title for taking the next step.' },
   { id: 'budget-boss', kind: 'title', name: 'Budget Boss', cost: 60, description: 'A title for making a plan and sticking to it.' },
+  { id: 'school-market-icon', kind: 'icon', name: 'Market Medal', cost: 0, symbol: '🏅', rewardOnly: 'Earn 1 weekly certificate.', description: 'Your first weekly challenge award.' },
+  { id: 'challenge-planner', kind: 'title', name: 'Challenge Planner', cost: 0, rewardOnly: 'Earn 4 weekly certificates.', description: 'An award for completing four weekly challenges.' },
+  { id: 'challenge-champion', kind: 'title', name: 'Challenge Champion', cost: 0, rewardOnly: 'Earn 8 weekly certificates.', description: 'An award for completing eight weekly challenges.' },
+  { id: 'teacher-star', kind: 'icon', name: 'Class Star', cost: 0, symbol: '🌟', rewardOnly: 'Earn it in a teacher challenge.', description: 'An award from a teacher.' },
   { id: 'habit-hero', kind: 'title', name: 'Habit Hero', cost: 100, description: 'A title for practising the small things that add up.' }
 ];
 const profileDefaults = { icon: 'hero', background: 'sunset', title: 'rookie' };
@@ -233,7 +239,10 @@ export function shopWallet(p) {
   // Retired fixture and theme purchases no longer count against the balance.
   const purchases = (p.shop?.purchases ?? []).filter(purchase => shopItems.some(item => item.id === purchase.id));
   const spent = purchases.reduce((sum, purchase) => sum + purchase.price, 0);
-  const owned = new Set([...shopItems.filter(item => !item.cost).map(item => item.id), ...purchases.map(purchase => purchase.id)]);
+  const count = weeklyCertificates(p).length;
+  const unlocked = weeklyAvatarRewards.filter(reward => count >= reward.count).map(reward => reward.item);
+  const owned = new Set([...shopItems.filter(item => !item.cost && !item.rewardOnly).map(item => item.id),
+    ...purchases.map(purchase => purchase.id), ...unlocked, ...(p.shop?.gifts ?? [])]);
   return { earned, spent, balance: Math.max(0, earned - spent), owned };
 }
 export function cosmetics(p) {
@@ -246,11 +255,17 @@ export function cosmetics(p) {
 function shopSettings(p) {
   return p.shop ??= { purchases: [], target: null };
 }
+export function giftCosmetic(p, id) {
+  if (!shopItems.some(item => item.id === id) || shopWallet(p).owned.has(id)) return;
+  (shopSettings(p).gifts ??= []).push(id);
+  if (p.shop.target === id) p.shop.target = null;
+}
 export function buyUpgrade(p, id) {
   const item = shopItems.find(entry => entry.id === id);
   if (!item) return 'This item is unavailable.';
   const wallet = shopWallet(p);
   if (wallet.owned.has(id)) return 'You already own this item.';
+  if (item.rewardOnly) return 'Complete the challenge to unlock this item.';
   if (wallet.balance < item.cost) return 'You do not have enough game points.';
   const shop = shopSettings(p);
   shop.purchases.push({ id, price: item.cost });
@@ -265,7 +280,7 @@ export function equipCosmetic(p, id) {
   return true;
 }
 export function setShopTarget(p, id) {
-  if (id !== null && (!shopItems.some(item => item.id === id) || shopWallet(p).owned.has(id))) return false;
+  if (id !== null && (!shopItems.some(item => item.id === id && !item.rewardOnly) || shopWallet(p).owned.has(id))) return false;
   shopSettings(p).target = id;
   return true;
 }

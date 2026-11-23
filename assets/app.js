@@ -1,5 +1,7 @@
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js';
 import { episodes, episodeFor, programmeLength } from './curriculum.js';
+import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
+  completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
 
 const assetUrl = image => new URL('./assets/' + image, location.href).href;
 const sitePath = location.pathname.replace(/index\.html$/, '');
@@ -33,11 +35,12 @@ if (!workspace.classResume && state?.current && state.kind !== 'home' && workspa
 let view = 'home';
 let role = null;
 const publicRoutes = new Set(['home', 'setup', 'public-help']);
-const learnerRoutes = new Set(['week', 'money', 'progress', 'shop', 'learner-help', 'dashboard', 'investments']);
-const facilitatorRoutes = new Set(['group', 'detail', 'settings', 'facilitator-help']);
+const learnerRoutes = new Set(['week', 'money', 'progress', 'shop', 'learner-help', 'dashboard', 'investments', 'challenges']);
+const facilitatorRoutes = new Set(['group', 'detail', 'settings', 'facilitator-help', 'teacher-challenges']);
 let ledgerWeek;
 let detailWeek;
 let detailPlayerId;
+let marketAttempt;
 
 for (const group of [...workspace.groups.map(entry => entry.data), workspace.sample].filter(Boolean)) {
   for (const learner of group.players) {
@@ -121,7 +124,7 @@ function openRole(nextRole) {
 const pageArt = {
   week: ['market-lights.webp','📋'], money: ['market-lights.webp','🪙'],
   investments: ['coast-ride.webp','🌱'], progress: ['coast-ride.webp','🏆'],
-  shop: ['market-lights.webp','⭐'], 'learner-help': ['coast-ride.webp','💡']
+  challenges: ['market-lights.webp','🎮'], shop: ['market-lights.webp','⭐'], 'learner-help': ['coast-ride.webp','💡']
 };
 function pageHeader(label, title, description, action = '') {
   const art = role === 'learner' ? pageArt[view] : undefined;
@@ -257,8 +260,9 @@ function progressView(p) {
   const result = progress(p), wallet = shopWallet(p);
   return `${pageHeader('MY BUSINESS', 'My progress', 'See what you saved and what you learnt along the way.')}
   ${trendChart(p)}
-  <div class="progress-layout spaced">${goal(p, true)}<div class="stats progress-stats"><article class="panel"><span>Weeks closed</span><strong>${result.closed}</strong></article><article class="panel"><span>Shop points earned</span><strong>${result.points}</strong><p class="detail">${result.points - result.awardPoints} from missions and weeks · ${result.awardPoints} from badges</p></article></div></div>
+  <div class="progress-layout spaced">${goal(p, true)}<div class="stats progress-stats"><article class="panel"><span>Weeks closed</span><strong>${result.closed}</strong></article><article class="panel"><span>Shop points earned</span><strong>${result.points}</strong><p class="detail">${result.points - result.awardPoints - result.challengePoints} from missions and weeks · ${result.awardPoints} from badges · ${result.challengePoints} from challenges</p></article></div></div>
   <section class="panel shop-callout"><div><h2>Make your profile yours</h2><p><strong>${wallet.balance} points available</strong> · ${wallet.spent} spent. Your badges stay in your collection.</p></div>${button('Open Profile shop', 'view', 'data-view="shop"', 'primary')}</section>
+  ${certificateShelf(p)}
   ${awardShelf(p, result)}
   <div class="section-title spaced"><div><h2>Four buckets</h2><p>Total allocations from closed weeks. Save includes any simulated match.</p></div></div>
   ${bucketCards(result.buckets)}
@@ -292,6 +296,7 @@ function shopView(p) {
     return `<li class="style-card">${preview}<div class="style-card-copy"><h3>${item.name}</h3><p>${item.description}</p>
       <div class="catalog-actions">${wearing ? pill('Equipped', 'green')
         : owned ? button('Equip', 'shop-equip', attrs + ` aria-label="Equip ${item.name}"`, 'small')
+        : item.rewardOnly ? pill(item.rewardOnly)
         : `${wallet.balance >= item.cost ? button('Buy · ' + item.cost + ' pts', 'shop-buy', attrs + ` aria-label="Buy ${item.name} for ${item.cost} points"`, 'primary small') : pill(item.cost + ' pts · ' + (item.cost - wallet.balance) + ' to go')}
         ${target?.id === item.id ? pill('Saving for this', 'green') : button('Save for this', 'shop-target', attrs + ` aria-label="Save for ${item.name}"`, 'small')}`}</div></div></li>`;
   };
@@ -351,6 +356,149 @@ function journey(p, level) {
     <ol>${levels.map((name,i) => `<li class="journey-step level-${i} ${i === level ? 'here' : ''}" ${i === level ? 'aria-current="step"' : ''}><b>LEVEL ${i+1}</b><span class="journey-icon" aria-hidden="true">${levelIcons[i]}</span><strong>${name}</strong><small>${levelGoals[i]}</small></li>`).join('')}</ol>
     <div class="arc-week-grid" aria-label="Programme weeks">${episodes.map((episode,i) => `<span title="${i+1} · ${esc(episode.title)}" class="${p.weeks[i]?.closed ? 'done' : p.weeks[i] ? 'current' : ''}">${i+1}</span>`).join('')}</div></section>`;
 }
+function weeklyChallengeCard(p, showPlay = true) {
+  const week = activeWeek(p), scenario = challengeFor(week.index);
+  return `<section class="panel play-card">
+    <div class="play-emblem" aria-hidden="true">🎮</div>
+    <div><div class="eyebrow">WEEK ${week.index + 1} CHALLENGE</div><h2>${scenario.title}</h2>
+    <p>${week.weeklyCertificate ? 'Certificate earned. Play again or try another challenge.' : 'Play to earn a weekly certificate and ' + weeklyPoints + ' Shop points.'}</p></div>
+    ${showPlay ? button(week.weeklyCertificate ? 'Replay this week’s challenge' : 'Play this week’s challenge', 'weekly-play', '', 'primary') : button('All challenges', 'view', 'data-view="challenges"')}
+  </section>`;
+}
+function challengesView(p) {
+  const week = activeWeek(p);
+  const past = p.weeks.slice(0, -1).reverse();
+  return `${pageHeader('CHALLENGE ARCADE', 'Challenges', 'Try out money decisions and see what happens.')}
+    ${weeklyChallengeCard(p)}
+    ${learnerClassChallenges(p, true)}
+    <section class="panel practice-market spaced"><h2>Market Day practice</h2>
+    <p>Run a school fair stall with $40 in game money. Try different plans as often as you like.</p>
+    ${button('Play Market Day', 'practice-market')}</section>
+    ${past.length ? `<section class="panel spaced"><h2>Earlier challenges</h2>
+    <ul class="challenge-list">${past.map(w => `<li><div><strong>Week ${w.index + 1} · ${challengeFor(w.index).title}</strong>
+      <p>${w.weeklyCertificate ? 'Certificate earned' : 'Available to catch up'}</p></div>
+      ${button(w.weeklyCertificate ? 'Replay' : 'Play', 'weekly-play', `data-index="${w.index}" aria-label="Play week ${w.index + 1} challenge"`, 'small')}</li>`).join('')}</ul></section>` : ''}`;
+}
+function playScenario(index) { return index === 'practice' ? practiceMarket : challengeFor(Number(index)); }
+function scenarioAttrs(index) { return `data-index="${index}"`; }
+function startScenario(index, previous) {
+  const scenario = playScenario(index), attrs = scenarioAttrs(index);
+  if (scenario.kind === 'market') {
+    const stock = previous?.stock ?? 8, price = previous?.price ?? 4;
+    const buffer = runSchoolMarket(scenario, stock, price).buffer;
+    openDialog('Market Day', `<p>${scenario.story}</p>
+      <div class="market-game-art" aria-hidden="true"></div>
+      <div class="game-money"><span>STARTING BUDGET</span><strong>${money(scenario.budget * 100)}</strong></div>
+      ${form('school-market', `<p>Hire the stall for ${money(scenario.fee * 100)}. Stock costs ${money(scenario.unitCost * 100)} per drink. Choose how many to buy and what to charge.</p>
+      <div class="fields"><label>Drinks to buy<select name="stock">${stockOptions.filter(q => scenario.fee + q * scenario.unitCost <= scenario.budget).map(q => `<option ${q === stock ? 'selected' : ''}>${q}</option>`).join('')}</select></label>
+      <label>Sale price per drink<select name="price">${prices.map(v => `<option value="${v}" ${v === price ? 'selected' : ''}>${money(v * 100)}</option>`).join('')}</select></label></div>
+      <p class="game-buffer" id="market-buffer" role="status">${money(buffer * 100)} left in your cash buffer.</p>
+      ${previous ? `<p class="detail">Last try: ${previous.stock} drinks at ${money(previous.price * 100)} each · ${previous.covered ? money(previous.profit * 100) + ' after costs' : 'could not pay the surprise cost'}.</p>` : ''}`, 'Open the stall', attrs)}`);
+    return;
+  }
+  openDialog(esc(scenario.title), `<p>${scenario.story}</p>${form('weekly-decisions',
+    `<div class="quiz-questions">${scenario.questions.map((q,i) => `<fieldset><legend>${i+1}. ${q.prompt}</legend><div class="decision-options">
+    ${q.answers.map((answer,n) => `<label class="radio"><input type="radio" name="q${i}" value="${n}" required> ${answer}</label>`).join('')}</div></fieldset>`).join('')}</div>`,
+    'Check my choices', attrs)}`);
+}
+function showMarketResult(index, result, previous) {
+  const scenario = playScenario(index), attrs = scenarioAttrs(index);
+  const review = result.passed ? form('market-reflect', `<fieldset><legend>What let you pay the surprise cost before opening?</legend>
+    <div class="decision-options"><label class="radio"><input type="radio" name="reflection" value="sales" required> The sales I hoped to make later</label>
+    <label class="radio"><input type="radio" name="reflection" value="buffer" required> The cash I kept aside after paying for stock and the stall</label>
+    <label class="radio"><input type="radio" name="reflection" value="stock" required> The number of unsold drinks</label></div></fieldset>`,
+    'Check my answer', attrs) : '';
+  openDialog('Market Day results', `<p>Rain rolled in. Fewer people visited, and hiring cover to open the stall cost an extra <strong>${money(scenario.surprise * 100)}</strong> before the first sale.</p>
+    ${result.covered ? `<dl class="ledger-totals market-score">${[['Initial costs', result.cost], ['Rain cover', scenario.surprise], ['Sales · ' + result.sold + ' drinks', result.sales], [result.profit < 0 ? 'Loss' : 'Profit', Math.abs(result.profit)], ['Cash left', result.cash]].map(([name,v]) => `<div><dt>${name}</dt><dd>${money(v * 100)}</dd></div>`).join('')}</dl>
+    <p>${result.passed ? 'You covered all your costs and ended with more cash than you started with.' : 'Your buffer paid for the cover, but sales didn’t leave a profit. Change your stock or price and see what happens.'}</p>`
+    : `<p>You had ${money(result.buffer * 100)} left after buying stock and hiring the stall. You were ${money((scenario.surprise - result.buffer) * 100)} short and couldn’t open. Try keeping more cash aside.</p>`}
+    ${previous ? `<p class="feedback"><strong>Compared with your last plan:</strong> ${previous.covered
+      ? 'It finished with ' + money(previous.cash * 100) + ' in cash.'
+      : 'You couldn’t open the stall.'}</p>` : ''}
+    ${review}<div class="action-row">${button('Revise my plan', 'market-retry', attrs, 'small')}</div>`);
+}
+function certificateShelf(p) {
+  const weekly = weeklyCertificates(p).map(w => `<li><div><strong>Week ${w.index + 1} · ${challengeFor(w.index).title}</strong><p>Weekly challenge certificate</p></div>${button('View certificate','show-certificate',scenarioAttrs(w.index),'small')}</li>`);
+  const custom = (state.classChallenges ?? []).filter(c => c.certificate && c.learners.includes(p.id) && c.entries[p.id]?.status === 'approved')
+    .map(c => `<li><div><strong>${esc(c.title)}</strong><p>Teacher challenge certificate</p></div>${button('View certificate','show-certificate',`data-id="${c.id}"`,'small')}</li>`);
+  return `<section class="panel spaced"><div class="section-title"><div><h2>Certificates</h2>
+    <p>${weekly.length} weekly certificates earned</p></div>${button('Play challenges','view','data-view="challenges"','small')}</div>
+    ${weekly.length || custom.length ? `<ul class="challenge-list">${weekly.concat(custom).join('')}</ul>` : '<p>Finish a weekly challenge to earn your first certificate.</p>'}</section>`;
+}
+function showCertificate(p, title, detail) {
+  openDialog('Challenge certificate', `<article class="certificate-sheet"><div aria-hidden="true">🏅</div>
+    <p class="certificate-label">THE LUCAS MONEY GAME</p><h3>Certificate of Achievement</h3>
+    <p>Presented to</p><strong class="certificate-name">${esc(p.name)}</strong>
+    <p>for completing <strong>${esc(title)}</strong></p><p>${esc(detail)}</p>
+  </article><div class="action-row">${button('Print certificate','print-certificate')}</div>`);
+}
+function learnerClassChallenges(p, showClosed = false) {
+  const challenges = (state.classChallenges ?? []).filter(c => c.learners.includes(p.id) && (showClosed || !c.closed));
+  if (!challenges.length) return '';
+  return `<section class="panel spaced"><h2>Teacher challenges</h2><ul class="challenge-list">${challenges.map(c => {
+    const entry = c.entries[p.id], finished = entry?.status === 'approved';
+    const status = finished ? 'Approved' : c.closed ? 'Closed' : entry?.status === 'pending' ? 'Awaiting review' : entry?.status === 'revise' ? 'Try again' : 'Ready to play';
+    const gift = shopItems.find(item => item.id === c.avatar);
+    const unlocked = classroomUnlocked(c, p.id);
+    const delivered = c.classTarget ? c.delivered : entry?.delivered;
+    return `<li><div><h3>${esc(c.title)}</h3><p>${esc(c.brief)}</p>
+      ${c.classTarget ? `<p>Class goal: ${approvedCount(c)} / ${c.classTarget} approved</p>` : ''}
+      ${c.certificate || gift ? `<p>${finished ? 'Earned: ' : 'On approval: '}${[c.certificate ? 'certificate' : '', gift?.name].filter(Boolean).join(' · ')}</p>` : ''}
+      ${c.realReward ? `<p>${delivered ? 'Reward delivered' : unlocked ? 'Reward unlocked' : 'Reward to work towards'}: <strong>${esc(c.realReward)}</strong></p>` : ''}
+      ${entry?.feedback ? `<p class="feedback"><strong>Teacher feedback</strong> · ${esc(entry.feedback)}</p>` : ''}
+    </div><div class="task-actions">${pill(status, finished ? 'green' : '')}
+    ${!c.closed && (!entry || entry.status === 'revise') ? button(entry ? 'Resubmit' : 'Open challenge','class-work',`data-id="${c.id}"`,'small') : ''}
+    ${finished && c.certificate ? button('View certificate','show-certificate',`data-id="${c.id}"`,'small') : ''}</div></li>`;
+  }).join('')}</ul></section>`;
+}
+function teacherChallengesView() {
+  const roster = state.players;
+  return `${pageHeader('CLASSROOM', 'Challenges & rewards', 'Set a challenge, review learners’ work, and keep track of rewards.',
+    roster.length ? button('Create teacher challenge','new-class-challenge','','primary') : '')}
+    <section class="panel"><h2>Weekly certificates</h2>
+    ${roster.length ? `<ul class="challenge-list">${roster.map(p => `<li><strong>${esc(p.name)}</strong>
+      <span>${weeklyCertificates(p).length} earned</span></li>`).join('')}</ul>` : '<p>Add learners from the Group dashboard to start.</p>'}</section>
+    ${(state.classChallenges ?? []).map(c => `<section class="panel spaced"><div class="section-title"><div>
+      <h2>${esc(c.title)}</h2><p>${esc(c.brief)}</p></div>${pill(c.closed ? 'Closed' : 'Open', c.closed ? '' : 'green')}</div>
+      ${c.realReward ? `<p>Classroom reward: <strong>${esc(c.realReward)}</strong></p>` : ''}
+      ${c.classTarget ? `<p>Class goal: ${approvedCount(c)} / ${c.classTarget} approved. ${c.delivered ? 'Reward delivered.' : ''}</p>
+        ${(c.realReward && !c.delivered && approvedCount(c) >= c.classTarget) ? button('Mark class reward delivered','class-delivered',`data-id="${c.id}"`,'small') : ''}` : ''}
+      <ul class="challenge-list">${roster.filter(p => c.learners.includes(p.id)).map(p => {
+        const entry = c.entries[p.id], attrs = `data-id="${c.id}" ${playerAttrs(p)}`;
+        const status = {pending:'Awaiting review', approved:'Approved', revise:'Needs revision'}[entry?.status] ?? 'To do';
+        return `<li><div><strong>${esc(p.name)}</strong><p>${status}${entry?.delivered ? ' · Reward delivered' : ''}</p>
+          ${entry?.status === 'approved' ? `<p class="challenge-work">${esc(entry.work)}</p>` : ''}</div>
+          <div class="action-row">${entry?.status === 'pending' && !c.closed ? button('Review submission','class-review',attrs,'small') : ''}
+          ${c.realReward && !c.classTarget && entry?.status === 'approved' && !entry.delivered ? button('Mark reward delivered','class-delivered',attrs,'small') : ''}</div></li>`;
+      }).join('')}</ul>
+      ${c.closed ? '' : button('Close challenge','close-class-challenge',`data-id="${c.id}"`,'small')}
+    </section>`).join('')}`;
+}
+function createClassChallengeDialog() {
+  const roster = state.players;
+  const rewardItems = shopItems.filter(item => item.id === 'teacher-star' || (item.kind !== 'background' && item.cost > 0));
+  openDialog('Create teacher challenge', form('create-class-challenge',
+    textField('Challenge name','title','For example, Plan a school fair stall.','',60)
+    + noteField('What should learners do and submit?','brief','Explain what to do and how they can show you what they learnt.')
+    + field('Assign to','recipient','Choose an individual learner or everyone currently in this group.',`<select name="recipient"><option value="all">All learners</option>${roster.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>`)
+    + '<label class="radio"><input type="checkbox" name="certificate" checked> Award a printable certificate on approval</label>'
+    + field('Avatar reward','avatar','Optional. Each approved learner receives this in the Profile Shop.',`<select name="avatar"><option value="">None</option>${rewardItems.map(item=>`<option value="${item.id}">${item.name}</option>`).join('')}</select>`)
+    + textField('Classroom reward (optional)','realReward','For example, Class lunch. You organise and deliver it.','',80,false)
+    + field('Class target (optional)','classTarget','For a shared reward, enter how many learners must be approved. Leave blank for individual rewards.',`<input type="number" name="classTarget" min="1" max="${roster.length}" step="1">`),
+    'Publish challenge'));
+}
+
+function finishScenario(p, index, feedback) {
+  const before = weeklyCertificates(p).length;
+  const earned = index !== 'practice' && completeWeeklyChallenge(p, Number(index));
+  const unlock = earned && weeklyAvatarRewards.find(r => r.count === before + 1);
+  marketAttempt = undefined;
+  save();
+  openDialog(earned ? 'Weekly certificate earned!' : 'Challenge complete!', `<p>${feedback}</p>
+    ${earned ? `<p><strong>+ ${weeklyPoints} Shop points</strong>${unlock ? ' · Profile reward unlocked: ' + shopItems.find(item => item.id === unlock.item).name : ''}</p>
+      <div class="action-row">${button('View certificate','show-certificate',scenarioAttrs(index),'primary')}${unlock ? button('Open Profile Shop','view','data-view="shop"') : ''}</div>`
+      : `<p>${index === 'practice' ? 'Try the weekly challenge to earn a certificate.' : 'Your certificate is already in My progress.'}</p>`}`);
+}
 function dashboardView(p) {
   const w = activeWeek(p), info = moduleFor(p, w.index), lesson = w.tasks.find(t => t.id === 'learning');
   const stats = learningStats(p), week = learningStats(p, [w]);
@@ -361,9 +509,9 @@ function dashboardView(p) {
   const closed = progress(p).closed;
   const quizDone = w.quizPassed || ['approved','submitted'].includes(lesson.status);
   const next = w.closed ? button('Keep playing', 'continue-programme', '', 'primary')
-    : quizDone ? button('See this week’s missions','view','data-view="week"','primary')
-    : w.videoWatched ? button('Start the quiz','lesson-quiz','','primary')
-    : button('Watch this week’s video','task','data-id="learning"','primary');
+    : quizDone ? button('See this week’s missions','view','data-view="week"')
+    : w.videoWatched ? button('Start the quiz','lesson-quiz')
+    : button('Watch this week’s video','task','data-id="learning"');
   return `<div class="arc-dashboard">
     <div class="arc-grid">
       <aside class="arc-profile">${button(avatar(p), 'view', 'data-view="shop" aria-label="Customise my profile"', 'avatar-button')}<strong>${esc(p.name)}</strong><span class="profile-title">${cosmetics(p).title.name}</span><p>${esc(p.business)}</p>
@@ -373,12 +521,12 @@ function dashboardView(p) {
       <section class="arc-main"><div class="arc-hero" ${artwork(p)}>
         <div class="arc-hero-copy"><span class="arc-tag">${w.index >= programmeLength ? 'KEEP GOING' : 'WEEK ' + (w.index+1) + ' / 12'}</span>
           <div class="hero-mobile-identity">${identity(p)}</div><h1>${w.closed ? '12 weeks complete!' : 'Ready, ' + esc(p.name) + '?'}</h1><p>${esc(info.title)}${p.track === 0 ? ' · Play with a grown-up' : ''}</p>
-          ${next}
+          <div class="hero-choices">${w.closed ? next : button(w.weeklyCertificate ? 'Replay this week’s challenge' : 'Play this week’s challenge','weekly-play','','primary') + next}</div>
         </div></div>
         <div class="arc-missions"><div class="arc-section-head"><div><span>YOUR NEXT MOVE</span><h2>This week’s missions</h2></div>${pill(approved + ' / ' + required + ' approved', 'green')}</div>
         <div class="arc-actions">
           ${button(`<span aria-hidden="true">${missionIcons.chore}</span>` + '<strong>I did a chore</strong><small>Log a job you finished</small>', 'log-chore', w.closed ? 'disabled' : '', 'mission-action mission-chore')}
-          ${button(`<span aria-hidden="true">${missionIcons.business}</span>` + '<strong>Mini business</strong><small>Try this week’s challenge</small>', 'task', 'data-id="business"', 'mission-action mission-business')}
+          ${button(`<span aria-hidden="true">${missionIcons.business}</span>` + '<strong>Mini business</strong><small>Open your business mission</small>', 'task', 'data-id="business"', 'mission-action mission-business')}
           ${button(`<span aria-hidden="true">${missionIcons.learning}</span>` + '<strong>Video &amp; quiz</strong><small>' + (w.quizPassed || lesson.status === 'approved' ? 'Quiz complete' : 'Watch and put it to the test') + '</small>', 'task', 'data-id="learning"', 'mission-action mission-learning')}
           ${button(`<span aria-hidden="true">${missionIcons.reflection}</span>` + '<strong>Money habit</strong><small>Try it in real life</small>', 'task', 'data-id="reflection"', 'mission-action mission-reflection')}
         </div></div>
@@ -387,6 +535,8 @@ function dashboardView(p) {
       <section class="arc-card arc-gold"><span>MY BIG GOAL</span><h2>${button(esc(p.goal), 'view', 'data-view="progress" aria-label="My big goal and savings progress"', 'card-link')}</h2><progress max="100" value="${pct(p)}" aria-label="Savings goal progress"></progress><p>${pct(p)}% of goal · ${closed} ${closed === 1 ? 'week' : 'weeks'} checked in</p></section>
       <section class="arc-card arc-chart"><span>LEARNING THIS WEEK</span><h2>${button(week.xp + ' XP earned', 'view', 'data-view="week" aria-label="See this week’s learning"', 'card-link')}</h2><dl>${[['Missions',week.missions,w.tasks.filter(t=>t.id!=='learning' && t.kind!=='chore').length + Number(w.tasks.some(t=>t.kind==='chore'))],['Videos',week.videos,1],['Quizzes',week.quizzes,1]].map(([label,n,max])=>`<div><dt>${label}</dt><dd><progress aria-label="${label} completed this week" max="${Math.max(1,max)}" value="${n}"></progress><b>${n}</b></dd></div>`).join('')}</dl></section></aside>
     </div>
+    ${weeklyChallengeCard(p, false)}
+    ${learnerClassChallenges(p)}
     ${trendChart(p, true)}
     ${competitionNotice(p)}
     ${journey(p,level)}
@@ -578,17 +728,17 @@ function render() {
   const links = isPublic
     ? [['home','Home'], ['setup','Setup instructions'], ['public-help','About &amp; Help']]
     : role === 'learner'
-      ? [['dashboard','Dashboard'], ['week','Missions'], ['money','Money log'], ['investments','Savings &amp; investing'], ['progress','My progress'], ['shop','Profile shop'], ['learner-help','About &amp; Help']]
-      : [['home','Home'], ['group',dashboardLabel()], ['settings','Settings'], ['facilitator-help','About &amp; Help']];
+      ? [['dashboard','Dashboard'], ['challenges','Challenges'], ['week','Missions'], ['money','Money log'], ['investments','Savings &amp; investing'], ['progress','My progress'], ['shop','Profile shop'], ['learner-help','About &amp; Help']]
+      : [['home','Home'], ['group',dashboardLabel()], ['teacher-challenges','Challenges &amp; rewards'], ['settings','Settings'], ['facilitator-help','About &amp; Help']];
   $('#nav').innerHTML = links.map(([id,label]) => `<button type="button" data-action="view" data-view="${id}" ${view === id ? 'aria-current="page"' : ''}>${label}</button>`).join('');
-  const sections = { home: homeView, setup: setupView, 'public-help': publicHelpView, 'learner-help': learnerHelpView, 'facilitator-help': facilitatorHelpView, detail: learnerDetail, dashboard: dashboardView, investments: investmentsView, week: weekView, money: moneyView, progress: progressView, shop: shopView, group: groupView, settings: settingsView };
+  const sections = { home: homeView, setup: setupView, 'public-help': publicHelpView, 'learner-help': learnerHelpView, 'facilitator-help': facilitatorHelpView, detail: learnerDetail, 'teacher-challenges':teacherChallengesView, challenges:challengesView, dashboard: dashboardView, investments: investmentsView, week: weekView, money: moneyView, progress: progressView, shop: shopView, group: groupView, settings: settingsView };
   document.body.dataset.role = role ?? 'public';
   document.body.dataset.skin = !isPublic && role === 'facilitator' ? 'staff' : p?.track === 0 ? 'junior' : p?.track === 2 ? 'teen' : 'arcade';
   const context = !isPublic && state ? `<p class="group-context">${workspace.active === 'test' ? 'Test group · Sample data' : esc(state.group)}</p>` : '';
   $('#main').innerHTML = '<p id="notice" class="toast" role="status" tabindex="-1" hidden></p>' + context + sections[view](view === 'detail' ? state.players.find(other => other.id === detailPlayerId) : p);
 }
 
-function closeDialog() { dialog.close(); dialog.classList.remove('arc-quiz'); }
+function closeDialog() { marketAttempt = undefined; dialog.close(); dialog.classList.remove('arc-quiz'); }
 function wireLessonVideo(week) {
   const video = $('#lesson-film');
   let previous = video.currentTime;
@@ -609,7 +759,7 @@ function wireLessonVideo(week) {
     $('#lesson-status').textContent = 'This video couldn’t load. Reopen the lesson and try again.';
   });
 }
-dialog.addEventListener('close', () => { if (!dialog.open) dialog.classList.remove('arc-quiz'); });
+dialog.addEventListener('close', () => { if (!dialog.open) { marketAttempt = undefined; dialog.classList.remove('arc-quiz'); } });
 function openDialog(title, body) {
   dialog.innerHTML = `<div class="dialog-head"><h2 id="dialog-title" tabindex="-1">${title}</h2>${button('Close', 'dismiss', 'aria-label="Close dialog"', 'small')}</div>${body}`;
   if (!dialog.open) dialog.showModal();
@@ -766,9 +916,69 @@ document.addEventListener('click', event => {
   }
   const p = id && role === 'facilitator' ? state?.players.find(other => other.id === id) : player();
   const w = p && activeWeek(p), task = w?.tasks.find(t => t.id === item);
+  const contest = state?.classChallenges?.find(c => c.id === item);
   switch (action) {
     case 'dismiss': closeDialog(); break;
     case 'view': closeDialog(); navigate(next); break;
+    case 'weekly-play':
+    case 'practice-market':
+      if (role !== 'learner' || !w) return;
+      marketAttempt = undefined;
+      if (action === 'practice-market') startScenario('practice');
+      else {
+        const week = index === undefined ? w.index : Number(index);
+        if (p.weeks[week]) startScenario(week);
+      }
+      break;
+    case 'market-retry':
+      if (role === 'learner' && marketAttempt?.index === index && marketAttempt.playerId === p?.id) {
+        startScenario(index, marketAttempt.result);
+      }
+      break;
+    case 'show-certificate': {
+      if (role !== 'learner' || !p) return;
+      if (index !== undefined && p.weeks[Number(index)]?.weeklyCertificate) {
+        const n = Number(index);
+        showCertificate(p, challengeFor(n).title, 'Weekly challenge · Week ' + (n + 1));
+      } else if (contest?.certificate && contest.learners.includes(p.id) && contest.entries[p.id]?.status === 'approved') {
+        showCertificate(p, contest.title, 'Teacher challenge · ' + state.group);
+      }
+      break;
+    }
+    case 'print-certificate':
+      if (role === 'learner' && dialog.querySelector('.certificate-sheet')) window.print();
+      break;
+    case 'new-class-challenge':
+      if (role === 'facilitator' && state.players.length) createClassChallengeDialog();
+      break;
+    case 'class-work': {
+      if (role !== 'learner' || !contest || contest.closed || !contest.learners.includes(p.id)) return;
+      const entry = contest.entries[p.id];
+      if (entry && entry.status !== 'revise') return;
+      openDialog(esc(contest.title), `<p class="challenge-work">${esc(contest.brief)}</p>${form('class-work',
+        noteField('Your answer or reflection','work','Write what you tried and what you learnt.',entry?.work), 'Send to teacher', `data-id="${contest.id}"`)}`);
+      break;
+    }
+    case 'class-review': {
+      if (role !== 'facilitator' || !contest || contest.closed || contest.entries[p?.id]?.status !== 'pending') return;
+      openDialog('Review challenge submission', `<p><strong>${esc(p.name)} · ${esc(contest.title)}</strong></p><p class="lesson challenge-work">${esc(contest.entries[p.id].work)}</p>${form('class-review',
+        '<label>Decision<select name="decision"><option value="approved">Approve and award rewards</option><option value="revise">Ask for changes</option></select></label>'
+        + noteField('Feedback','feedback','Give a next step if you ask for changes.','',false), 'Save review', `data-id="${contest.id}" ${playerAttrs(p)}`)}`);
+      break;
+    }
+    case 'class-delivered':
+    case 'close-class-challenge': {
+      if (role !== 'facilitator' || !contest) return;
+      if (action === 'class-delivered' && contest.realReward) {
+        const recipient = contest.classTarget ? 'the class' : p?.name;
+        if (!recipient) return;
+        openDialog('Mark reward delivered?', `<p>Confirm that ${esc(recipient)} received <strong>${esc(contest.realReward)}</strong>.</p>${form(action,'','Mark delivered',`data-id="${contest.id}" ${p ? playerAttrs(p) : ''}`)}`);
+      }
+      if (action === 'close-class-challenge' && !contest.closed) {
+        openDialog('Close challenge?', `<p>New submissions and reviews will close. Earned certificates and rewards will stay available.</p>${form(action,'','Close challenge',`data-id="${contest.id}"`)}`);
+      }
+      break;
+    }
     case 'chart-week':
     case 'chart-metric': {
       if (role !== 'learner' || !['dashboard','progress'].includes(view)) return;
@@ -960,6 +1170,12 @@ document.addEventListener('click', event => {
   }
 });
 document.addEventListener('change', event => {
+  const marketForm = event.target.closest('[data-form="school-market"]');
+  if (marketForm) {
+    const data = new FormData(marketForm);
+    const result = runSchoolMarket(playScenario(marketForm.dataset.index), Number(data.get('stock')), Number(data.get('price')));
+    if (result) $('#market-buffer').textContent = money(result.buffer * 100) + ' left in your cash buffer.';
+  }
   if (event.target.id === 'home-group') { selectGroup(event.target.value); save(); $('#home-group').focus(); }
   if (event.target.id === 'detail-week') { detailWeek = Number(event.target.value); render(); $('#detail-week').focus(); }
   if (event.target.id === 'ledger-week') { ledgerWeek = Number(event.target.value); render(); $('#ledger-week').focus(); }
@@ -974,7 +1190,79 @@ document.addEventListener('submit', async event => {
   const p = el.dataset.player && role === 'facilitator' ? state?.players.find(other => other.id === el.dataset.player) : player();
   const w = p && activeWeek(p), task = w?.tasks.find(t => t.id === el.dataset.id);
   const finish = (message, unlocked) => { closeDialog(); save(message, unlocked); };
+  const contest = state?.classChallenges?.find(c => c.id === el.dataset.id);
   switch (el.dataset.form ?? 'settings') {
+    case 'weekly-decisions': {
+      if (role !== 'learner' || !p?.weeks[Number(el.dataset.index)]) return;
+      const n = Number(el.dataset.index), scenario = challengeFor(n);
+      if (scenario.kind !== 'decision') return;
+      const wrong = scenario.questions.findIndex((q,i) => value('q' + i) === '' || Number(value('q' + i)) !== q.correct);
+      if (wrong !== -1) return fail('Try question ' + (wrong + 1) + ' again. ' + scenario.questions[wrong].explanation);
+      finishScenario(p, n, scenario.questions.map(q => q.explanation).join(' '));
+      break;
+    }
+    case 'school-market': {
+      if (role !== 'learner' || !p) return;
+      const index = el.dataset.index;
+      if (index !== 'practice' && !p.weeks[Number(index)]) return;
+      const scenario = playScenario(index);
+      if (scenario.kind !== 'market') return;
+      const result = runSchoolMarket(scenario, Number(value('stock')), Number(value('price')));
+      if (!result) return fail('Choose stock and a price within your starting budget.');
+      const previous = marketAttempt?.index === index && marketAttempt.playerId === p.id ? marketAttempt.result : undefined;
+      marketAttempt = { index, result, playerId:p.id };
+      showMarketResult(index,result,previous);
+      break;
+    }
+    case 'market-reflect':
+      if (role !== 'learner' || !p || marketAttempt?.playerId !== p.id || marketAttempt.index !== el.dataset.index || !marketAttempt.result.passed) return;
+      if (value('reflection') !== 'buffer') return fail('Think about what you had available before customers paid. Try again.');
+      finishScenario(p, el.dataset.index, 'Your cash buffer covered the surprise before any sales came in. You can play again to compare a different plan.');
+      break;
+    case 'create-class-challenge': {
+      if (role !== 'facilitator') return;
+      const title = value('title'), brief = value('brief'), classroomReward = value('realReward'), avatar = value('avatar');
+      const classTarget = Number(value('classTarget')), recipient = value('recipient');
+      const learners = state.players.filter(p => recipient === 'all' || recipient === p.id).map(p => p.id);
+      if (!title || !brief || !learners.length) return fail('Enter a title, instructions and learners.');
+      if (avatar && !shopItems.some(item => item.id === avatar && (item.id === 'teacher-star' || (item.kind !== 'background' && item.cost > 0)))) return fail('Choose a listed avatar reward.');
+      if (value('classTarget') && (!classroomReward || recipient !== 'all' || !Number.isInteger(classTarget) || classTarget < 1 || classTarget > learners.length)) {
+        return fail('A shared class target needs a classroom reward, All learners and a target within the group size.');
+      }
+      (state.classChallenges ??= []).unshift({ id:uid(), title, brief, learners, avatar, certificate:value('certificate') === 'on',
+        realReward:classroomReward, classTarget, entries:{}, closed:false });
+      finish('Challenge published. It will appear on the assigned learners’ dashboards.');
+      break;
+    }
+    case 'class-work':
+      if (role !== 'learner' || !p || !contest || !submitClassWork(contest,p.id,value('work'))) return fail('Enter your work or check whether the challenge still accepts submissions.');
+      finish('Work sent to your teacher.');
+      break;
+    case 'class-review': {
+      if (role !== 'facilitator' || !contest || !p) return;
+      const decision = value('decision');
+      if (!reviewClassWork(contest,p.id,decision,value('feedback'))) return fail('This work is no longer pending or needs feedback before it can be returned.');
+      if (decision === 'approved' && contest.avatar) giftCosmetic(p,contest.avatar);
+      finish(decision === 'approved' ? 'Work approved and rewards updated.' : 'Feedback sent for revision.');
+      break;
+    }
+    case 'class-delivered':
+      if (role !== 'facilitator' || !contest?.realReward) return;
+      if (contest.classTarget) {
+        if (approvedCount(contest) < contest.classTarget || contest.delivered) return;
+        contest.delivered = true;
+      } else {
+        const entry = contest.entries[p?.id];
+        if (entry?.status !== 'approved' || entry.delivered) return;
+        entry.delivered = true;
+      }
+      finish('Reward marked delivered.');
+      break;
+    case 'close-class-challenge':
+      if (role !== 'facilitator' || !contest || contest.closed) return;
+      contest.closed = true;
+      finish('Challenge closed.');
+      break;
     case 'shop-buy': {
       if (role !== 'learner' || view !== 'shop' || !p || player()?.id !== p.id) return;
       const error = buyUpgrade(p, el.dataset.id);

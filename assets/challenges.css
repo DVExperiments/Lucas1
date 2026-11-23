@@ -1,0 +1,80 @@
+.play-card {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:14px;
+  margin-top:14px;
+  border-color:var(--line-strong);
+}
+.play-emblem {
+  display:grid;
+  place-items:center;
+  width:54px;
+  aspect-ratio:1;
+  border:1px solid var(--line-strong);
+  border-radius:14px;
+  background:var(--surface-raised);
+  font-size:1.55rem;
+}
+.play-card h2 { margin-top:3px; }
+.hero-choices { display:flex; flex-wrap:wrap; gap:8px; }
+.challenge-list { list-style:none; padding:0; margin:8px 0 0; }
+.challenge-list > li {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  border-bottom:1px solid var(--line);
+  padding:12px 0;
+  overflow-wrap:anywhere;
+}
+.challenge-list > li:last-child { border-bottom:0; }
+.challenge-list .task-actions { flex:none; }
+.challenge-work { white-space:pre-wrap; }
+.practice-market .button { margin-top:10px; }
+.market-game-art {
+  min-height:125px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--inset) url('./market-lights.webp') 78% 52%/cover;
+}
+.game-money { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:12px; }
+.game-money span { font-size:.75rem; letter-spacing:.08em; font-weight:800; color:var(--accent); }
+.game-money strong { font-size:1.35rem; color:var(--heading); }
+.game-buffer { color:var(--gold); font-weight:750; }
+.market-score { grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); }
+.decision-options { display:grid; gap:6px; padding:4px 0; }
+.decision-options label {
+  margin:0;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid var(--line);
+  background:var(--surface-raised);
+  cursor:pointer;
+}
+.decision-options label:has(input:checked) { border-color:var(--lime); background:var(--success-bg); }
+.certificate-sheet {
+  text-align:center;
+  padding:24px 14px;
+  background:radial-gradient(ellipse at top,var(--surface-raised),var(--inset));
+  border:2px solid var(--gold);
+  border-radius:13px;
+}
+.certificate-sheet > div { font-size:2rem; }
+.certificate-label { color:var(--gold); font-size:.8rem; font-weight:800; letter-spacing:.1em; }
+.certificate-name { color:var(--heading); font-size:clamp(1.35rem,5vw,2.2rem); overflow-wrap:anywhere; }
+
+@media (max-width:580px) {
+  .play-card { grid-template-columns:auto minmax(0,1fr); }
+  .play-card .button { grid-column:1/-1; }
+  .challenge-list > li { flex-wrap:wrap; }
+  .challenge-list .task-actions { align-items:flex-start; }
+}
+@media print {
+  html, body { margin:0; background:white; }
+  body:has(dialog[open] .certificate-sheet) > :not(dialog), dialog:has(.certificate-sheet) > :not(.certificate-sheet) { display:none !important; }
+  dialog:has(.certificate-sheet) { display:block; position:static; margin:0 auto; max-height:none; width:100%; overflow:visible; padding:0; border:0; box-shadow:none; background:white; }
+  dialog:has(.certificate-sheet)::backdrop { background:transparent; }
+  .certificate-sheet, .certificate-sheet * { color:#142249; }
+  .certificate-sheet { background:white; border-color:#8a6119; padding:2cm 1cm; }
+}
