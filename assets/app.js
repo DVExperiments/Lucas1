@@ -9,6 +9,7 @@ const money = cents => currency.format(cents / 100);
 const $ = selector => document.querySelector(selector);
 const dialog = $('#dialog');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+const missionIcons = { chore: '✓', business: '▦', learning: '▶', reflection: '✎' };
 const marks = ['🛍️', '🐖', '🌱', '🎁'];
 const statuses = { todo: 'To do', submitted: 'Awaiting review', revision: 'Revise', approved: 'Approved' };
 function readSave(key) {
@@ -195,7 +196,11 @@ function weekView(p) {
     <div class="scene-footer"><span>${p.mode === 'sim' ? goodwill(p) + ' potential regulars' : 'Real business'}</span><span>${path.points} points</span></div>
     <div class="market-controls">${marketControls(p, week)}</div></section>
   <section class="quest-log" aria-labelledby="tasks-heading"><div class="section-title"><div><h2 id="tasks-heading">Weekly missions</h2><p>${approved} of ${required} required missions ${p.solo ? 'complete' : 'approved'}</p></div>${pill(week.closed ? 'Week closed' : tally.ready ? (p.solo ? 'Ready to settle' : 'Ready for check-in') : 'In progress', 'green')}</div>
-  <div class="tasks">${week.tasks.map((task, index) => `<article class="task"><div class="task-icon task-icon-${index % 3}" aria-hidden="true">${task.status === 'approved' ? '✓' : ['$', '?', '…'][index % 3]}</div><div class="task-copy"><div class="task-type">${task.kind === 'chore' ? 'Chore' : taskLabels[task.id] ?? taskLabels.custom} · +${task.points} pts${task.required ? '' : ' · Optional'}</div><h3>${esc(taskName(task, p))}</h3><p>${esc(taskPrompt(task, p, week))}</p>${task.feedback ? `<p class="feedback"><strong>Feedback</strong> · ${esc(task.feedback)}</p>` : ''}</div><div class="task-actions">${pill(status(task), task.status === 'approved' ? 'green' : task.status === 'revision' ? 'amber' : '')}${button(week.closed || ['submitted','approved'].includes(task.status) ? 'View' : 'Open', 'task', `data-id="${esc(task.id)}"`, 'small')}</div></article>`).join('')}</div>
+  <div class="tasks">${week.tasks.map(task => {
+    const kind = task.kind === 'chore' ? 'chore' : task.id;
+    const category = Object.hasOwn(missionIcons, kind) ? kind : 'custom';
+    return `<article class="task"><div class="task-icon mission-${category}" aria-hidden="true">${task.status === 'approved' ? '✓' : missionIcons[category] ?? '★'}</div><div class="task-copy"><div class="task-type">${task.kind === 'chore' ? 'Chore' : taskLabels[task.id] ?? taskLabels.custom} · +${task.points} pts${task.required ? '' : ' · Optional'}</div><h3>${esc(taskName(task, p))}</h3><p>${esc(taskPrompt(task, p, week))}</p>${task.feedback ? `<p class="feedback"><strong>Feedback</strong> · ${esc(task.feedback)}</p>` : ''}</div><div class="task-actions">${pill(status(task), task.status === 'approved' ? 'green' : task.status === 'revision' ? 'amber' : '')}${button(week.closed || ['submitted','approved'].includes(task.status) ? 'View' : 'Open', 'task', `data-id="${esc(task.id)}"`, 'small')}</div></article>`;
+  }).join('')}</div>
   ${p.solo && tally.ready && !week.closed ? `<div class="settle">${button('Settle the week', 'solo-settle', '', 'primary')}</div>` : ''}
   </section></div><aside class="aside">${goal(p, true)}<section class="panel route"><h2>Season map</h2><ol>${episodes.map((entry, index) => `<li class="${index === week.index ? 'current' : ''}"><span class="route-dot">${p.weeks[index]?.closed ? '✓' : index + 1}</span><span>${esc(moduleFor(p,index).title)}${index > week.index ? '<small>Locked</small>' : ''}</span></li>`).join('')}</ol></section>
   ${week.index > 0 && !week.closed ? `<section class="panel"><h2>${p.solo ? 'Last week’s note' : 'Last check-in'}</h2><p>${esc(p.weeks[week.index - 1].feedback)}</p></section>` : ''}</aside></div>`;
@@ -203,7 +208,7 @@ function weekView(p) {
 const typeNames = { sale: 'Sale', cost: 'Business expense', reward: 'Activity reward' };
 function transactionTable(p, week) {
   if (!week.transactions.length) return '<p>No transactions recorded for this week.</p>';
-  return `<div class="table-wrap"><table><thead><tr><th scope="col">Description</th><th scope="col">Type</th><th scope="col">Amount</th>${week.closed ? '' : '<th scope="col">Action</th>'}</tr></thead><tbody>${week.transactions.map(entry => {
+  return `<div class="table-wrap" role="region" aria-label="Transactions table" tabindex="0"><table><thead><tr><th scope="col">Description</th><th scope="col">Type</th><th scope="col">Amount</th>${week.closed ? '' : '<th scope="col">Action</th>'}</tr></thead><tbody>${week.transactions.map(entry => {
     const attrs = `${playerAttrs(p)} data-id="${esc(entry.id)}"`;
     return `<tr><td>${esc(entry.label)}</td><td>${typeNames[entry.kind]}</td><td>${money(entry.cents)}</td>${week.closed ? '' : `<td>${entry.sim ? 'Scenario' : button('Edit', 'edit-entry', attrs, 'small') + button('Remove', 'remove-entry', attrs, 'small')}</td>`}</tr>`;
   }).join('')}</tbody></table></div>`;
@@ -372,10 +377,10 @@ function dashboardView(p) {
         </div></div>
         <div class="arc-missions"><div class="arc-section-head"><div><span>YOUR NEXT MOVE</span><h2>This week’s missions</h2></div>${pill(approved + ' / ' + required + ' approved', 'green')}</div>
         <div class="arc-actions">
-          ${button('<span aria-hidden="true">✓</span><strong>I did a chore</strong><small>Log a job you finished</small>', 'log-chore', w.closed ? 'disabled' : '', 'mission-action')}
-          ${button('<span aria-hidden="true">▦</span><strong>Mini business</strong><small>Try this week’s challenge</small>', 'task', 'data-id="business"', 'mission-action')}
-          ${button('<span aria-hidden="true">▶</span><strong>Video &amp; quiz</strong><small>' + (w.quizPassed || lesson.status === 'approved' ? 'Quiz complete' : 'Watch and put it to the test') + '</small>', 'task', 'data-id="learning"', 'mission-action')}
-          ${button('<span aria-hidden="true">✎</span><strong>Money habit</strong><small>Try it in real life</small>', 'task', 'data-id="reflection"', 'mission-action')}
+          ${button(`<span aria-hidden="true">${missionIcons.chore}</span>` + '<strong>I did a chore</strong><small>Log a job you finished</small>', 'log-chore', w.closed ? 'disabled' : '', 'mission-action mission-chore')}
+          ${button(`<span aria-hidden="true">${missionIcons.business}</span>` + '<strong>Mini business</strong><small>Try this week’s challenge</small>', 'task', 'data-id="business"', 'mission-action mission-business')}
+          ${button(`<span aria-hidden="true">${missionIcons.learning}</span>` + '<strong>Video &amp; quiz</strong><small>' + (w.quizPassed || lesson.status === 'approved' ? 'Quiz complete' : 'Watch and put it to the test') + '</small>', 'task', 'data-id="learning"', 'mission-action mission-learning')}
+          ${button(`<span aria-hidden="true">${missionIcons.reflection}</span>` + '<strong>Money habit</strong><small>Try it in real life</small>', 'task', 'data-id="reflection"', 'mission-action mission-reflection')}
         </div></div>
       </section>
       <aside class="arc-side"><section class="arc-card"><span>YOUR PROGRESS</span><h2>${button(level === 5 ? 'Top level reached' : 'Next level', 'view', 'data-view="progress" aria-label="Your progress"', 'card-link')}</h2><progress max="100" value="${levelProgress}" aria-label="Learning XP to next level"></progress><p>${level === 5 ? 'Keep practising your money habits.' : (levelStep - levelProgress) + ' XP to Level ' + (level+2)}</p></section>
@@ -401,7 +406,7 @@ function investmentsView(p) {
   ${activeWeek(p).index % programmeLength === index ? button('Open video & quiz','task','data-id="learning"','primary') : button('See my learning journey','view','data-view="dashboard"')}</section>`;
 }
 function scoreboard(rows, metric) {
-  return `<div class="table-wrap"><table><thead><tr><th scope="col">Rank</th><th scope="col">Learner</th><th scope="col">${metric}</th></tr></thead>
+  return `<div class="table-wrap" role="region" aria-label="Leaderboard table" tabindex="0"><table><thead><tr><th scope="col">Rank</th><th scope="col">Learner</th><th scope="col">${metric}</th></tr></thead>
     <tbody>${rows.map(row => {
       const learner = state.players.find(p => p.id === row.id);
       return `<tr><td>${rows.findIndex(other => other.score === row.score) + 1}</td><td>${learner ? identity(learner) : esc(row.name)}</td><td><strong>${row.score}</strong></td></tr>`;
@@ -433,7 +438,7 @@ function groupView() {
   ${classCompetitions()}
   <section class="panel ledger"><div class="section-title"><h2>Review queue</h2>${state.players.some(p => !p.solo && !activeWeek(p).closed) ? button('Assign activity', 'assign') : ''}</div>
   ${pending.length ? `<ul class="review-list">${pending.map(({ p, t }) => `<li><div><strong>${esc(p.name)} · ${esc(taskName(t, p))}</strong><p>Week ${activeWeek(p).index + 1} · ${tracks[p.track]}</p></div>${button('Review', 'review', `data-player="${p.id}" data-id="${t.id}"`, 'small')}</li>`).join('')}</ul>` : '<p>New submissions will appear here.</p>'}</section>
-  <section class="panel ledger spaced"><h2>Learners</h2><div class="table-wrap"><table><thead><tr><th scope="col">Learner</th><th scope="col">Current module</th><th scope="col">This week</th><th scope="col">Missions</th><th scope="col">Videos</th><th scope="col">Quizzes</th><th scope="col">XP</th><th scope="col">Action</th></tr></thead>
+  <section class="panel ledger spaced"><h2>Learners</h2><div class="table-wrap" role="region" aria-label="Learner roster" tabindex="0"><table><thead><tr><th scope="col">Learner</th><th scope="col">Current module</th><th scope="col">This week</th><th scope="col">Missions</th><th scope="col">Videos</th><th scope="col">Quizzes</th><th scope="col">XP</th><th scope="col">Action</th></tr></thead>
   <tbody>${state.players.map(p => {
     const w = activeWeek(p), stats = learningStats(p);
     const required = w.tasks.filter(task => task.required);
