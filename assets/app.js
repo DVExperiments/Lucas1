@@ -790,21 +790,24 @@ function investmentsView(p) {
   </section>`).join('')}</div>
   <details class="panel bucket-practice">
     <summary>Practise with a quick decision</summary>
-    <div class="bucket-practice-list">${bucketAdventures.map((adventure, index) => `<div>
-      <details class="bucket-decision">
-        <summary>${accountNames[index]}</summary>
-        <p>${adventure.prompt}</p>
-        <div class="bucket-answers">${adventure.answers.map((answer, option) => button(answer,'bucket-answer',`data-id="${adventure.id}" data-index="${option}" aria-pressed="false"`,'small')).join('')}</div>
-        <p class="bucket-feedback" role="status" aria-atomic="true"></p>
-      </details>
-      ${adventure.id === 'save' ? `<details class="bucket-topic"><summary>Savings accounts</summary>
-        ${bucketLesson(p, 'Saving for a goal', 'Choose your target, then work out what to put aside each week.',7)}
-      </details>` : ''}
-      ${adventure.id === 'invest' ? `<details class="bucket-topic"><summary>Shares, funds &amp; KiwiSaver</summary>
-        ${bucketLesson(p, 'Shares and funds', 'Explore how a practice investment can go up and down.',8)}
-        ${bucketLesson(p, 'KiwiSaver', 'Think about goals that are a long way off, such as saving for retirement.',9)}
-      </details>` : ''}
-    </div>`).join('')}</div>
+    <div class="bucket-practice-list">${bucketAdventures.map((adventure, index) => `<details class="bucket-decision">
+      <summary>${accountNames[index]}</summary>
+      <p>${adventure.prompt}</p>
+      <div class="bucket-answers">${adventure.answers.map((answer, option) => button(answer,'bucket-answer',`data-id="${adventure.id}" data-index="${option}" aria-pressed="false"`,'small')).join('')}</div>
+      <p class="bucket-feedback" role="status" aria-atomic="true"></p>
+    </details>`).join('')}</div>
+    <section class="bucket-practice-lessons" aria-labelledby="bucket-practice-lessons-title">
+      <h3 id="bucket-practice-lessons-title">Related lessons</h3>
+      <div class="bucket-practice-list">
+        <details class="bucket-topic"><summary>Savings accounts</summary>
+          ${bucketLesson(p, 'Saving for a goal', 'Choose your target, then work out what to put aside each week.',7)}
+        </details>
+        <details class="bucket-topic"><summary>Shares, funds &amp; KiwiSaver</summary>
+          ${bucketLesson(p, 'Shares and funds', 'Explore how a practice investment can go up and down.',8)}
+          ${bucketLesson(p, 'KiwiSaver', 'Think about goals that are a long way off, such as saving for retirement.',9)}
+        </details>
+      </div>
+    </section>
   </details>
   <div class="bucket-page-footer">${button('Open my Money log','view','data-view="money"','small')}</div>`;
 }

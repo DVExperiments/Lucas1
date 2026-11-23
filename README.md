@@ -1,4 +1,4 @@
-# The Lucas Money Game V2.9
+# The Lucas Money Game V2.9.1
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 

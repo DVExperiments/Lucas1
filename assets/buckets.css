@@ -49,9 +49,14 @@
 .button.bucket-why { color:var(--bucket-tint); }
 .bucket-adventure:focus-visible { outline:3px solid var(--lime); outline-offset:3px; }
 .bucket-practice { margin-top:16px; }
-.bucket-practice-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 10px; }
+.bucket-practice-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 12px; align-items:start; }
+.bucket-practice > .bucket-practice-list { margin-top:10px; }
+.bucket-practice-lessons { margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.bucket-practice-lessons h3 { margin:0 0 8px; font-size:.9rem; }
 .bucket-practice summary { cursor:pointer; font-weight:750; padding:3px 2px; overflow-wrap:anywhere; }
-.bucket-decision,.bucket-topic { margin-top:8px; padding:8px; border:1px solid var(--line); border-radius:8px; }
+.bucket-decision,.bucket-topic { padding:0 10px; border:1px solid var(--line); border-radius:8px; }
+.bucket-practice-list summary { min-height:44px; align-content:center; }
+.bucket-decision[open],.bucket-topic[open] { padding-bottom:10px; }
 .bucket-decision { background:var(--inset); }
 .bucket-topic > div { padding:8px 2px 0; }
 .bucket-topic small { color:var(--muted); }
