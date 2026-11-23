@@ -126,6 +126,26 @@ export function accounts(player, replacement) {
   return { main, available: Math.max(0, main), balances, moved };
 }
 
+export function wealthBreakdown(player) {
+  const result = { business:0, market:0, rewards:0, match:0, costs:0, tax:0, spending:0, earlierAdjustment:0 };
+  for (const week of player.weeks) {
+    const tally = totals(week);
+    const marketSales = week.transactions.reduce((sum, entry) => entry.sim && entry.kind === 'sale' ? sum + entry.cents : sum, 0);
+    result.business += tally.sales - marketSales;
+    result.market += marketSales;
+    result.rewards += tally.rewards;
+    result.match += tally.match;
+    result.costs += tally.costs;
+    result.tax += tally.tax;
+    result.spending += tally.spending;
+    // Earlier versions allocated only positive after-tax profit and did not carry losses forward.
+    if (week.closed && !week.transfers) result.earlierAdjustment += tally.distributable - (tally.profit - tally.tax);
+  }
+  const bank = accounts(player);
+  result.total = bank.main + bank.balances.reduce((sum, amount) => sum + amount, 0);
+  return result;
+}
+
 export function transactionUpdateError(player, week, transactions) {
   const before = accounts(player);
   const after = accounts(player, { ...week, transactions });

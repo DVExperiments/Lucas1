@@ -550,6 +550,22 @@ const phrases = [
   ["Review your records. Choose one good habit to keep and make a plan for your next week.", "Arotakengia āu tuhinga. Kōwhiria he tikanga pai hei pupuri, ka hanga mahere mō tērā wiki.", "Revisa tus registros. Elige un buen hábito para mantener y haz un plan para la próxima semana."],
   ["Share one tip with a friend, parent or teacher and explain when you would use it.", "Tukuna tētahi kupu āwhina ki tētahi hoa, matua, kaiako rānei, ka whakamārama āhea koe whakamahi ai.", "Comparte un consejo con una amistad, un familiar o un docente y explica cuándo lo pondrías en práctica."],
   ["Ask an adult to help if you need it.", "Tonoa he pakeke kia āwhina mēnā e hiahiatia ana.", "Pide ayuda a una persona adulta si la necesitas."],
+  ['Total wealth','Tapeke rawa','Patrimonio total'],
+  ['View breakdown','Tirohia te rārangi taipitopito','Ver desglose'],
+  ['Your net game money','Tō moni kēmu e toe ana','Tu saldo neto en el juego'],
+  ['Total wealth shows what you’ve built up across all weeks, after costs, tax and purchases.','E whakaatu ana te tapeke rawa i ngā moni kua kohia i ngā wiki katoa, i muri i ngā utu, te tāke me ngā hokonga.','El patrimonio total muestra lo que has acumulado en todas las semanas después de restar costes, impuestos y compras.'],
+  ['Paid jobs and sales','Ngā mahi whai utu me ngā hoko','Trabajos remunerados y ventas'],
+  ['Practice market sales','Ngā hoko i te mākete whakaharatau','Ventas en el mercado de práctica'],
+  ['Activity rewards','Ngā utu mō ngā mahi','Recompensas por actividades'],
+  ['Simulated savings match','Ngā takoha tauira ki ngā penapena','Aportaciones simuladas a tus ahorros'],
+  ['Business costs','Ngā utu pakihi','Costes del negocio'],
+  ['Personal purchases','Ngā hokonga whaiaro','Compras personales'],
+  ['Money added','Moni kua tāpirihia','Entradas de dinero'],
+  ['Money deducted','Moni kua tangohia','Salidas de dinero'],
+  ['Earlier week adjustment','Whakatikatika mō ngā wiki o mua','Ajuste de semanas anteriores'],
+  ['Older game versions didn’t carry business losses forward.','Kāore ngā putanga kēmu o mua i kawe i ngā ngaronga pakihi ki ngā wiki whai ake.','Las versiones anteriores del juego no arrastraban las pérdidas del negocio a las semanas siguientes.'],
+  ['Where your money is now','Kei hea ō moni ināianei?','Dónde está tu dinero ahora'],
+  ['Moving money between buckets leaves your total wealth unchanged.','Kāore e rerekē tō tapeke rawa ina nuku moni koe i waenga i ngā kete.','Mover dinero entre apartados mantiene igual tu patrimonio total.'],
 ];
 const catalog = new Map(phrases.map(([english, maori, spanish]) => [english, { mi: maori, es: spanish }]));
 export const translate = (language, source) => catalog.get(source)?.[language] ?? source;

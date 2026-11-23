@@ -1,4 +1,4 @@
-# The Lucas Money Game V3.1
+# The Lucas Money Game V3.2
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 
@@ -34,6 +34,10 @@ Progress is saved in this browser profile for the site's origin and path. Existi
 In a class, use **Open teacher dashboard** from Home and enter the class PIN. Use **Create another class** or the **Current class** menu from any teacher page to manage multiple classes on this browser. Each class opens with its own PIN once per teacher session. Returning Home or handing the device to a learner ends the teacher session. Open a learner record and choose **Hand device to learner** to activate that learner. The learner sees their assigned profile. The teacher roster and leaderboards show equipped icons and titles. Older classes set a PIN when first opened after upgrading. The demo teacher dashboard uses sample data and opens directly.
 
 The PIN controls the interface on this browser. Use sample names for classroom demonstrations. A classroom rollout across student devices requires authenticated SAM accounts, server-side class and role permissions, and shared persistence. The SAM embed and credit for SAM-hosted video and quiz completions will need the owner's integration details and approved content URLs.
+
+## Total wealth
+
+Select **Total wealth** in the learner dashboard profile to see all-time income, costs, simulated tax and personal purchases. The total includes Main and every bucket, including custom buckets. Money transfers change where funds are held without changing total wealth. Earlier saved records may include a labelled adjustment when a previous version did not carry a loss forward.
 
 ## Group leaderboard
 

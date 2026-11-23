@@ -1,9 +1,9 @@
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.1';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.2';
 import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
 
-import { languages, translate } from './locale.js?v=3.1';
+import { languages, translate } from './locale.js?v=3.2';
 import { vimeoPlayer } from './vimeo.js';
 
 const assetUrl = image => new URL('./assets/' + image, location.href).href;
@@ -725,6 +725,29 @@ function shopGoalCard(p) {
     <progress value="${Math.min(item.cost,wallet.balance)}" max="${item.cost}" aria-label="${esc(tr(item.name))}"></progress>
     <p>${remaining ? remaining + ' ' + tr('points to go') : tr('Ready to buy in the Profile shop')}</p></section>`;
 }
+function showWealth(p) {
+  const wealth = wealthBreakdown(p);
+  const bank = accounts(p);
+  const rows = (entries, sign) => entries.map(([label, cents]) =>
+    `<div><dt>${tr(label)}</dt><dd>${cents ? sign : ''}${money(cents)}</dd></div>`).join('');
+  const income = [['Paid jobs and sales', wealth.business], ['Activity rewards', wealth.rewards], ['Simulated savings match', wealth.match]];
+  if (wealth.market || p.mode === 'sim') income.splice(1, 0, ['Practice market sales', wealth.market]);
+  const outgoings = [['Business costs', wealth.costs], ['Simulated tax', wealth.tax], ['Personal purchases', wealth.spending]];
+  openDialog(tr('Total wealth'), `<div class="wealth-total"><p>${tr('Your net game money')}</p><strong>${money(wealth.total)}</strong></div>
+    <p>${tr('Total wealth shows what you’ve built up across all weeks, after costs, tax and purchases.')}</p>
+    <div class="wealth-columns">
+      <section><h3>${tr('Money added')}</h3><dl class="wealth-lines">${rows(income,'+')}</dl></section>
+      <section><h3>${tr('Money deducted')}</h3><dl class="wealth-lines">${rows(outgoings,'−')}</dl></section>
+    </div>
+    ${wealth.earlierAdjustment ? `<dl class="wealth-lines">${rows([['Earlier week adjustment', wealth.earlierAdjustment]],'+')}</dl>
+      <p class="detail">${tr('Older game versions didn’t carry business losses forward.')}</p>` : ''}
+    <details class="wealth-balances"><summary>${tr('Where your money is now')}</summary>
+      <dl class="wealth-lines">${rows([['Main account', bank.main]],'')}
+      ${allAccounts(p).map((name,index) => `<div><dt>${esc(name)}</dt><dd>${money(bank.balances[index])}</dd></div>`).join('')}</dl>
+    </details>
+    <p class="detail">${tr('Moving money between buckets leaves your total wealth unchanged.')}</p>`);
+}
+
 function dashboardView(p) {
   const w = activeWeek(p), info = moduleFor(p, w.index), lesson = w.tasks.find(t => t.id === 'learning');
   const stats = learningStats(p), week = learningStats(p, [w]);
@@ -742,23 +765,26 @@ function dashboardView(p) {
     : button(samAssigned ? 'Open weekly lesson' : 'Open placeholder lesson','task','data-id="learning"');
   return `<div class="arc-dashboard">
     <div class="arc-grid">
-      <aside class="arc-profile">${button(avatar(p), 'view', 'data-view="shop" aria-label="Customise my profile"', 'avatar-button')}<strong>${esc(p.name)}</strong><span class="profile-title">${tr(cosmetics(p).title.name)}</span><p>${esc(p.business)}</p>
-      <div class="arc-level">${tr('LEVEL')} ${level+1}<br><span>${tr(levels[level])}</span></div>
-      <dl><div><dt>✦ ${tr('Learning XP')}</dt><dd>${stats.xp}</dd></div><div><dt>◉ ${tr('Shop points')}</dt><dd>${shopWallet(p).balance}</dd></div><div><dt>✓ ${tr('Weeks closed')}</dt><dd>${closed}</dd></div></dl>
+      <aside class="arc-profile">
+        <div class="arc-profile-identity">${button(avatar(p), 'view', `data-view="shop" aria-label="${esc(tr('Customise my profile'))}"`, 'avatar-button')}
+          <div><strong>${esc(p.name)}</strong><span class="profile-title">${tr(cosmetics(p).title.name)}</span><p>${esc(p.business)}</p></div>
+        </div>
+        <div class="arc-level">${tr('LEVEL')} ${level+1}<br><span>${tr(levels[level])}</span></div>
+        <dl><div><dt>✦ ${tr('Learning XP')}</dt><dd>${stats.xp}</dd></div><div><dt>◉ ${tr('Shop points')}</dt><dd>${shopWallet(p).balance}</dd></div><div><dt>✓ ${tr('Weeks closed')}</dt><dd>${closed}</dd></div></dl>
+        ${button(`<span>${tr('Total wealth')}</span><strong>${money(wealthBreakdown(p).total)}</strong><small>${tr('View breakdown')} <span aria-hidden="true">↗</span></small>`, 'view-wealth', 'aria-haspopup="dialog"', 'profile-wealth')}
       </aside>
       <section class="arc-main"><div class="arc-hero" ${artwork(p)}>
         <div class="arc-hero-copy"><span class="arc-tag">${w.index >= programmeLength ? tr('Keep going') : tr('Week').toUpperCase() + ' ' + (w.index+1) + ' / 12'}</span>
-          <div class="hero-mobile-identity">${identity(p)}</div><h1>${w.closed ? tr('12 weeks complete!') : tr('Ready, {name}?', {name:esc(p.name)})}</h1><p>${esc(tr(info.title))}${p.track === 0 ? ' · ' + tr('Play with a grown-up') : ''}</p>
+          <h1>${w.closed ? tr('12 weeks complete!') : tr('Ready, {name}?', {name:esc(p.name)})}</h1><p>${esc(tr(info.title))}${p.track === 0 ? ' · ' + tr('Play with a grown-up') : ''}</p>
           <div class="hero-choices">${w.closed ? next + openChallenges : openChallenges + next}</div>
-        </div></div>
-        <div class="arc-missions"><div class="arc-section-head"><div><span>${esc(tr("YOUR NEXT MOVE"))}</span><h2>${tr('This week’s missions')}</h2></div>${pill(tr('{done} of {total} approved', {done:approved,total:required}), 'green')}</div>
+        </div></div></section>
+        <section class="arc-missions"><div class="arc-section-head"><div><span>${esc(tr("YOUR NEXT MOVE"))}</span><h2>${tr('This week’s missions')}</h2></div>${pill(tr('{done} of {total} approved', {done:approved,total:required}), 'green')}</div>
         <div class="arc-actions">
           ${button(`<span aria-hidden="true">${missionIcons.chore}</span>` + `<strong>${tr('I did a chore')}</strong><small>${esc(tr("Log a job you finished"))}</small>`, 'log-chore', w.closed ? 'disabled' : '', 'mission-action mission-chore')}
           ${button(`<span aria-hidden="true">${missionIcons.business}</span>` + `<strong>${tr('Business mission')}</strong><small>` + tr(p.mode === 'sim' ? 'Try one move in your practice market' : 'Try one move in your real business') + '</small>', 'task', 'data-id="business"', 'mission-action mission-business')}
           ${button(`<span aria-hidden="true">${missionIcons.learning}</span>` + `<strong>${esc(tr('Video & quiz'))}</strong><small>` + tr(lesson.status === 'submitted' ? 'Awaiting review' : quizDone ? 'Quiz complete' : samAssigned ? 'Watch on SAM, then take the quiz' : 'Placeholder video and quiz') + '</small>', 'task', 'data-id="learning"', 'mission-action mission-learning')}
           ${button(`<span aria-hidden="true">${missionIcons.reflection}</span>` + `<strong>${tr('Money habit')}</strong><small>${esc(tr("Try it in real life"))}</small>`, 'task', 'data-id="reflection"', 'mission-action mission-reflection')}
-        </div></div>
-      </section>
+        </div></section>
       <aside class="arc-side"><section class="arc-card"><span>${esc(tr("YOUR PROGRESS"))}</span><h2>${button(level === 5 ? 'Top level reached' : 'Next level', 'view', 'data-view="progress" aria-label="Your progress"', 'card-link')}</h2><progress max="100" value="${levelProgress}" aria-label="Learning XP to next level"></progress><p>${level === 5 ? tr('Keep practising your money habits.') : tr('{points} XP to Level {level}', {points:levelStep-levelProgress,level:level+2})}</p></section>
       <section class="arc-card arc-gold"><span>${esc(tr("MY BIG GOAL"))}</span><h2>${button(esc(p.goal), 'view', 'data-view="progress" aria-label="My big goal and savings progress"', 'card-link')}</h2><progress max="100" value="${pct(p)}" aria-label="${esc(tr("Savings goal progress"))}"></progress><p>${tr('{percent}% of goal · {weeks} checked in', {percent:pct(p),weeks:closed})}</p></section>
       ${shopGoalCard(p)}<section class="arc-card arc-chart"><span>${esc(tr("LEARNING THIS WEEK"))}</span><h2>${button(tr('{count} XP earned', {count:week.xp}), 'view', 'data-view="week" aria-label="See this week’s learning"', 'card-link')}</h2><dl>${[['Missions',week.missions,w.tasks.filter(t=>t.id!=='learning' && t.kind!=='chore').length + Number(w.tasks.some(t=>t.kind==='chore'))],['Videos',week.videos,1],['Quizzes',week.quizzes,1]].map(([label,n,max])=>`<div><dt>${tr(label)}</dt><dd><progress aria-label="${label} completed this week" max="${Math.max(1,max)}" value="${n}"></progress><b>${n}</b></dd></div>`).join('')}</dl></section></aside>
@@ -820,7 +846,7 @@ function investmentsView(p) {
   const result = accounts(p), week = activeWeek(p);
   return `<header class="bucket-page-heading">
     <div><span class="eyebrow">${esc(tr("GAME BANK"))}</span><h1>${tr('My money buckets')}</h1><p>${tr('Give each dollar a job. These practice accounts use the money you record in the game.')}</p></div>
-    <p class="bucket-total"><span>${tr('Total in Main and buckets')}</span><strong>${money(result.available + result.balances.reduce((sum, value) => sum + value, 0))}</strong></p>
+    <p class="bucket-total"><span>${tr('Total in Main and buckets')}</span><strong>${money(result.main + result.balances.reduce((sum, value) => sum + value, 0))}</strong></p>
   </header>
   <section class="panel bank-overview ledger-toolbar" aria-label="Main account">
     <div>${mainAccount(p)}<p>${tr('Money you log lands here. Move it to a bucket when you have a plan.')}</p></div>
@@ -1315,6 +1341,9 @@ document.addEventListener('click', event => {
   const contest = state?.classChallenges?.find(c => c.id === item);
   switch (action) {
     case 'dismiss': closeDialog(); break;
+    case 'view-wealth':
+      if (role === 'learner' && view === 'dashboard' && p) showWealth(p);
+      break;
     case 'toggle-leaderboard':
       if (role !== 'facilitator' || view !== 'group' || isHomeGame()) return;
       state.showLearnerLeaderboard = !state.showLearnerLeaderboard;
