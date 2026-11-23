@@ -1,4 +1,4 @@
-# The Lucas Money Game V2.4
+# The Lucas Money Game V2.4.1
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 
@@ -18,7 +18,7 @@ A Success Avenue Money pilot for intermediate-school learners. Learners complete
 ## Weekly and teacher challenges
 
 - Choose **Play this week’s challenge** from the dashboard. It opens the Challenges page, where learners can choose the weekly activity, a teacher challenge or practice. Each programme week has its own activity. Finish it for a printable certificate and 15 Shop points. Play again for practice or catch up on earlier weeks in **Challenges**. There is one reward per programme week, independent of weekly check-ins. Earn one, four and eight certificates to unlock profile rewards.
-- **Market Day** is open to every learner. Plan a school fair stall, set prices, keep a cash buffer and adapt after an unexpected cost. Watch the fair unfold before seeing the result, or choose **Skip to results**. The scene respects reduced-motion settings. The standalone practice activity is available at any time. Only the weekly version counts towards its certificate.
+- **Market Day** is open to every learner. Plan a school fair stall, set prices, keep a cash buffer and adapt after an unexpected cost. Watch the fair unfold over about seven seconds before seeing the result, or choose **Skip to results**. The scene respects reduced-motion settings. The standalone practice activity is available at any time. Only the weekly version counts towards its certificate.
 - In the teacher or caregiver view, use **Challenges & rewards** to publish a task for the group or selected learner. Choose a certificate, avatar item, classroom reward or a combination. Learners submit their work, and adults approve it or request changes. For a shared reward such as a class lunch, set the number of learners who must be approved. Adults organise the reward and record when they have delivered it. Certificates and avatar rewards are issued individually on approval.
 
 ## Publish on GitHub Pages

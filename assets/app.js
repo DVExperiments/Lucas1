@@ -387,7 +387,7 @@ function weeklyChallengeCard(p, showPlay = true) {
     <div class="play-emblem" aria-hidden="true">🎮</div>
     <div><div class="eyebrow">WEEK ${week.index + 1} CHALLENGE</div><h2>${scenario.title}</h2>
     <p>${week.weeklyCertificate ? 'Certificate earned. Play again or choose another activity.' : 'Play to earn a weekly certificate and ' + weeklyPoints + ' Shop points.'}</p></div>
-    ${showPlay ? button(week.weeklyCertificate ? 'Replay weekly challenge' : 'Start weekly challenge', 'weekly-play', '', 'primary') : button('All challenges', 'view', 'data-view="challenges"')}
+    ${showPlay ? button((week.weeklyCertificate ? 'Replay ' : 'Start ') + scenario.title, 'weekly-play', '', 'primary') : button('All challenges', 'open-weekly-challenges')}
   </section>`;
 }
 function challengesView(p) {
@@ -427,9 +427,9 @@ function startScenario(index, previous) {
     'Check my choices', attrs)}`);
 }
 const marketStages = [
-  { title: 'Setting up the stall', message: 'Stock goes on the counter. The school fair is about to start.' },
-  { title: 'The weather turns', message: 'Rain starts falling. Time to see what your cash buffer can cover.' },
-  { title: 'Closing the books', message: 'The fair is winding down. How did your plan hold up?' }
+  { duration: 2200, title: 'Setting up the stall', message: 'Stock goes on the counter. The school fair is about to start.' },
+  { duration: 2400, title: 'The weather turns', message: 'Rain starts falling. Time to see what your cash buffer can cover.' },
+  { duration: 2200, title: 'Closing the books', message: 'The fair is winding down. How did your plan hold up?' }
 ];
 function startMarketDay(attempt) {
   openDialog('Market Day is underway', `
@@ -453,9 +453,9 @@ function startMarketDay(attempt) {
     $('#market-stage-name').textContent = marketStages[phase].title;
     $('#market-stage-message').textContent = marketStages[phase].message;
     $('#market-stage-progress').value = phase + 1;
-    marketTimer = setTimeout(advance, 1450);
+    marketTimer = setTimeout(advance, marketStages[phase].duration);
   }
-  marketTimer = setTimeout(advance, 1450);
+  marketTimer = setTimeout(advance, marketStages[phase].duration);
 }
 function revealMarketDay() {
   if (!marketAttempt || marketAttempt.revealed || !dialog.open) return;
@@ -575,6 +575,7 @@ function dashboardView(p) {
   const required = w.tasks.filter(t => t.required).length;
   const closed = progress(p).closed;
   const quizDone = w.quizPassed || ['approved','submitted'].includes(lesson.status);
+  const openChallenges = button('Play this week’s challenge', 'open-weekly-challenges', '', w.closed ? 'secondary' : 'primary');
   const next = w.closed ? button('Keep playing', 'continue-programme', '', 'primary')
     : quizDone ? button('See this week’s missions','view','data-view="week"')
     : w.videoWatched ? button('Start the quiz','lesson-quiz')
@@ -588,7 +589,7 @@ function dashboardView(p) {
       <section class="arc-main"><div class="arc-hero" ${artwork(p)}>
         <div class="arc-hero-copy"><span class="arc-tag">${w.index >= programmeLength ? 'KEEP GOING' : 'WEEK ' + (w.index+1) + ' / 12'}</span>
           <div class="hero-mobile-identity">${identity(p)}</div><h1>${w.closed ? '12 weeks complete!' : 'Ready, ' + esc(p.name) + '?'}</h1><p>${esc(info.title)}${p.track === 0 ? ' · Play with a grown-up' : ''}</p>
-          <div class="hero-choices">${w.closed ? next : button('Play this week’s challenge','view','data-view="challenges"','primary') + next}</div>
+          <div class="hero-choices">${w.closed ? next + openChallenges : openChallenges + next}</div>
         </div></div>
         <div class="arc-missions"><div class="arc-section-head"><div><span>YOUR NEXT MOVE</span><h2>This week’s missions</h2></div>${pill(approved + ' / ' + required + ' approved', 'green')}</div>
         <div class="arc-actions">
@@ -987,6 +988,12 @@ document.addEventListener('click', event => {
   switch (action) {
     case 'dismiss': closeDialog(); break;
     case 'view': closeDialog(); navigate(next); break;
+    case 'open-weekly-challenges':
+      if (role === 'learner' && p) {
+        closeDialog();
+        navigate('challenges');
+      }
+      break;
     case 'weekly-play':
     case 'practice-market':
       if (role !== 'learner' || !w) return;
