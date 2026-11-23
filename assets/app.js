@@ -395,11 +395,23 @@ function weeklyChallengeCard(p) {
     ${button((week.weeklyCertificate ? 'Replay ' : 'Start ') + scenario.title, 'weekly-play', '', 'primary')}
   </section>`;
 }
+function samQuizLink(module, style = 'secondary') {
+  const library = 'https://www.successavenuemoney.com/quizzes';
+  const assigned = [module.quizUrl, state.quizUrl].find(url => url && isHttps(url));
+  const label = assigned && assigned !== library ? 'Open SAM quiz' : 'Open SAM quiz library';
+  return `<a class="button ${style} sam-quiz-link" href="${esc(assigned || library)}" target="_blank" rel="noopener noreferrer">${label}<span class="sr-only"> (opens in a new tab)</span> ↗</a>`;
+}
 function challengesView(p) {
   const week = activeWeek(p);
   const past = p.weeks.slice(0, -1).reverse();
   return `${pageHeader('CHALLENGE ARCADE', 'Challenges', 'Choose this week’s activity, open a teacher challenge, or play a practice game.')}
     ${weeklyChallengeCard(p)}
+    <section class="panel play-card" aria-labelledby="sam-quiz-title">
+      <div class="play-emblem" aria-hidden="true">📚</div>
+      <div><h2 id="sam-quiz-title">Success Avenue Money quizzes</h2>
+      <p>Sign in to SAM to take these quizzes. Use Missions to complete the in-game quiz for this week.</p></div>
+      ${samQuizLink(moduleFor(p, week.index))}
+    </section>
     ${learnerClassChallenges(p, true)}
     <section class="panel practice-market spaced"><div class="eyebrow">FREE PLAY</div><h2>Market Day practice</h2>
     <p>Try another stall plan with $40 in game money. Weekly certificates come from the weekly challenge above.</p>
@@ -826,7 +838,7 @@ function settingsView() {
   <form class="panel settings" id="settings"><div class="fields">
   ${field(isHomeGame() ? 'Home game name' : 'Group name', 'group', 'Use a name you’ll recognise when you resume the game from Home.', `<input name="group" value="${esc(state.group)}" required maxlength="60">`)}
   ${field('SAM lesson link (optional)', 'lessonUrl', 'Paste an HTTPS address for a Success Avenue Money lesson. It opens from the learner’s money lesson.', `<input type="url" name="lessonUrl" value="${esc(state.lessonUrl)}" placeholder="https://">`)}
-  ${field('SAM quiz link (optional)', 'quizUrl', 'Use the class quiz page on Success Avenue Money.', `<input type="url" name="quizUrl" value="${esc(state.quizUrl)}" placeholder="https://">`)}
+  ${field('SAM quiz link (optional)', 'quizUrl', 'Paste a direct Success Avenue Money quiz link for this class. Learner-specific links take priority.', `<input type="url" name="quizUrl" value="${esc(state.quizUrl)}" placeholder="https://">`)}
   ${field('Simulated tax rate (%)', 'tax', 'The percentage of positive weekly business profit taken as simulated tax before the buckets are filled.', `<input type="number" name="tax" min="0" max="100" required value="${state.rules.tax}">`)}
   ${field('Weekly completion bonus (points)', 'bonus', 'Extra points awarded when all required missions are complete and the week closes.', `<input type="number" name="bonus" min="0" max="1000" required value="${state.rules.bonus}">`)}
   ${field('Simulated savings match (%)', 'match', 'Adds a percentage of the week’s Save allocation when the week closes. At 50%, $10 saved earns a $5 match before the cap.', `<input type="number" name="match" min="0" max="100" required value="${state.rules.match}">`)}
@@ -901,13 +913,12 @@ function taskDialog(p, week, task, showQuiz = false) {
   let content = `<p>${esc(taskPrompt(task, p, week))}</p>`;
   if (task.feedback) content += `<p class="feedback"><strong>Feedback</strong> · ${esc(task.feedback)}</p>`;
   if (task.id === 'learning') {
-    const quizUrl = module.quizUrl || state.quizUrl || 'https://www.successavenuemoney.com/quizzes';
     const videoPath = 'assets/lessons/week-' + (episode.index+1) + '.mp4';
     content += `<div class="lesson video-lesson"><h3>${esc(episode.title)}</h3>
       ${showQuiz ? '' : `<video id="lesson-film" controls playsinline preload="metadata" src="${videoPath}" aria-label="${esc(episode.title)} lesson video"></video><details><summary>Read the video transcript</summary>${episode.frames.map(frame=>`<p>${esc(frame)}</p>`).join('')}</details>`}
       ${module.lessonNote ? `<p><strong>Link to your business</strong> · ${esc(module.lessonNote)}</p>` : ''}
       ${lessonUrl ? `<p><a href="${esc(lessonUrl)}" target="_blank" rel="noopener noreferrer">Open assigned SAM lesson ↗</a></p>` : ''}
-      <p><a href="${esc(quizUrl)}" target="_blank" rel="noopener noreferrer">Open quizzes on Success Avenue Money ↗</a></p></div>`;
+      <p>${samQuizLink(module)}</p></div>`;
     if (editable && showQuiz && week.videoWatched) {
       content += form('quiz', `<div class="quiz-questions">${episode.questions.map((q,i)=>`<fieldset><legend>${i+1}. ${esc(q.question)}</legend>
         <div class="quiz-options">${q.options.map((answer,j)=>`<label><input type="radio" name="answer-${i}" value="${j}" required><span>${String.fromCharCode(65+j)}</span>${esc(answer)}</label>`).join('')}</div></fieldset>`).join('')}</div>
@@ -976,6 +987,7 @@ function learnerDetail(p) {
       <div><dt>Outside the business</dt><dd>${esc(module.outside)}</dd></div>
       ${module.lessonNote ? `<div><dt>Lesson connection</dt><dd>${esc(module.lessonNote)}</dd></div>` : ''}
       ${module.lessonUrl ? `<div><dt>Lesson link</dt><dd><a href="${esc(module.lessonUrl)}" target="_blank" rel="noopener noreferrer">Open assigned lesson (new tab)</a></dd></div>` : ''}
+      <div><dt>SAM quiz</dt><dd>${samQuizLink(module, 'small')}</dd></div>
     </dl>
   </section>
   ${week ? `<section class="panel spaced">
@@ -1008,7 +1020,7 @@ function moduleDialog(p, index) {
       ${noteField('Outside-business mission', 'outsideMission', 'Ask them to apply the same money idea to an everyday situation.', module.outside)}
       ${noteField('Lesson connection (optional)', 'lessonNote', 'Add a short example using the learner’s goal or business numbers.', module.lessonNote, false)}
       ${field('Lesson link (optional)', 'moduleLink', 'Add an HTTPS link for this learner and week. It appears alongside the built-in lesson.', `<input name="moduleLink" type="url" value="${esc(module.lessonUrl)}">`)}
-      ${field('SAM quiz link (optional)', 'moduleQuiz', 'Link directly to the assigned quiz on Success Avenue Money.', `<input name="moduleQuiz" type="url" value="${esc(module.quizUrl)}">`)}`, 'Save module', `${playerAttrs(p)} data-index="${index}"`)}`);
+      ${field('SAM quiz link (optional)', 'moduleQuiz', 'Paste the direct Success Avenue Money quiz link for this learner and week. It appears in Challenges and the lesson.', `<input name="moduleQuiz" type="url" value="${esc(module.quizUrl)}">`)}`, 'Save module', `${playerAttrs(p)} data-index="${index}"`)}`);
 }
 function entryDialog(p, entry) {
   const choices = Object.entries(typeNames).filter(([kind]) => p.mode === 'manual' || kind === 'reward');

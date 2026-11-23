@@ -188,3 +188,6 @@
   .money-flow { grid-template-columns:1fr; }
   .money-flow > span { justify-self:center; line-height:1; }
 }
+
+.sam-quiz-link { display:inline-flex; align-items:center; justify-content:center; text-decoration:none; }
+.video-lesson .sam-quiz-link { color:var(--text); }
