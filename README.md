@@ -1,4 +1,4 @@
-# The Lucas Money Game V3.3
+# The Lucas Money Game V3.4
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 
@@ -37,7 +37,7 @@ The PIN controls the interface on this browser. Use sample names for classroom d
 
 ## Profile customisation
 
-Home setup includes a gallery of free starter avatars and backgrounds. A new class learner can choose their own free starter look when a facilitator first hands over the dashboard. In the Profile Shop, use the categories to browse avatars (including animals), dashboard backgrounds, avatar frames and titles. Free items can be equipped at any time. Earn game points to buy upgrades, or set a saving goal for the item you want.
+Home setup includes a gallery of free starter avatars and backgrounds. A new class learner can choose their own free starter look when a facilitator first hands over the dashboard. In the Profile Shop, use the categories to browse avatars, dashboard backgrounds, avatar frames and titles. The Avatars category includes people, animals and icons. Titles have distinct badge designs, and the Frames category includes neon options. Free items can be equipped at any time. Earn game points to buy upgrades, or set a saving goal for the item you want.
 
 ## Total wealth
 

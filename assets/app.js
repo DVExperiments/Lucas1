@@ -1,9 +1,9 @@
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.3';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.4';
 import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
 
-import { languages, translate } from './locale.js?v=3.3';
+import { languages, translate } from './locale.js?v=3.4';
 import { vimeoPlayer } from './vimeo.js';
 
 const assetUrl = image => new URL('./assets/' + image, location.href).href;
@@ -381,14 +381,18 @@ function portrait(item, compact = false, frame) {
   const image = item.image ? ` style="background-image:url('${esc(assetUrl(item.image))}');background-position:center;background-size:cover"` : '';
   return `<span class="arc-avatar ${item.symbol ? 'avatar-symbol' : ''} ${compact ? 'avatar-compact' : ''} ${frame?.id ?? ''}" aria-hidden="true"${image}>${item.symbol ?? ''}</span>`;
 }
+function titleBadge(item, tag = 'span') {
+  return `<${tag} class="title-badge title-${item.id}"><span class="title-mark" aria-hidden="true">${item.mark}</span>
+    <span>${esc(tr(item.name))}</span></${tag}>`;
+}
 function identity(p) {
-  return `<span class="learner-identity">${avatar(p, true)}<span><strong>${esc(p.name)}</strong><small>${tr(cosmetics(p).title.name)}</small></span></span>`;
+  return `<span class="learner-identity">${avatar(p, true)}<span><strong>${esc(p.name)}</strong><small>${titleBadge(cosmetics(p).title)}</small></span></span>`;
 }
 function artwork(p) {
   return `style="--scene-image:url('${esc(assetUrl(cosmetics(p).background.image))}')"`;
 }
 const shopCategories = [
-  ['icon','Profile icons'], ['animals','Animal avatars'], ['background','Dashboard backgrounds'],
+  ['icon','Avatars'], ['background','Dashboard backgrounds'],
   ['frame','Avatar frames'], ['title','Titles']
 ];
 let shopCategory = 'icon';
@@ -420,8 +424,9 @@ function shopView(p) {
       ? backgroundTile(item)
       : item.kind === 'icon' || item.kind === 'frame'
         ? portrait(item.kind === 'frame' ? equipped.icon : item, false, item.kind === 'frame' ? item : equipped.frame)
-        : `<span class="style-title"><span aria-hidden="true">✦</span> ${tr(item.name)}</span>`;
-    return `<li class="style-card">${preview}<div class="style-card-copy"><h3>${tr(item.name)}</h3>${item.description ? `<p>${tr(item.description)}</p>` : ''}
+        : '';
+    const heading = item.kind === 'title' ? titleBadge(item, 'h3') : `<h3>${esc(tr(item.name))}</h3>`;
+    return `<li class="style-card${item.kind === 'title' ? ' title-card' : ''}">${preview}<div class="style-card-copy">${heading}${item.description ? `<p>${tr(item.description)}</p>` : ''}
       <div class="catalog-actions">${wearing ? pill('Equipped', 'green')
         : owned ? button('Equip', 'shop-equip', attrs + ` aria-label="Equip ${tr(item.name)}"`, 'small')
         : item.rewardOnly ? pill(item.rewardOnly)
@@ -429,11 +434,10 @@ function shopView(p) {
         ${target?.id === item.id ? pill('Saving for this', 'green') : button('Save for this', 'shop-target', attrs + ` aria-label="Save for ${tr(item.name)}"`, 'small')}`}</div></div></li>`;
   };
   const activeCategory = shopCategories.find(([id]) => id === shopCategory);
-  const items = shopItems.filter(item => shopCategory === 'animals' ? item.animal :
-    item.kind === shopCategory && (shopCategory !== 'icon' || !item.animal));
+  const items = shopItems.filter(item => item.kind === shopCategory);
   return `${pageHeader('PROFILE SHOP', 'Make it yours', 'Choose an avatar, frame, background or title. Spend points now or save up for a look you like.')}
   <div class="style-overview">
-    <section class="style-preview" ${artwork(p)} aria-label="Your equipped profile">${avatar(p)}<div><h2>${esc(p.name)}</h2><span class="style-title">✦ ${tr(equipped.title.name)}</span><p>${tr(equipped.background.name)} · ${tr(equipped.frame.name)}</p></div></section>
+    <section class="style-preview" ${artwork(p)} aria-label="Your equipped profile">${avatar(p)}<div><h2>${esc(p.name)}</h2>${titleBadge(equipped.title)}<p>${tr(equipped.background.name)} · ${tr(equipped.frame.name)}</p></div></section>
     <section class="panel points-wallet"><h2>${esc(tr("Game points"))}</h2><p class="wallet-balance"><strong>${wallet.balance}</strong> <span>${esc(tr("available to spend"))}</span></p>
     ${target ? `<p>${tr('Saving for {item} · {points} pts to go', {item:'<strong>' + esc(tr(target.name)) + '</strong>',points:Math.max(0,target.cost-wallet.balance)})}</p><progress value="${Math.min(wallet.balance,target.cost)}" max="${target.cost}" aria-label="${esc(tr('Points towards {item}', {item:tr(target.name)}))}"></progress>${button('Clear goal', 'shop-target', '', 'quiet small')}` : `<p>${esc(tr("Set a point goal with"))} <strong>${esc(tr("Save for this"))}</strong>.</p>${button('See how I earn points','view','data-view="progress"','small')}`}</section>
   </div>
@@ -800,7 +804,7 @@ function dashboardView(p) {
     <div class="arc-grid">
       <aside class="arc-profile">
         <div class="arc-profile-identity">${button(avatar(p), 'view', `data-view="shop" aria-label="${esc(tr('Customise my profile'))}"`, 'avatar-button')}
-          <div><strong>${esc(p.name)}</strong><span class="profile-title">${tr(cosmetics(p).title.name)}</span><p>${esc(p.business)}</p></div>
+          <div><strong>${esc(p.name)}</strong>${titleBadge(cosmetics(p).title)}<p>${esc(p.business)}</p></div>
         </div>
         <div class="arc-level">${tr('LEVEL')} ${level+1}<br><span>${tr(levels[level])}</span></div>
         <dl><div><dt>✦ ${tr('Learning XP')}</dt><dd>${stats.xp}</dd></div><div><dt>◉ ${tr('Shop points')}</dt><dd>${shopWallet(p).balance}</dd></div><div><dt>✓ ${tr('Weeks closed')}</dt><dd>${closed}</dd></div></dl>

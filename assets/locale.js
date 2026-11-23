@@ -602,6 +602,13 @@ const phrases = [
   ['Future Maker','Kaihanga Anamata','Constructor del futuro'],
   ['Money Wizard','Tohunga Moni','Mago del dinero'],
   ['Arcade Legend','Toa Rongonui o te Kēmu','Leyenda del arcade'],
+  ['Avatars','Ngā ata kōtaha','Avatares'],
+  ['Neon Aqua','Kikorangi Hīaho','Aguamarina neón'],
+  ['Hot Pink Pulse','Manawataki Māwhero','Pulso rosa neón'],
+  ['Acid Green','Kākāriki Kanapa','Verde ácido'],
+  ['Neon Sunset','Tōnga Rā Hīaho','Atardecer neón'],
+  ['Electric Orbit','Ara Hiko','Órbita eléctrica'],
+  ['Neon Spectrum','Tūāwhiorangi Hīaho','Espectro neón'],
 ];
 const catalog = new Map(phrases.map(([english, maori, spanish]) => [english, { mi: maori, es: spanish }]));
 export const translate = (language, source) => catalog.get(source)?.[language] ?? source;
