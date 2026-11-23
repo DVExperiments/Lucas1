@@ -155,3 +155,36 @@
   .market-film::before { transition:none; }
   .market-film :is(.market-runner,.market-second-runner,.market-showers,.market-counting) { animation:none; }
 }
+
+.quest-trail { margin-top:14px; }
+.quest-trail ol { list-style:none; margin:10px 0 0; padding:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.quest-trail li { display:grid; grid-template-columns:auto minmax(0,1fr); align-content:start; gap:8px; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--inset); }
+.quest-trail .step-done { border-color:var(--success-line); }
+.quest-trail .button { grid-column:2; justify-self:start; }
+.quest-symbol { display:grid; place-items:center; align-self:start; width:34px; height:34px; border-radius:9px; background:var(--surface-raised); }
+.step-done .quest-symbol { color:var(--success-text); background:var(--success-bg); font-weight:900; }
+.quest-trail p { font-size:.86rem; margin:2px 0 0; }
+.market-picker { margin:10px 0; }
+.market-picker > div { display:flex; flex-wrap:wrap; gap:6px; }
+.market-picker label { position:relative; margin:0; cursor:pointer; }
+.market-picker input { position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; }
+.market-picker span { display:grid; place-items:center; min-height:44px; min-width:44px; padding:6px 10px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface-raised); }
+.market-picker input:checked + span { background:var(--lime); border-color:var(--lime); color:var(--ink); }
+.market-picker input:focus-visible + span { outline:3px solid var(--focus); outline-offset:2px; }
+.plan-meter { padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--inset); }
+.plan-meter progress { display:block; width:100%; }
+.plan-meter .game-buffer { margin:6px 0 0; }
+.money-flow { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr); gap:8px; align-items:center; margin:12px 0; }
+.money-flow > div { min-width:0; background:var(--inset); padding:10px; border-radius:8px; }
+.money-flow > div > span,.money-flow strong { display:block; overflow-wrap:anywhere; }
+.money-flow > div > span { color:var(--muted); font-size:.86rem; }
+.money-flow strong,.panel .reward-next { color:var(--gold); }
+.lab-example { padding:12px; background:var(--inset); border:1px solid var(--line); border-radius:10px; margin:10px 0; }
+.lab-example summary { cursor:pointer; font-weight:700; }
+@media (max-width:620px) {
+  .quest-trail ol { grid-template-columns:1fr; }
+}
+@media (max-width:480px) {
+  .money-flow { grid-template-columns:1fr; }
+  .money-flow > span { justify-self:center; line-height:1; }
+}

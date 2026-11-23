@@ -245,6 +245,11 @@ function moneyView(p) {
   const week = p.weeks.find(w => w.index === ledgerWeek) ?? activeWeek(p), t = totals(week);
   return `${pageHeader('MY BUSINESS', 'Money log', 'See what came in, what went out and how profit is split.', week.closed ? '' : button('Add entry', 'add-entry', '', 'primary'))}
   <label class="inline-field">Week <select id="ledger-week">${p.weeks.map(w => `<option value="${w.index}" ${w === week ? 'selected' : ''}>${w.index + 1} · ${esc(moduleFor(p,w.index).title)}</option>`).join('')}</select></label>
+  <section class="panel money-flow" aria-label="Money earned and spent">
+    <div><span>Money in · Sales + activity rewards</span><strong>${money(t.sales + t.rewards)}</strong></div>
+    <span aria-hidden="true">−</span><div><span>Money out · Business costs</span><strong>${money(t.costs)}</strong></div>
+    <span aria-hidden="true">=</span><div><span>What’s left before simulated tax</span><strong>${money(t.profit + t.rewards)}</strong></div>
+  </section>
   <div class="stats">${[['Sales',t.sales],['Expenses',t.costs],['Profit before tax',t.profit],['Simulated tax (' + week.rules.tax + '%)',t.tax]].map(([label,cents]) => `<article class="panel"><span>${label}</span><strong>${money(cents)}</strong></article>`).join('')}</div>
   <section class="panel ledger"><div class="section-title"><h2>Transactions</h2>${pill(week.closed ? 'Week closed' : 'Open week', 'green')}</div>
   ${transactionTable(p, week)}</section>
@@ -284,10 +289,10 @@ function awardShelf(p, result) {
 function progressView(p) {
   const result = progress(p), wallet = shopWallet(p);
   return `${pageHeader('MY BUSINESS', 'My progress', 'See what you saved and what you learnt along the way.')}
+  ${certificateShelf(p)}
   ${trendChart(p)}
   <div class="progress-layout spaced">${goal(p, true)}<div class="stats progress-stats"><article class="panel"><span>Weeks closed</span><strong>${result.closed}</strong></article><article class="panel"><span>Shop points earned</span><strong>${result.points}</strong><p class="detail">${result.points - result.awardPoints - result.challengePoints} from missions and weeks · ${result.awardPoints} from badges · ${result.challengePoints} from challenges</p></article></div></div>
   <section class="panel shop-callout"><div><h2>Make your profile yours</h2><p><strong>${wallet.balance} points available</strong> · ${wallet.spent} spent. Your badges stay in your collection.</p></div>${button('Open Profile shop', 'view', 'data-view="shop"', 'primary')}</section>
-  ${certificateShelf(p)}
   ${awardShelf(p, result)}
   <div class="section-title spaced"><div><h2>Four buckets</h2><p>Total allocations from closed weeks. Save includes any simulated match.</p></div></div>
   ${bucketCards(result.buckets)}
@@ -381,13 +386,13 @@ function journey(p, level) {
     <ol>${levels.map((name,i) => `<li class="journey-step level-${i} ${i === level ? 'here' : ''}" ${i === level ? 'aria-current="step"' : ''}><b>LEVEL ${i+1}</b><span class="journey-icon" aria-hidden="true">${levelIcons[i]}</span><strong>${name}</strong><small>${levelGoals[i]}</small></li>`).join('')}</ol>
     <div class="arc-week-grid" aria-label="Programme weeks">${episodes.map((episode,i) => `<span title="${i+1} · ${esc(episode.title)}" class="${p.weeks[i]?.closed ? 'done' : p.weeks[i] ? 'current' : ''}">${i+1}</span>`).join('')}</div></section>`;
 }
-function weeklyChallengeCard(p, showPlay = true) {
+function weeklyChallengeCard(p) {
   const week = activeWeek(p), scenario = challengeFor(week.index);
   return `<section class="panel play-card">
     <div class="play-emblem" aria-hidden="true">🎮</div>
     <div><div class="eyebrow">WEEK ${week.index + 1} CHALLENGE</div><h2>${scenario.title}</h2>
     <p>${week.weeklyCertificate ? 'Certificate earned. Play again or choose another activity.' : 'Play to earn a weekly certificate and ' + weeklyPoints + ' Shop points.'}</p></div>
-    ${showPlay ? button((week.weeklyCertificate ? 'Replay ' : 'Start ') + scenario.title, 'weekly-play', '', 'primary') : button('All challenges', 'open-weekly-challenges')}
+    ${button((week.weeklyCertificate ? 'Replay ' : 'Start ') + scenario.title, 'weekly-play', '', 'primary')}
   </section>`;
 }
 function challengesView(p) {
@@ -396,9 +401,9 @@ function challengesView(p) {
   return `${pageHeader('CHALLENGE ARCADE', 'Challenges', 'Choose this week’s activity, open a teacher challenge, or play a practice game.')}
     ${weeklyChallengeCard(p)}
     ${learnerClassChallenges(p, true)}
-    <section class="panel practice-market spaced"><h2>Market Day practice</h2>
-    <p>Run a school fair stall with $40 in game money. Try different plans as often as you like.</p>
-    ${button('Play Market Day', 'practice-market')}</section>
+    <section class="panel practice-market spaced"><div class="eyebrow">FREE PLAY</div><h2>Market Day practice</h2>
+    <p>Try another stall plan with $40 in game money. Weekly certificates come from the weekly challenge above.</p>
+    ${button('Play Market Day practice', 'practice-market')}</section>
     ${past.length ? `<section class="panel spaced"><h2>Earlier challenges</h2>
     <ul class="challenge-list">${past.map(w => `<li><div><strong>Week ${w.index + 1} · ${challengeFor(w.index).title}</strong>
       <p>${w.weeklyCertificate ? 'Certificate earned' : 'Available to catch up'}</p></div>
@@ -406,18 +411,26 @@ function challengesView(p) {
 }
 function playScenario(index) { return index === 'practice' ? practiceMarket : challengeFor(Number(index)); }
 function scenarioAttrs(index) { return `data-index="${index}"`; }
+function marketBudgetText(plan) {
+  return money(plan.cost * 100) + ' spent · ' + money(plan.buffer * 100) + ' kept in reserve';
+}
 function startScenario(index, previous) {
   const scenario = playScenario(index), attrs = scenarioAttrs(index);
   if (scenario.kind === 'market') {
     const stock = previous?.stock ?? 8, price = previous?.price ?? 4;
-    const buffer = runSchoolMarket(scenario, stock, price).buffer;
+    const plan = runSchoolMarket(scenario, stock, price);
     openDialog('Market Day', `<p>${scenario.story}</p>
       <div class="market-game-art" aria-hidden="true"></div>
       <div class="game-money"><span>STARTING BUDGET</span><strong>${money(scenario.budget * 100)}</strong></div>
       ${form('school-market', `<p>Hire the stall for ${money(scenario.fee * 100)}. Stock costs ${money(scenario.unitCost * 100)} per drink. Choose how many to buy and what to charge.</p>
-      <div class="fields"><label>Drinks to buy<select name="stock">${stockOptions.filter(q => scenario.fee + q * scenario.unitCost <= scenario.budget).map(q => `<option ${q === stock ? 'selected' : ''}>${q}</option>`).join('')}</select></label>
-      <label>Sale price per drink<select name="price">${prices.map(v => `<option value="${v}" ${v === price ? 'selected' : ''}>${money(v * 100)}</option>`).join('')}</select></label></div>
-      <p class="game-buffer" id="market-buffer" role="status">${money(buffer * 100)} left in your cash buffer.</p>
+      <fieldset class="market-picker"><legend>Drinks to buy</legend><div>
+        ${stockOptions.filter(q => scenario.fee + q * scenario.unitCost <= scenario.budget).map(q => `<label><input type="radio" name="stock" value="${q}" ${q === stock ? 'checked' : ''} required><span>${q}</span></label>`).join('')}
+      </div></fieldset>
+      <fieldset class="market-picker"><legend>Sale price per drink</legend><div>
+        ${prices.map(v => `<label><input type="radio" name="price" value="${v}" ${v === price ? 'checked' : ''} required><span>${money(v * 100)}</span></label>`).join('')}
+      </div></fieldset>
+      <div class="plan-meter"><progress id="market-plan-meter" value="${plan.cost}" max="${scenario.budget}" aria-label="Budget used on stock and stall hire"></progress>
+      <p class="game-buffer" id="market-buffer" role="status">${marketBudgetText(plan)}</p></div>
       ${previous ? `<p class="detail">Last try: ${previous.stock} drinks at ${money(previous.price * 100)} each · ${previous.covered ? money(previous.profit * 100) + ' after costs' : 'could not pay the surprise cost'}.</p>` : ''}`, 'Open the stall', attrs)}`);
     return;
   }
@@ -484,12 +497,19 @@ function showMarketResult(index, result, previous) {
       : 'You couldn’t open the stall.'}</p>` : ''}
     ${review}<div class="action-row">${button('Revise my plan', 'market-retry', attrs, 'small')}</div>`);
 }
+function nextCertificateReward(count) {
+  const milestone = weeklyAvatarRewards.find(reward => reward.count > count);
+  if (!milestone) return 'All weekly avatar rewards unlocked.';
+  const remaining = milestone.count - count;
+  return 'Next unlock: ' + shopItems.find(item => item.id === milestone.item).name + ' · ' + remaining + ' certificate' + (remaining === 1 ? '' : 's') + ' to go';
+}
 function certificateShelf(p) {
   const weekly = weeklyCertificates(p).map(w => `<li><div><strong>Week ${w.index + 1} · ${challengeFor(w.index).title}</strong><p>Weekly challenge certificate</p></div>${button('View certificate','show-certificate',scenarioAttrs(w.index),'small')}</li>`);
   const custom = (state.classChallenges ?? []).filter(c => c.certificate && c.learners.includes(p.id) && c.entries[p.id]?.status === 'approved')
     .map(c => `<li><div><strong>${esc(c.title)}</strong><p>Teacher challenge certificate</p></div>${button('View certificate','show-certificate',`data-id="${c.id}"`,'small')}</li>`);
   return `<section class="panel spaced"><div class="section-title"><div><h2>Certificates</h2>
-    <p>${weekly.length} weekly certificates earned</p></div>${button('Play challenges','view','data-view="challenges"','small')}</div>
+    <p>${weekly.length} weekly certificates earned</p>
+    <p class="reward-next">${nextCertificateReward(weekly.length)}</p></div>${button('Play challenges','view','data-view="challenges"','small')}</div>
     ${weekly.length || custom.length ? `<ul class="challenge-list">${weekly.concat(custom).join('')}</ul>` : '<p>Finish a weekly challenge to earn your first certificate.</p>'}</section>`;
 }
 function showCertificate(p, title, detail) {
@@ -563,8 +583,27 @@ function finishScenario(p, index, feedback) {
   save();
   openDialog(earned ? 'Weekly certificate earned!' : 'Challenge complete!', `<p>${feedback}</p>
     ${earned ? `<p><strong>+ ${weeklyPoints} Shop points</strong>${unlock ? ' · Profile reward unlocked: ' + shopItems.find(item => item.id === unlock.item).name : ''}</p>
-      <div class="action-row">${button('View certificate','show-certificate',scenarioAttrs(index),'primary')}${unlock ? button('Open Profile Shop','view','data-view="shop"') : ''}</div>`
+      <div class="action-row">${button('View certificate','show-certificate',scenarioAttrs(index),'primary')}${unlock ? button('Equip reward','equip-challenge-reward',`data-id="${unlock.item}"`) : ''}</div>`
       : `<p>${index === 'practice' ? 'Try the weekly challenge to earn a certificate.' : 'Your certificate is already in My progress.'}</p>`}`);
+}
+function questTrail(p) {
+  const week = activeWeek(p);
+  const required = week.tasks.filter(task => task.required);
+  const complete = required.filter(task => task.status === 'approved').length;
+  const next = required.find(task => ['todo','revision'].includes(task.status));
+  const steps = [
+    ['🎮', 'Play the weekly challenge', week.weeklyCertificate ? 'Certificate earned' : 'Optional · earns a certificate', week.weeklyCertificate,
+      button('Open Challenges','open-weekly-challenges','','small')],
+    ['⚡', 'Finish your missions', complete + ' of ' + required.length + ' approved', complete === required.length,
+      next ? button('Open next mission','task',`data-id="${esc(next.id)}"`,'small') : ''],
+    ['🚩', 'Unlock the next week', week.closed ? 'Week complete' : complete < required.length
+      ? 'Finish the required missions first' : p.solo ? 'Ready to close this week' : 'Ready for an adult check-in', week.closed,
+      p.solo && complete === required.length && !week.closed ? button('Settle the week','solo-settle','','small') : '']
+  ];
+  return `<section class="panel quest-trail"><h2>Week ${week.index + 1} quest trail</h2><ol>
+    ${steps.map(([icon,label,note,done,action]) => `<li class="${done?'step-done':''}"><span class="quest-symbol" aria-hidden="true">${done?'✓':icon}</span>
+      <div><strong>${label}</strong><p>${note}</p></div>${action}</li>`).join('')}
+    </ol></section>`;
 }
 function dashboardView(p) {
   const w = activeWeek(p), info = moduleFor(p, w.index), lesson = w.tasks.find(t => t.id === 'learning');
@@ -603,7 +642,7 @@ function dashboardView(p) {
       <section class="arc-card arc-gold"><span>MY BIG GOAL</span><h2>${button(esc(p.goal), 'view', 'data-view="progress" aria-label="My big goal and savings progress"', 'card-link')}</h2><progress max="100" value="${pct(p)}" aria-label="Savings goal progress"></progress><p>${pct(p)}% of goal · ${closed} ${closed === 1 ? 'week' : 'weeks'} checked in</p></section>
       <section class="arc-card arc-chart"><span>LEARNING THIS WEEK</span><h2>${button(week.xp + ' XP earned', 'view', 'data-view="week" aria-label="See this week’s learning"', 'card-link')}</h2><dl>${[['Missions',week.missions,w.tasks.filter(t=>t.id!=='learning' && t.kind!=='chore').length + Number(w.tasks.some(t=>t.kind==='chore'))],['Videos',week.videos,1],['Quizzes',week.quizzes,1]].map(([label,n,max])=>`<div><dt>${label}</dt><dd><progress aria-label="${label} completed this week" max="${Math.max(1,max)}" value="${n}"></progress><b>${n}</b></dd></div>`).join('')}</dl></section></aside>
     </div>
-    ${weeklyChallengeCard(p, false)}
+    ${questTrail(p)}
     ${learnerClassChallenges(p)}
     ${trendChart(p, true)}
     ${competitionNotice(p)}
@@ -615,12 +654,18 @@ const moneyLessons = {
   investing: ['Shares and funds', 'Explore how an investment can move up and down.', 'Sharesies is one platform people may encounter when learning about investing. This practice tab uses fictional examples.', 8],
   kiwisaver: ['KiwiSaver', 'Think about long-term goals.', 'Compare a near-term goal with a goal far in the future. This tab is a learning activity with no linked account.', 9]
 };
+const moneyLabExamples = {
+  savings: '<p>You want $45 for sports gear in five weeks. How much would you put aside each week?</p><details><summary>Reveal the answer</summary><p>$9. Five lots of $9 add up to $45.</p></details>',
+  investing: '<p>A $20 practice investment goes up to $23 and then drops to $18. Did you gain or lose money compared with the start?</p><details><summary>Reveal the answer</summary><p>You’re $2 below where you started. Compare $18 with the original $20.</p></details>',
+  kiwisaver: '<p>You need a helmet this term and also want a longer-term savings habit. Which goal would you plan for first?</p><details><summary>Reveal a way to think about it</summary><p>Put a deadline and target on the helmet goal. You can plan a separate amount for the longer-term goal.</p></details>'
+};
 function investmentsView(p) {
   const [title, lead, detail, index] = moneyLessons[jar];
   const done = p.weeks.some(w => w.index % programmeLength === index && (w.quizPassed || w.tasks.find(t => t.id === 'learning')?.status === 'approved'));
   return `${pageHeader('MONEY LAB', 'Savings & investing', 'Explore how different goals need different plans.')}
   <nav aria-label="Savings and investing topics" class="money-tabs">${Object.entries(moneyLessons).map(([id,[label]])=>button(label,'money-topic',`data-id="${id}" aria-pressed="${jar===id}"`,jar===id?'primary':'secondary')).join('')}</nav>
   <section class="panel money-topic"><span class="arc-tag">${done ? 'QUIZ COMPLETE' : 'WEEK ' + (index+1)}</span><h2>${title}</h2><p><strong>${lead}</strong></p><p>${detail}</p>
+  <details class="lab-example"><summary>Try a quick money decision</summary>${moneyLabExamples[jar]}</details>
   ${activeWeek(p).index % programmeLength === index ? button('Open video & quiz','task','data-id="learning"','primary') : button('See my learning journey','view','data-view="dashboard"')}</section>`;
 }
 function scoreboard(rows, metric) {
@@ -674,7 +719,7 @@ function homeView() {
   return `<section class="welcome">
     <div><div class="eyebrow">SUCCESS AVENUE MONEY</div><h1>The Lucas Money Game</h1>
       <p>Do chores. Take on a mini business. Build money habits that bring your big goal closer.</p>
-      <div class="action-row">${button('Start at home', 'new-home', '', 'primary')}${button('Start a class', 'new-group')}${button(workspace.sample ? 'Resume demo' : 'Play the demo', 'test-group')}</div></div>
+      <div class="action-row">${button(workspace.sample ? 'Resume demo' : 'Play the demo', 'test-group', '', 'primary')}${button('Start at home', 'new-home')}${button('Start a class', 'new-group')}</div></div>
     <div class="welcome-route"><strong>Savings milestones</strong><div class="welcome-milestones">${savingsMilestones.map(percent => `<span>${percent}%</span>`).join('')}</div><p>Earn badges as you close in on your goal.</p></div>
   </section>
   <div class="welcome-grid">
@@ -732,6 +777,7 @@ function learnerHelpView() {
   return `${pageHeader('LEARNER', 'About & Help', 'Get help with your weekly missions, money log and rewards.')}
   <div class="help-grid">
     <section class="panel help-panel"><h2>How to play</h2>
+      <p>Start with the quest trail on your dashboard. If you don’t have a real job or business, you can still play Challenges using game money.</p>
       <ol>
         <li><strong>Try it in real life.</strong> Agree on a job or product and what you’ll charge. Paid household jobs count. Add your actual earnings and costs to the Money log.</li>
         <li><strong>Complete your missions.</strong> Try the business mission, take the money quiz and apply the same idea outside your business. Use the question-mark buttons for examples.</li>
@@ -1056,6 +1102,12 @@ document.addEventListener('click', event => {
       }
       break;
     }
+    case 'equip-challenge-reward':
+      if (role === 'learner' && p && weeklyAvatarRewards.some(r => r.item === item) && equipCosmetic(p,item)) {
+        closeDialog();
+        save(shopItems.find(reward => reward.id === item).name + ' equipped.');
+      }
+      break;
     case 'chart-week':
     case 'chart-metric': {
       if (role !== 'learner' || !['dashboard','progress'].includes(view)) return;
@@ -1251,7 +1303,10 @@ document.addEventListener('change', event => {
   if (marketForm) {
     const data = new FormData(marketForm);
     const result = runSchoolMarket(playScenario(marketForm.dataset.index), Number(data.get('stock')), Number(data.get('price')));
-    if (result) $('#market-buffer').textContent = money(result.buffer * 100) + ' left in your cash buffer.';
+    if (result) {
+      $('#market-buffer').textContent = marketBudgetText(result);
+      $('#market-plan-meter').value = result.cost;
+    }
   }
   if (event.target.id === 'teacher-group' && role === 'facilitator' && !isHomeGame()) {
     const id = event.target.value;
