@@ -1,4 +1,6 @@
-export const tracks = ['Ages 5–12', 'Ages 13–17', 'Ages 18+'];
+import { programmeLength, episodeFor } from './curriculum.js';
+
+export const tracks = ['Ages 8–10', 'Ages 11–13 · Intermediate', 'Ages 14–17'];
 export const buckets = ['Spend', 'Save', 'Invest', 'Give'];
 export const defaults = { tax: 10, split: [30, 30, 30, 10], bonus: 25, match: 0, cap: 2000 };
 export const weeks = [
@@ -49,7 +51,7 @@ export function makePlayer(fields, rules) {
   return { id: uid(), ...fields, weeks: [makeWeek(0, rules)] };
 }
 export function newGroup(name) {
-  return { version: 1, group: name, rules: structuredClone(defaults), lessonUrl: '', current: null, players: [] };
+  return { version: 1, ageBandsV2: true, group: name, rules: structuredClone(defaults), lessonUrl: '', current: null, players: [] };
 }
 export function newHomeGame(fields) {
   const game = newGroup(fields.name + '’s home game');
@@ -135,7 +137,7 @@ export function goodwill(player, before = Infinity) {
   return player.weeks.filter(w => w.index < before).reduce((total, w) => total + (w.result?.regularsEarned ?? 0), 0);
 }
 export function marketResult(player, week, planIndex, tacticIndex) {
-  const spec = market[week.index];
+  const spec = market[week.index % market.length];
   const { price, capacity, demand, cost } = spec.plans[planIndex];
   const [tactic, lift, fee, earned] = spec.tactics[tacticIndex];
   const bonus = Math.min(2, Math.floor(goodwill(player, week.index) / 2));
@@ -145,58 +147,16 @@ export function marketResult(player, week, planIndex, tacticIndex) {
     regularsEarned: Math.min(earned + (sold >= 8 ? 1 : 0), sold), tactic, fee };
 }
 
-const businessModules = [
-  {
-    title: 'Make your first offer',
-    summary: 'Agree on a product or job, who it’s for and what you’ll charge. Try it with a customer or a member of your household.',
-    prompts: [
-      'Agree on one job or product and a price. Try it this week and tell us what happened.',
-      'Compare two possible prices with your costs. Try one, then explain what happened and record any money in or out.',
-      'Estimate your break-even point. Test one offer and compare actual sales and costs with your estimate.'
-    ],
-    outside: 'Imagine giving a friend a $20 budget to make lunch for two. Describe one way they could stay within budget and how they could check it.'
-  },
-  {
-    title: 'Find the real cost',
-    summary: 'Look at what it takes to deliver a job or product, including supplies and time. Try one change that makes it easier or less costly.',
-    prompts: [
-      'Pick a job or product. List what you used and say one way you could do it for less.',
-      'Choose one job or product. Estimate the cost for one, then compare two ways to reduce that cost or time.',
-      'Separate fixed and variable costs for one offer. Identify one change you can test and compare the cost per job or unit.'
-    ],
-    outside: 'Compare a small pack and a larger pack of the same household item. Which costs less per item, and when might the smaller pack suit your budget better?'
-  },
-  {
-    title: 'Plan for a quiet week',
-    summary: 'Make a plan for lower earnings or an unexpected cost. Small changes can keep a business going when work slows down.',
-    prompts: [
-      'Imagine one job gets cancelled. What could you do next? Try an idea or explain what you’d try.',
-      'Use your recent figures to estimate a week with one fewer sale or job. Pick a low-cost way to respond.',
-      'Model a lower-income week using your own figures. Decide how much buffer you’d want and justify the first cost you’d change.'
-    ],
-    outside: 'Imagine you planned to save $10 this week and a $6 expense comes up. Describe one way you could deal with it and explain what would happen to your savings.'
-  },
-  {
-    title: 'Review what worked',
-    summary: 'Look back at your numbers and what customers said. Decide which change is worth keeping and what you’ll try next.',
-    prompts: [
-      'Say what went well, look at what you earned or saved, and choose one thing to try next.',
-      'Use your money log to compare two weeks. Pick one thing to keep, change or stop and explain why.',
-      'Compare actual profit with your early expectations. Use the numbers and a customer observation to justify your next move.'
-    ],
-    outside: 'Pick a household savings goal and a longer-term goal. Explain which one needs money you can get to soon and why.'
-  }
-];
-
 export function moduleFor(player, index) {
   const saved = player.weeks[index]?.module;
   if (saved) return saved;
-  const original = weeks[index];
-  const real = businessModules[index];
-  const manual = player.mode === 'manual';
-  const defaults = { title: manual ? real.title : original.title, summary: manual ? real.summary : original.summary,
-    business: (manual ? real.prompts : original.prompts)[player.track], outside: manual ? real.outside : original.reflection,
-    lessonNote: '', lessonUrl: '' };
+  const episode = episodeFor(index);
+  const original = weeks[index % weeks.length];
+  const chapter = index >= programmeLength ? 'Keep going · ' : '';
+  const business = player.mode === 'manual' ? episode.business : original.prompts[player.track];
+  const defaults = { title: chapter + episode.title, summary: episode.concept,
+    business: player.track === 0 ? business + ' Ask an adult to help if you need it.' : business,
+    outside: episode.outside, lessonNote: '', lessonUrl: '', quizUrl: '' };
   return { ...defaults, ...player.modules?.[index] };
 }
 
@@ -216,8 +176,8 @@ const skillAwards = [
     reached: ({ p }) => p.weeks.some(w => w.closed && totals(w).profit < 0) },
   { id: 'regulars', icon: '4', title: 'Local regulars', description: 'Build four potential regulars in the practice simulation.', points: 10, practice: true,
     reached: ({ p }) => p.mode === 'sim' && goodwill(p) >= 4 },
-  { id: 'season', icon: '★', title: 'Season finisher', description: 'Close all four weeks.', points: 20,
-    reached: ({ result }) => result.closed >= weeks.length },
+  { id: 'season', icon: '★', title: 'Season finisher', description: 'Close all 12 programme weeks.', points: 20,
+    reached: ({ result }) => result.closed >= programmeLength },
 ];
 const goalAwards = savingsMilestones.map(percent => ({
   id: 'save-' + percent,
@@ -277,4 +237,38 @@ export function setShopTarget(p, id) {
   if (id !== null && (!shopItems.some(item => item.id === id) || shopWallet(p).owned.has(id))) return false;
   shopSettings(p).target = id;
   return true;
+}
+
+export const competitionMetrics = { xp: 'Learning XP', missions: 'Missions', lessons: 'Videos + quizzes' };
+
+export function learningStats(player, weeksToCount = player.weeks) {
+  const stats = { missions: 0, videos: 0, quizzes: 0, lessons: 0, xp: 0 };
+  for (const week of weeksToCount) {
+    // One chore earns learning XP per week. More chores still appear in the learner's record.
+    const approved = week.tasks.filter(task => task.id !== 'learning' && task.status === 'approved');
+    stats.missions += approved.filter(task => task.kind !== 'chore').length + Number(approved.some(task => task.kind === 'chore'));
+    stats.videos += Number(Boolean(week.videoWatched));
+    stats.quizzes += Number(Boolean(week.quizPassed || week.tasks.some(task => task.id === 'learning' && task.status === 'approved')));
+  }
+  stats.lessons = stats.videos + stats.quizzes;
+  stats.xp = 10 * (stats.missions + stats.videos) + 20 * stats.quizzes;
+  return stats;
+}
+export function competitionBoard(competition, players) {
+  return competition.results ?? players.filter(p => Object.hasOwn(competition.start, p.id)).map(p => ({
+    name: p.name, id: p.id, score: Math.max(0, learningStats(p)[competition.metric] - competition.start[p.id])
+  })).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+}
+export function trackVideoCoverage(segments, start, end, duration) {
+  if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(start) || !Number.isFinite(end) || end <= start || end - start > 1.25) return segments;
+  const merged = [];
+  for (const segment of [...segments, [Math.max(0, start), Math.min(end, duration)]].sort((a,b) => a[0] - b[0])) {
+    const previous = merged.at(-1);
+    if (previous && segment[0] <= previous[1] + 0.06) previous[1] = Math.max(previous[1], segment[1]);
+    else merged.push([...segment]);
+  }
+  return merged;
+}
+export function watchedEnough(segments, duration) {
+  return Number.isFinite(duration) && duration > 0 && segments.reduce((covered, [start, end]) => covered + end - start, 0) >= duration * 0.95;
 }
