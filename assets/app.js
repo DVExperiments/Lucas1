@@ -1,9 +1,9 @@
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.2';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.3';
 import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
 
-import { languages, translate } from './locale.js?v=3.2';
+import { languages, translate } from './locale.js?v=3.3';
 import { vimeoPlayer } from './vimeo.js';
 
 const assetUrl = image => new URL('./assets/' + image, location.href).href;
@@ -162,6 +162,7 @@ function openRole(nextRole) {
   role = nextRole;
   if (role === 'facilitator') detailWeek = undefined;
   navigate(role === 'facilitator' ? 'group' : player() ? 'dashboard' : 'home');
+  if (role === 'learner' && player()?.starterPending) openStarterDialog();
 }
 const pageArt = {
   week: ['market-lights.webp','📋'], money: ['market-lights.webp','🪙'],
@@ -373,17 +374,41 @@ function progressView(p) {
   </section>`;
 }
 function avatar(p, compact = false) {
-  return portrait(cosmetics(p).icon, compact);
+  const { icon, frame } = cosmetics(p);
+  return portrait(icon, compact, frame);
 }
-function portrait(item, compact = false) {
+function portrait(item, compact = false, frame) {
   const image = item.image ? ` style="background-image:url('${esc(assetUrl(item.image))}');background-position:center;background-size:cover"` : '';
-  return `<span class="arc-avatar ${item.symbol ? 'avatar-symbol' : ''} ${compact ? 'avatar-compact' : ''}" aria-hidden="true"${image}>${item.symbol ?? ''}</span>`;
+  return `<span class="arc-avatar ${item.symbol ? 'avatar-symbol' : ''} ${compact ? 'avatar-compact' : ''} ${frame?.id ?? ''}" aria-hidden="true"${image}>${item.symbol ?? ''}</span>`;
 }
 function identity(p) {
   return `<span class="learner-identity">${avatar(p, true)}<span><strong>${esc(p.name)}</strong><small>${tr(cosmetics(p).title.name)}</small></span></span>`;
 }
 function artwork(p) {
   return `style="--scene-image:url('${esc(assetUrl(cosmetics(p).background.image))}')"`;
+}
+const shopCategories = [
+  ['icon','Profile icons'], ['animals','Animal avatars'], ['background','Dashboard backgrounds'],
+  ['frame','Avatar frames'], ['title','Titles']
+];
+let shopCategory = 'icon';
+
+function backgroundTile(item) {
+  return `<span class="style-scene" style="background-image:url('${esc(assetUrl(item.image))}')" aria-hidden="true"></span>`;
+}
+function starterLookFields() {
+  const groups = [['icon','Starting profile picture','hero'], ['background','Starting dashboard background','sunset']];
+  return `<div class="starter-looks">${groups.map(([kind, label, initial]) =>
+    `<fieldset><legend>${tr(label)}</legend><div class="starter-look-options starter-${kind}">
+      ${starterOptions(kind).map(item => `<label><input type="radio" name="starter-${kind}" value="${item.id}" ${item.id === initial ? 'checked' : ''}>
+        <span class="starter-look-card">${kind === 'icon' ? portrait(item) : backgroundTile(item)}
+          <span>${esc(tr(item.name))}</span></span></label>`).join('')}
+    </div></fieldset>`).join('')}</div>`;
+}
+function openStarterDialog() {
+  openDialog(tr('Choose your starter look'), form('starter-look',
+    `<p>${tr('Pick a free profile picture and dashboard background. You can change them in the Profile Shop.')}</p>${starterLookFields()}`,
+    tr('Save starter look')));
 }
 function shopView(p) {
   const wallet = shopWallet(p), equipped = cosmetics(p);
@@ -392,24 +417,32 @@ function shopView(p) {
     const owned = wallet.owned.has(item.id), wearing = equipped[item.kind].id === item.id;
     const attrs = `data-id="${item.id}"`;
     const preview = item.kind === 'background'
-      ? `<span class="style-scene" style="background-image:url('${esc(assetUrl(item.image))}')" aria-hidden="true"></span>`
-      : item.kind === 'icon'
-        ? portrait(item)
+      ? backgroundTile(item)
+      : item.kind === 'icon' || item.kind === 'frame'
+        ? portrait(item.kind === 'frame' ? equipped.icon : item, false, item.kind === 'frame' ? item : equipped.frame)
         : `<span class="style-title"><span aria-hidden="true">✦</span> ${tr(item.name)}</span>`;
-    return `<li class="style-card">${preview}<div class="style-card-copy"><h3>${tr(item.name)}</h3><p>${tr(item.description)}</p>
+    return `<li class="style-card">${preview}<div class="style-card-copy"><h3>${tr(item.name)}</h3>${item.description ? `<p>${tr(item.description)}</p>` : ''}
       <div class="catalog-actions">${wearing ? pill('Equipped', 'green')
         : owned ? button('Equip', 'shop-equip', attrs + ` aria-label="Equip ${tr(item.name)}"`, 'small')
         : item.rewardOnly ? pill(item.rewardOnly)
         : `${wallet.balance >= item.cost ? button(tr('Buy · {cost} pts', {cost:item.cost}), 'shop-buy', attrs + ` aria-label="Buy ${tr(item.name)} for ${item.cost} points"`, 'primary small') : pill(tr('{cost} pts · {points} to go', {cost:item.cost,points:item.cost-wallet.balance}))}
         ${target?.id === item.id ? pill('Saving for this', 'green') : button('Save for this', 'shop-target', attrs + ` aria-label="Save for ${tr(item.name)}"`, 'small')}`}</div></div></li>`;
   };
-  return `${pageHeader('PROFILE SHOP', 'Make it yours', 'Choose an icon, dashboard background or title. Spend points now or save up for something you want.')}
+  const activeCategory = shopCategories.find(([id]) => id === shopCategory);
+  const items = shopItems.filter(item => shopCategory === 'animals' ? item.animal :
+    item.kind === shopCategory && (shopCategory !== 'icon' || !item.animal));
+  return `${pageHeader('PROFILE SHOP', 'Make it yours', 'Choose an avatar, frame, background or title. Spend points now or save up for a look you like.')}
   <div class="style-overview">
-    <section class="style-preview" ${artwork(p)} aria-label="Your equipped profile">${avatar(p)}<div><h2>${esc(p.name)}</h2><span class="style-title">✦ ${tr(equipped.title.name)}</span><p>${tr(equipped.background.name)}</p></div></section>
+    <section class="style-preview" ${artwork(p)} aria-label="Your equipped profile">${avatar(p)}<div><h2>${esc(p.name)}</h2><span class="style-title">✦ ${tr(equipped.title.name)}</span><p>${tr(equipped.background.name)} · ${tr(equipped.frame.name)}</p></div></section>
     <section class="panel points-wallet"><h2>${esc(tr("Game points"))}</h2><p class="wallet-balance"><strong>${wallet.balance}</strong> <span>${esc(tr("available to spend"))}</span></p>
     ${target ? `<p>${tr('Saving for {item} · {points} pts to go', {item:'<strong>' + esc(tr(target.name)) + '</strong>',points:Math.max(0,target.cost-wallet.balance)})}</p><progress value="${Math.min(wallet.balance,target.cost)}" max="${target.cost}" aria-label="${esc(tr('Points towards {item}', {item:tr(target.name)}))}"></progress>${button('Clear goal', 'shop-target', '', 'quiet small')}` : `<p>${esc(tr("Set a point goal with"))} <strong>${esc(tr("Save for this"))}</strong>.</p>${button('See how I earn points','view','data-view="progress"','small')}`}</section>
   </div>
-  ${[['icon','Profile icons'],['background','Dashboard backgrounds'],['title','Titles']].map(([kind,label])=>`<section class="style-catalog"><h2>${tr(label)}</h2><ul>${shopItems.filter(item=>item.kind===kind).map(card).join('')}</ul></section>`).join('')}`;
+  <nav class="appearance-categories" aria-label="${esc(tr('Profile shop categories'))}">
+    ${shopCategories.map(([kind,label]) => button(tr(label),'shop-category',
+      `data-id="${kind}" aria-pressed="${shopCategory === kind}"`, shopCategory === kind ? 'primary' : 'secondary')).join('')}
+  </nav>
+  <section class="style-catalog" aria-labelledby="active-shop-category"><h2 id="active-shop-category">${tr(activeCategory[1])}</h2>
+    <ul>${items.map(card).join('')}</ul></section>`;
 }
 function shopPurchaseDialog(p, item) {
   const wallet = shopWallet(p);
@@ -1214,7 +1247,7 @@ function playerDialog(p, homeSetup = false) {
     ${textField('What do you offer? (optional)', 'offer', 'Describe the job or product, such as mowing the lawn for an agreed price.', p?.offer, 120, false)}
     ${textField('Who is it for? (optional)', 'customers', 'Name the type of customer, such as my family or neighbours I know.', p?.customers, 120, false)}
     ${!p && !homeSetup ? `${field('Play with', 'reviewMode', 'In solo practice you close your own weeks. In mentor mode a facilitator reviews your work and records check-ins.', `<select name="reviewMode"><option value="mentor" ${role === 'facilitator' ? 'selected' : ''}>Mentor check-ins</option><option value="solo" ${role === 'learner' ? 'selected' : ''}>Solo practice</option></select>`)}` : ''}
-    ${textField('Savings goal', 'goal', 'Choose something specific you want to save for, such as art supplies or a used bike.', p?.goal)}${field('Goal amount (NZD)', 'target', 'How much do you want in Save for this goal? Enter an amount in New Zealand dollars, such as 30 or 30.50.', `<input name="target" type="number" step=".01" min=".01" max="1000000" value="${p ? p.target / 100 : ''}" required>`)}</div>`, homeSetup ? 'Start home game' : p ? 'Save changes' : 'Create learner', p ? playerAttrs(p) : ''));
+    ${textField('Savings goal', 'goal', 'Choose something specific you want to save for, such as art supplies or a used bike.', p?.goal)}${field('Goal amount (NZD)', 'target', 'How much do you want in Save for this goal? Enter an amount in New Zealand dollars, such as 30 or 30.50.', `<input name="target" type="number" step=".01" min=".01" max="1000000" value="${p ? p.target / 100 : ''}" required>`)}</div>${homeSetup ? starterLookFields() : ''}`, homeSetup ? 'Start home game' : p ? 'Save changes' : 'Create learner', p ? playerAttrs(p) : ''));
 }
 function reviewDialog(p, t) {
   const w = activeWeek(p);
@@ -1437,6 +1470,12 @@ document.addEventListener('click', event => {
       $(`[data-action="${action}"][aria-pressed="true"]`)?.focus({preventScroll:true});
       break;
     }
+    case 'shop-category':
+      if (role !== 'learner' || view !== 'shop' || !shopCategories.some(([category]) => category === item)) return;
+      shopCategory = item;
+      render();
+      $('[data-action="shop-category"][aria-pressed="true"]')?.focus({preventScroll:true});
+      break;
     case 'shop-buy': {
       const upgrade = shopItems.find(entry => entry.id === item);
       if (role === 'learner' && view === 'shop' && p && upgrade) shopPurchaseDialog(p, upgrade);
@@ -1837,6 +1876,11 @@ document.addEventListener('submit', async event => {
       finish('Savings goal updated.');
       break;
     }
+    case 'starter-look':
+      if (role !== 'learner' || !p?.starterPending) return;
+      setStarterLook(p, { icon:value('starter-icon'), background:value('starter-background') });
+      finish('Starter look saved.');
+      break;
     case 'new-home':
     case 'add-player':
     case 'edit-player': {
@@ -1846,7 +1890,7 @@ document.addEventListener('submit', async event => {
       if (el.dataset.form === 'new-home') {
         if (!publicRoutes.has(view)) return;
         const id = uid();
-        workspace.groups.push({ id, data: newHomeGame({ ...fields, mode: value('mode') }) });
+        workspace.groups.push({ id, data: newHomeGame({ ...fields, mode:value('mode') }, { icon:value('starter-icon'), background:value('starter-background') }) });
         selectGroup(id);
         role = 'learner';
         view = 'dashboard';
@@ -1860,7 +1904,7 @@ document.addEventListener('submit', async event => {
       }
       else {
         if (!state || isHomeGame()) return;
-        const learner = makePlayer({ ...fields, mode: value('mode'), solo: value('reviewMode') === 'solo' }, state.rules);
+        const learner = makePlayer({ ...fields, starterPending:true, mode: value('mode'), solo: value('reviewMode') === 'solo' }, state.rules);
         state.players.push(learner);
       }
       finish(el.dataset.form === 'edit-player' ? 'Goal and business saved.' : 'Learner added.');

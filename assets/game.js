@@ -54,9 +54,10 @@ export function makePlayer(fields, rules) {
 export function newGroup(name) {
   return { version: 1, ageBandsV2: true, group: name, rules: structuredClone(defaults), lessonUrl: '', current: null, players: [] };
 }
-export function newHomeGame(fields) {
+export function newHomeGame(fields, appearance) {
   const game = newGroup(fields.name + '’s home game');
   const learner = makePlayer({ ...fields, solo: false }, game.rules);
+  if (appearance) setStarterLook(learner, appearance);
   return { ...game, kind: 'home', current: learner.id, players: [learner] };
 }
 export function fresh() {
@@ -290,19 +291,56 @@ export const shopItems = [
   { id: 'sosie', kind: 'icon', name: 'Sosie', cost: 0, image: 'avatar-sosie.webp', description: 'Round glasses and puff buns.' },
   { id: 'kai', kind: 'icon', name: 'Kai', cost: 35, image: 'avatar-kai.webp', description: 'A bright orange hoodie.' },
   { id: 'ash', kind: 'icon', name: 'Ash', cost: 55, image: 'avatar-ash.webp', description: 'A green beanie and freckles.' },
+  { id: 'kiwi-scout', kind: 'icon', animal: true, name: 'Kiwi Scout', cost: 0, image: 'animal-kiwi.webp' },
+  { id: 'kea-pilot', kind: 'icon', animal: true, name: 'Kea Pilot', cost: 0, image: 'animal-kea.webp' },
+  { id: 'shadow-cat', kind: 'icon', animal: true, name: 'Shadow Cat', cost: 0, image: 'animal-cat.webp' },
+  { id: 'little-penguin', kind: 'icon', animal: true, name: 'Little Penguin', cost: 0, image: 'animal-penguin.webp' },
+  { id: 'red-panda', kind: 'icon', animal: true, name: 'Red Panda', cost: 35, image: 'animal-panda.webp' },
+  { id: 'axolotl', kind: 'icon', animal: true, name: 'Axolotl', cost: 45, image: 'animal-axolotl.webp' },
+  { id: 'tuatara', kind: 'icon', animal: true, name: 'Tuatara', cost: 55, image: 'animal-tuatara.webp' },
+  { id: 'ember-dragon', kind: 'icon', animal: true, name: 'Ember Dragon', cost: 85, image: 'animal-dragon.webp' },
+  { id: 'trail-dog', kind: 'icon', animal: true, name: 'Trail Dog', cost: 30, image: 'animal-dog.webp' },
   { id: 'sunset', kind: 'background', name: 'Arcade Sunset', cost: 0, image: 'arcade-hero.webp', description: 'The original dashboard scene.' },
   { id: 'coast', kind: 'background', name: 'Coast Ride', cost: 0, image: 'coast-ride.webp', description: 'Blue skies over a coastal skatepark.' },
   { id: 'market-lights', kind: 'background', name: 'Market Lights', cost: 70, image: 'market-lights.webp', description: 'A weekend market glowing at sunset.' },
+  { id: 'alpine-lookout', kind: 'background', name: 'Alpine Lookout', cost: 0, image: 'scene-alpine.webp' },
+  { id: 'night-skate', kind: 'background', name: 'Neon Skatepark', cost: 0, image: 'scene-skate.webp' },
+  { id: 'glowworm-cavern', kind: 'background', name: 'Glowworm Cavern', cost: 60, image: 'scene-cavern.webp' },
+  { id: 'rooftop-stars', kind: 'background', name: 'Rooftop Stargazer', cost: 85, image: 'scene-stars.webp' },
+  { id: 'frame-classic', kind: 'frame', name: 'Classic Blue', cost: 0 },
+  { id: 'frame-lime', kind: 'frame', name: 'Lime Circuit', cost: 0 },
+  { id: 'frame-ice', kind: 'frame', name: 'Ice Crystal', cost: 25 },
+  { id: 'frame-ember', kind: 'frame', name: 'Ember Ring', cost: 35 },
+  { id: 'frame-nebula', kind: 'frame', name: 'Nebula', cost: 55 },
+  { id: 'frame-gold', kind: 'frame', name: 'Gold Medal', cost: 75 },
+  { id: 'frame-rainbow', kind: 'frame', name: 'Prism', cost: 95 },
   { id: 'rookie', kind: 'title', name: 'Money Rookie', cost: 0, description: 'Every good habit starts somewhere.' },
   { id: 'goal-getter', kind: 'title', name: 'Goal Getter', cost: 35, description: 'A title for taking the next step.' },
   { id: 'budget-boss', kind: 'title', name: 'Budget Boss', cost: 60, description: 'A title for making a plan and sticking to it.' },
+  { id: 'pocket-planner', kind: 'title', name: 'Pocket Planner', cost: 0 },
+  { id: 'coin-keeper', kind: 'title', name: 'Coin Keeper', cost: 20 },
+  { id: 'market-maverick', kind: 'title', name: 'Market Maverick', cost: 40 },
+  { id: 'nest-egg-builder', kind: 'title', name: 'Nest Egg Builder', cost: 50 },
+  { id: 'future-maker', kind: 'title', name: 'Future Maker', cost: 70 },
+  { id: 'money-wizard', kind: 'title', name: 'Money Wizard', cost: 90 },
+  { id: 'arcade-legend', kind: 'title', name: 'Arcade Legend', cost: 115 },
   { id: 'school-market-icon', kind: 'icon', name: 'Market Medal', cost: 0, symbol: '🏅', rewardOnly: 'Earn 1 weekly certificate.', description: 'Your first weekly challenge award.' },
   { id: 'challenge-planner', kind: 'title', name: 'Challenge Planner', cost: 0, rewardOnly: 'Earn 4 weekly certificates.', description: 'An award for completing four weekly challenges.' },
   { id: 'challenge-champion', kind: 'title', name: 'Challenge Champion', cost: 0, rewardOnly: 'Earn 8 weekly certificates.', description: 'An award for completing eight weekly challenges.' },
   { id: 'teacher-star', kind: 'icon', name: 'Class Star', cost: 0, symbol: '🌟', rewardOnly: 'Earn it in a teacher challenge.', description: 'An award from a teacher.' },
   { id: 'habit-hero', kind: 'title', name: 'Habit Hero', cost: 100, description: 'A title for practising the small things that add up.' }
 ];
-const profileDefaults = { icon: 'hero', background: 'sunset', title: 'rookie' };
+const profileDefaults = { icon: 'hero', background: 'sunset', title: 'rookie', frame: 'frame-classic' };
+export function starterOptions(kind) {
+  return shopItems.filter(item => item.kind === kind && item.cost === 0 && !item.rewardOnly);
+}
+export function setStarterLook(p, appearance) {
+  const equipped = Object.fromEntries(['icon','background'].map(kind => [
+    kind, starterOptions(kind).find(item => item.id === appearance[kind])?.id ?? profileDefaults[kind]
+  ]));
+  Object.assign((shopSettings(p).equipped ??= {}), equipped);
+  delete p.starterPending;
+}
 export function shopWallet(p) {
   const earned = progress(p).points;
   // Retired fixture and theme purchases no longer count against the balance.
