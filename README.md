@@ -1,4 +1,4 @@
-# The Lucas Money Game V2.3
+# The Lucas Money Game V2.4
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 
@@ -17,8 +17,8 @@ A Success Avenue Money pilot for intermediate-school learners. Learners complete
 
 ## Weekly and teacher challenges
 
-- Choose **Play this week’s challenge** from the dashboard. Each programme week has its own activity. Finish it for a printable certificate and 15 Shop points. Play again for practice or catch up on earlier weeks in **Challenges**. There is one reward per programme week, independent of weekly check-ins. Earn one, four and eight certificates to unlock profile rewards.
-- **Market Day** is open to every learner. Plan a school fair stall, set prices, keep a cash buffer and adapt after an unexpected cost. The standalone practice activity is available at any time. Only the weekly version counts towards its certificate.
+- Choose **Play this week’s challenge** from the dashboard. It opens the Challenges page, where learners can choose the weekly activity, a teacher challenge or practice. Each programme week has its own activity. Finish it for a printable certificate and 15 Shop points. Play again for practice or catch up on earlier weeks in **Challenges**. There is one reward per programme week, independent of weekly check-ins. Earn one, four and eight certificates to unlock profile rewards.
+- **Market Day** is open to every learner. Plan a school fair stall, set prices, keep a cash buffer and adapt after an unexpected cost. Watch the fair unfold before seeing the result, or choose **Skip to results**. The scene respects reduced-motion settings. The standalone practice activity is available at any time. Only the weekly version counts towards its certificate.
 - In the teacher or caregiver view, use **Challenges & rewards** to publish a task for the group or selected learner. Choose a certificate, avatar item, classroom reward or a combination. Learners submit their work, and adults approve it or request changes. For a shared reward such as a class lunch, set the number of learners who must be approved. Adults organise the reward and record when they have delivered it. Certificates and avatar rewards are issued individually on approval.
 
 ## Publish on GitHub Pages
@@ -31,6 +31,6 @@ A Success Avenue Money pilot for intermediate-school learners. Learners complete
 
 Progress is saved in this browser profile for the site's origin and path. Existing Lucas Money Game saves at the same URL can carry over. Earlier age categories are assigned a starting display band. Check the age band in the facilitator’s learner profile after upgrading. Use the same browser profile and the same hosted URL to resume. The sample group is available independently of your own games.
 
-In a class, use **Open teacher dashboard** from Home and enter the class PIN. Open a learner record and choose **Hand device to learner** to activate that learner. The learner sees their assigned profile. The teacher roster and leaderboards show equipped icons and titles. Older classes set a PIN when first opened after upgrading. The demo teacher dashboard uses sample data and opens directly.
+In a class, use **Open teacher dashboard** from Home and enter the class PIN. Use **Create another class** or the **Current class** menu from any teacher page to manage multiple classes on this browser. Each class opens with its own PIN once per teacher session. Returning Home or handing the device to a learner ends the teacher session. Open a learner record and choose **Hand device to learner** to activate that learner. The learner sees their assigned profile. The teacher roster and leaderboards show equipped icons and titles. Older classes set a PIN when first opened after upgrading. The demo teacher dashboard uses sample data and opens directly.
 
 The PIN controls the interface on this browser. Use sample names for classroom demonstrations. A classroom rollout across student devices requires authenticated SAM accounts, server-side class and role permissions, and shared persistence. The SAM embed and credit for SAM-hosted video and quiz completions will need the owner's integration details and approved content URLs.

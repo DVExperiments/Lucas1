@@ -41,6 +41,8 @@ let ledgerWeek;
 let detailWeek;
 let detailPlayerId;
 let marketAttempt;
+let marketTimer;
+const unlockedClasses = new Set();
 
 for (const group of [...workspace.groups.map(entry => entry.data), workspace.sample].filter(Boolean)) {
   for (const learner of group.players) {
@@ -73,6 +75,27 @@ function classAccessDialog() {
     field('Class','classId','Choose the class you are running.', `<select name="classId">${groups.map(({id,data}) => `<option value="${esc(id)}" ${id===workspace.active?'selected':''}>${esc(data.group)}</option>`).join('')}</select>`)
     + pinField() + '<p class="detail">Older classes set their PIN the first time a teacher opens them on this browser.</p>', 'Open teacher dashboard'));
 }
+function teacherGroupControls() {
+  if (role !== 'facilitator' || isHomeGame()) return '';
+  const groups = classGroups();
+  const options = groups.map(({id,data}) => `<option value="${esc(id)}"${id === workspace.active ? ' selected' : ''}>${esc(data.group)}</option>`).join('');
+  return `<section class="panel teacher-group-tools" aria-label="Manage classes">
+    <label for="teacher-group">Current class<select id="teacher-group">
+      ${workspace.active === 'test' ? '<option value="test" selected>Test group · demo</option>' : ''}
+      ${options}</select></label>
+      ${button('Create another class', 'new-group', '', 'small')}
+    </section>`;
+}
+function switchTeacherGroup(id) {
+  closeDialog();
+  const destination = view === 'detail' ? 'group' : view;
+  detailPlayerId = undefined;
+  detailWeek = undefined;
+  selectGroup(id);
+  navigate(destination);
+  save();
+  $('#teacher-group')?.focus({ preventScroll: true });
+}
 const button = (label, action, attrs = '', style = 'secondary') => `<button type="button" class="button ${style}" data-action="${action}" ${attrs}>${label}</button>`;
 const playerAttrs = p => `data-player="${esc(p.id)}"`;
 const pill = (label, tone = '') => `<span class="pill ${tone}">${label}</span>`;
@@ -96,6 +119,7 @@ function navigate(next) {
   view = canOpen ? next : 'home';
   if (publicRoutes.has(view)) {
     role = null;
+    unlockedClasses.clear();
     detailPlayerId = undefined;
     detailWeek = undefined;
     dialog.replaceChildren();
@@ -116,6 +140,7 @@ function selectGroup(id) {
   state = groupState(id);
 }
 function openRole(nextRole) {
+  if (nextRole !== 'facilitator') unlockedClasses.clear();
   chartWeek = undefined;
   role = nextRole;
   if (role === 'facilitator') detailWeek = undefined;
@@ -361,14 +386,14 @@ function weeklyChallengeCard(p, showPlay = true) {
   return `<section class="panel play-card">
     <div class="play-emblem" aria-hidden="true">🎮</div>
     <div><div class="eyebrow">WEEK ${week.index + 1} CHALLENGE</div><h2>${scenario.title}</h2>
-    <p>${week.weeklyCertificate ? 'Certificate earned. Play again or try another challenge.' : 'Play to earn a weekly certificate and ' + weeklyPoints + ' Shop points.'}</p></div>
-    ${showPlay ? button(week.weeklyCertificate ? 'Replay this week’s challenge' : 'Play this week’s challenge', 'weekly-play', '', 'primary') : button('All challenges', 'view', 'data-view="challenges"')}
+    <p>${week.weeklyCertificate ? 'Certificate earned. Play again or choose another activity.' : 'Play to earn a weekly certificate and ' + weeklyPoints + ' Shop points.'}</p></div>
+    ${showPlay ? button(week.weeklyCertificate ? 'Replay weekly challenge' : 'Start weekly challenge', 'weekly-play', '', 'primary') : button('All challenges', 'view', 'data-view="challenges"')}
   </section>`;
 }
 function challengesView(p) {
   const week = activeWeek(p);
   const past = p.weeks.slice(0, -1).reverse();
-  return `${pageHeader('CHALLENGE ARCADE', 'Challenges', 'Try out money decisions and see what happens.')}
+  return `${pageHeader('CHALLENGE ARCADE', 'Challenges', 'Choose this week’s activity, open a teacher challenge, or play a practice game.')}
     ${weeklyChallengeCard(p)}
     ${learnerClassChallenges(p, true)}
     <section class="panel practice-market spaced"><h2>Market Day practice</h2>
@@ -400,6 +425,48 @@ function startScenario(index, previous) {
     `<div class="quiz-questions">${scenario.questions.map((q,i) => `<fieldset><legend>${i+1}. ${q.prompt}</legend><div class="decision-options">
     ${q.answers.map((answer,n) => `<label class="radio"><input type="radio" name="q${i}" value="${n}" required> ${answer}</label>`).join('')}</div></fieldset>`).join('')}</div>`,
     'Check my choices', attrs)}`);
+}
+const marketStages = [
+  { title: 'Setting up the stall', message: 'Stock goes on the counter. The school fair is about to start.' },
+  { title: 'The weather turns', message: 'Rain starts falling. Time to see what your cash buffer can cover.' },
+  { title: 'Closing the books', message: 'The fair is winding down. How did your plan hold up?' }
+];
+function startMarketDay(attempt) {
+  openDialog('Market Day is underway', `
+    <div class="market-film" data-scene="0" aria-hidden="true">
+      <div class="market-sky"><span>☀️</span><span>🌧️</span></div>
+      <div class="market-showers"></div>
+      <span class="market-runner">🧍</span><span class="market-second-runner">🧍</span>
+      <span class="market-counting">🧮</span>
+    </div>
+    <div class="market-stage" role="status" aria-atomic="true"><strong id="market-stage-name">${marketStages[0].title}</strong>
+      <p id="market-stage-message">${marketStages[0].message}</p></div>
+    <progress id="market-stage-progress" max="${marketStages.length}" value="1" aria-label="Market Day stages"></progress>
+    <div class="action-row">${button('Skip to results','market-reveal','','small')}</div>`);
+  let phase = 0;
+  function advance() {
+    const scene = dialog.querySelector('.market-film');
+    if (!dialog.open || !scene || marketAttempt !== attempt) return;
+    phase++;
+    if (phase === marketStages.length) { revealMarketDay(); return; }
+    scene.dataset.scene = phase;
+    $('#market-stage-name').textContent = marketStages[phase].title;
+    $('#market-stage-message').textContent = marketStages[phase].message;
+    $('#market-stage-progress').value = phase + 1;
+    marketTimer = setTimeout(advance, 1450);
+  }
+  marketTimer = setTimeout(advance, 1450);
+}
+function revealMarketDay() {
+  if (!marketAttempt || marketAttempt.revealed || !dialog.open) return;
+  clearTimeout(marketTimer);
+  const { index, result, previous } = marketAttempt;
+  marketAttempt.revealed = true;
+  showMarketResult(index,result,previous);
+}
+function resetMarketDay() {
+  clearTimeout(marketTimer);
+  marketAttempt = undefined;
 }
 function showMarketResult(index, result, previous) {
   const scenario = playScenario(index), attrs = scenarioAttrs(index);
@@ -492,7 +559,7 @@ function finishScenario(p, index, feedback) {
   const before = weeklyCertificates(p).length;
   const earned = index !== 'practice' && completeWeeklyChallenge(p, Number(index));
   const unlock = earned && weeklyAvatarRewards.find(r => r.count === before + 1);
-  marketAttempt = undefined;
+  resetMarketDay();
   save();
   openDialog(earned ? 'Weekly certificate earned!' : 'Challenge complete!', `<p>${feedback}</p>
     ${earned ? `<p><strong>+ ${weeklyPoints} Shop points</strong>${unlock ? ' · Profile reward unlocked: ' + shopItems.find(item => item.id === unlock.item).name : ''}</p>
@@ -521,7 +588,7 @@ function dashboardView(p) {
       <section class="arc-main"><div class="arc-hero" ${artwork(p)}>
         <div class="arc-hero-copy"><span class="arc-tag">${w.index >= programmeLength ? 'KEEP GOING' : 'WEEK ' + (w.index+1) + ' / 12'}</span>
           <div class="hero-mobile-identity">${identity(p)}</div><h1>${w.closed ? '12 weeks complete!' : 'Ready, ' + esc(p.name) + '?'}</h1><p>${esc(info.title)}${p.track === 0 ? ' · Play with a grown-up' : ''}</p>
-          <div class="hero-choices">${w.closed ? next : button(w.weeklyCertificate ? 'Replay this week’s challenge' : 'Play this week’s challenge','weekly-play','','primary') + next}</div>
+          <div class="hero-choices">${w.closed ? next : button('Play this week’s challenge','view','data-view="challenges"','primary') + next}</div>
         </div></div>
         <div class="arc-missions"><div class="arc-section-head"><div><span>YOUR NEXT MOVE</span><h2>This week’s missions</h2></div>${pill(approved + ' / ' + required + ' approved', 'green')}</div>
         <div class="arc-actions">
@@ -735,10 +802,10 @@ function render() {
   document.body.dataset.role = role ?? 'public';
   document.body.dataset.skin = !isPublic && role === 'facilitator' ? 'staff' : p?.track === 0 ? 'junior' : p?.track === 2 ? 'teen' : 'arcade';
   const context = !isPublic && state ? `<p class="group-context">${workspace.active === 'test' ? 'Test group · Sample data' : esc(state.group)}</p>` : '';
-  $('#main').innerHTML = '<p id="notice" class="toast" role="status" tabindex="-1" hidden></p>' + context + sections[view](view === 'detail' ? state.players.find(other => other.id === detailPlayerId) : p);
+  $('#main').innerHTML = '<p id="notice" class="toast" role="status" tabindex="-1" hidden></p>' + context + teacherGroupControls() + sections[view](view === 'detail' ? state.players.find(other => other.id === detailPlayerId) : p);
 }
 
-function closeDialog() { marketAttempt = undefined; dialog.close(); dialog.classList.remove('arc-quiz'); }
+function closeDialog() { resetMarketDay(); dialog.close(); dialog.classList.remove('arc-quiz'); }
 function wireLessonVideo(week) {
   const video = $('#lesson-film');
   let previous = video.currentTime;
@@ -759,7 +826,7 @@ function wireLessonVideo(week) {
     $('#lesson-status').textContent = 'This video couldn’t load. Reopen the lesson and try again.';
   });
 }
-dialog.addEventListener('close', () => { if (!dialog.open) { marketAttempt = undefined; dialog.classList.remove('arc-quiz'); } });
+dialog.addEventListener('close', () => { if (!dialog.open) { resetMarketDay(); dialog.classList.remove('arc-quiz'); } });
 function openDialog(title, body) {
   dialog.innerHTML = `<div class="dialog-head"><h2 id="dialog-title" tabindex="-1">${title}</h2>${button('Close', 'dismiss', 'aria-label="Close dialog"', 'small')}</div>${body}`;
   if (!dialog.open) dialog.showModal();
@@ -923,15 +990,18 @@ document.addEventListener('click', event => {
     case 'weekly-play':
     case 'practice-market':
       if (role !== 'learner' || !w) return;
-      marketAttempt = undefined;
+      resetMarketDay();
       if (action === 'practice-market') startScenario('practice');
       else {
         const week = index === undefined ? w.index : Number(index);
         if (p.weeks[week]) startScenario(week);
       }
       break;
+    case 'market-reveal':
+      if (role === 'learner' && marketAttempt?.playerId === p?.id) revealMarketDay();
+      break;
     case 'market-retry':
-      if (role === 'learner' && marketAttempt?.index === index && marketAttempt.playerId === p?.id) {
+      if (role === 'learner' && marketAttempt?.revealed && marketAttempt.index === index && marketAttempt.playerId === p?.id) {
         startScenario(index, marketAttempt.result);
       }
       break;
@@ -1028,7 +1098,7 @@ document.addEventListener('click', event => {
       if (publicRoutes.has(view)) playerDialog(undefined, true);
       break;
     case 'new-group':
-      if (!publicRoutes.has(view)) return;
+      if (!publicRoutes.has(view) && !(role === 'facilitator' && !isHomeGame())) return;
       openDialog('Set up your class', form('new-group', textField('Group name', 'newGroupName', 'Use a name for your class, household or club.', '', 60) + pinField(), 'Create group'));
       break;
     case 'test-group':
@@ -1176,6 +1246,17 @@ document.addEventListener('change', event => {
     const result = runSchoolMarket(playScenario(marketForm.dataset.index), Number(data.get('stock')), Number(data.get('price')));
     if (result) $('#market-buffer').textContent = money(result.buffer * 100) + ' left in your cash buffer.';
   }
+  if (event.target.id === 'teacher-group' && role === 'facilitator' && !isHomeGame()) {
+    const id = event.target.value;
+    const group = classGroups().find(entry => entry.id === id);
+    event.target.value = workspace.active;
+    if (!group || id === workspace.active) return;
+    if (unlockedClasses.has(id)) switchTeacherGroup(id);
+    else openDialog('Switch class', `<p>Enter the facilitator PIN for <strong>${esc(group.data.group)}</strong>.</p>
+      ${group.data.teacherPin ? '' : '<p class="detail">Set a PIN for this older class the first time you open it.</p>'}
+      ${form('switch-class', pinField(), 'Switch class', `data-id="${esc(id)}"`)}`);
+    return;
+  }
   if (event.target.id === 'home-group') { selectGroup(event.target.value); save(); $('#home-group').focus(); }
   if (event.target.id === 'detail-week') { detailWeek = Number(event.target.value); render(); $('#detail-week').focus(); }
   if (event.target.id === 'ledger-week') { ledgerWeek = Number(event.target.value); render(); $('#ledger-week').focus(); }
@@ -1210,12 +1291,13 @@ document.addEventListener('submit', async event => {
       const result = runSchoolMarket(scenario, Number(value('stock')), Number(value('price')));
       if (!result) return fail('Choose stock and a price within your starting budget.');
       const previous = marketAttempt?.index === index && marketAttempt.playerId === p.id ? marketAttempt.result : undefined;
-      marketAttempt = { index, result, playerId:p.id };
-      showMarketResult(index,result,previous);
+      clearTimeout(marketTimer);
+      marketAttempt = { index, result, previous, playerId:p.id, revealed:false };
+      startMarketDay(marketAttempt);
       break;
     }
     case 'market-reflect':
-      if (role !== 'learner' || !p || marketAttempt?.playerId !== p.id || marketAttempt.index !== el.dataset.index || !marketAttempt.result.passed) return;
+      if (role !== 'learner' || !p || !marketAttempt?.revealed || marketAttempt.playerId !== p.id || marketAttempt.index !== el.dataset.index || !marketAttempt.result.passed) return;
       if (value('reflection') !== 'buffer') return fail('Think about what you had available before customers paid. Try again.');
       finishScenario(p, el.dataset.index, 'Your cash buffer covered the surprise before any sales came in. You can play again to compare a different plan.');
       break;
@@ -1271,21 +1353,27 @@ document.addEventListener('submit', async event => {
       break;
     }
     case 'new-group':
-    case 'class-access': {
-      if (!publicRoutes.has(view)) return;
+    case 'class-access':
+    case 'switch-class': {
       const creating = el.dataset.form === 'new-group';
+      const switching = el.dataset.form === 'switch-class';
+      const fromTeacher = role === 'facilitator' && !isHomeGame();
+      if (switching ? !fromTeacher : !(publicRoutes.has(view) || (creating && fromTeacher))) return;
+      const startingRole = role, startingView = view, startingGroup = state;
       const name = value('newGroupName');
       if (creating && !name) return fail('Enter a group name.');
       if (!/^[0-9]{6,12}$/.test(value('pin'))) return fail('Enter a PIN with 6 to 12 digits.');
-      const id = creating ? uid() : value('classId');
+      const id = creating ? uid() : switching ? el.dataset.id : value('classId');
       const group = creating ? newGroup(name) : groupState(id);
       if (!creating && (!group || group.kind === 'home' || id === 'test')) return fail('Choose your class.');
       let digest;
       try { digest = await classPinDigest(id, value('pin')); }
       catch { return fail('Open the game over HTTPS or on localhost to use the teacher dashboard.'); }
-      if (!el.isConnected || !dialog.open || !publicRoutes.has(view)) return;
+      if (!el.isConnected || !dialog.open || role !== startingRole || view !== startingView || state !== startingGroup) return;
       if (group.teacherPin && group.teacherPin !== digest) return fail('That PIN does not match this class.');
       group.teacherPin = digest;
+      unlockedClasses.add(id);
+      if (switching) { switchTeacherGroup(id); break; }
       if (creating) workspace.groups.push({ id, data: group });
       selectGroup(id);
       openRole('facilitator');
