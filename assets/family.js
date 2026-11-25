@@ -34,9 +34,9 @@ export const familyCases = [
 ];
 
 export const familyQuestions = [
-  { key: 'skill', label: 'What did you teach?', tip: 'Name one skill from the game. Show how it works using the scenario or another made-up example.', criterion: 'Explains a money skill with an example' },
-  { key: 'tradeoff', label: 'What did you decide together?', tip: 'Say where you agreed or saw things differently. Explain one thing you gain and one thing you give up with your choice.', criterion: 'Explains a decision and its trade-off' },
-  { key: 'next', label: 'What is one next step, and why?', tip: 'Pick one small thing you can try. Say when you will do it and how it could help.', criterion: 'Chooses a realistic next step and explains why' }
+  { key: 'skill', label: 'What did you teach?', tip: 'Name one skill from the game. Use your own pretend example to show how it works.', starter: 'I showed my partner how to ___. In a made-up example, ___.', criterion: 'Explains a money skill with an example' },
+  { key: 'tradeoff', label: 'What did you decide together?', tip: 'Say where you agreed or saw things differently. Explain one thing you gain and one thing you give up with your choice.', starter: 'I thought ___. My partner thought ___. We chose ___ because ___. We gained ___ and gave up ___.', criterion: 'Explains a decision and its trade-off' },
+  { key: 'next', label: 'What is one next step, and why?', tip: 'Pick one small thing you can try. Say when you will do it and how it could help.', starter: 'This week, ___ will ___ on ___. This could help because ___.', criterion: 'Chooses a realistic next step and explains why' }
 ];
 
 export function readFamilyResponse(value) {

@@ -3,9 +3,9 @@ import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
 
-import { languages, translate } from './locale.js?v=3.5';
+import { languages, translate } from './locale.js?v=3.6';
 import { vimeoPlayer } from './vimeo.js';
-import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js';
+import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js?v=3.6';
 
 const assetUrl = image => new URL('./assets/' + image, location.href).href;
 const sitePath = location.pathname.replace(/index\.html$/, '');
@@ -1207,14 +1207,116 @@ function noteField(label, name, hint, value = '', required = true) {
 function familyBrief(scenario, advanced) {
   return `<h3>${esc(tr(scenario.title))}</h3><p>${esc(tr(scenario.story))}</p>
     <p><strong>${esc(tr('Ask your partner'))}</strong> · ${esc(tr(scenario.ask))}</p>
-    ${advanced ? `<p><strong>${esc(tr('Go further'))}</strong> · ${esc(tr(scenario.stretch))}</p>` : ''}`;
+    ${advanced === undefined ? '' : `<details ${advanced ? 'open' : ''}><summary>${esc(tr('Optional · Go further'))}</summary><p>${esc(tr(scenario.stretch))}</p></details>`}`;
 }
 function familyAnswers(response) {
   const scenario = familyCases.find(item => item.id === response.scenario);
-  return `<div class="lesson">${scenario ? familyBrief(scenario, false) : ''}
+  return `<div class="lesson">${scenario ? familyBrief(scenario) : ''}
+    ${response.milestone ? `<p><strong>${esc(tr('Progress I shared'))}</strong> · ${esc(familyMilestoneLabel(response.milestone))}</p>` : ''}
     <dl class="family-answers">${familyQuestions.map(({ key, label }) =>
       `<dt>${esc(tr(label))}</dt><dd>${esc(response[key])}</dd>`).join('')}</dl></div>`;
 }
+const familyMilestones = {
+  missions: { icon: '⚡', label: 'Missions completed', prompt: 'Pick one mission you remember. What can you do now that you couldn’t do before?' },
+  quizzes: { icon: '💡', label: 'Quizzes completed', prompt: 'Remember one idea from a quiz. How would you explain it in your own words?' },
+  weeks: { icon: '🗓️', label: 'Weeks closed', prompt: 'Think back to an early week. What is one habit you’ve got better at since then?' },
+  certificates: { icon: '🏆', label: 'Weekly certificates', prompt: 'Choose a challenge you completed. What decision did you make, and what did it teach you?' },
+  skill: { icon: '🌱', label: 'A skill I’m practising', prompt: 'Pick one idea you can explain today. Try needs and wants, saving for a goal, or keeping money aside for a surprise.' }
+};
+
+function familyProgress(p) {
+  const { missions, quizzes } = learningStats(p);
+  return [
+    { id: 'missions', count: missions },
+    { id: 'quizzes', count: quizzes },
+    { id: 'weeks', count: p.weeks.filter(week => week.closed).length },
+    { id: 'certificates', count: weeklyCertificates(p).length },
+    { id: 'skill', count: null }
+  ];
+}
+function familyMilestoneLabel(milestone) {
+  if (!milestone || !Object.hasOwn(familyMilestones, milestone.id)) return '';
+  const { label } = familyMilestones[milestone.id];
+  return milestone.count === null ? tr(label) : tr(label) + ' · ' + milestone.count;
+}
+function familyProgressCards(progress, selected) {
+  return `<fieldset class="family-picks"><legend>${esc(tr('My progress · Choose one thing to share'))}</legend>
+    <div class="family-card-grid">${progress.map(({ id, count }) => {
+      const { icon, label } = familyMilestones[id];
+      if (count === 0) return '';
+      return `<label class="family-choice"><input type="radio" name="milestone" value="${id}" ${id === selected ? 'checked' : ''}>
+        <span aria-hidden="true">${icon}</span><span><strong>${esc(tr(label))}</strong>${count === null ? '' : `<span class="family-count">${count}</span>`}</span></label>`;
+    }).join('')}</div>
+    <div id="family-milestone-prompt" class="lesson family-brief" aria-live="polite"><p>${esc(tr(familyMilestones[selected].prompt))}</p></div>
+  </fieldset>`;
+}
+function familyGuideField(key, response) {
+  const question = familyQuestions.find(item => item.key === key);
+  return `<div class="family-writing">
+    <div class="field"><label for="family-answer-${key}">${esc(tr(question.label))}</label>
+    <p id="family-hint-${key}">${esc(tr(question.tip))}</p>
+    <textarea id="family-answer-${key}" aria-describedby="family-hint-${key}" name="${key}" rows="3" maxlength="600" required>${esc(response?.[key] ?? '')}</textarea></div>
+    <details><summary>${esc(tr('Need a sentence starter?'))}</summary><p>${esc(tr(question.starter))}</p></details>
+  </div>`;
+}
+
+const familyStages = ['Show & teach', 'Decide together', 'Choose a next step'];
+const familyStageFields = ['skill', 'tradeoff', 'next'];
+function showFamilyStage(form, index, focus = false) {
+  form.dataset.step = index;
+  form.querySelectorAll('[data-family-stage]').forEach(section => {
+    section.hidden = Number(section.dataset.familyStage) !== index;
+  });
+  form.querySelectorAll('.family-steps li').forEach((step, position) => {
+    if (position === index) step.setAttribute('aria-current', 'step');
+    else step.removeAttribute('aria-current');
+    step.classList.toggle('done', position < index);
+  });
+  form.querySelector('[data-action="family-back"]').hidden = index === 0;
+  form.querySelector('[data-action="family-next"]').hidden = index === familyStages.length - 1;
+  form.querySelector('button[type="submit"]').hidden = index !== familyStages.length - 1;
+  form.querySelector('.error').textContent = '';
+  if (focus) form.querySelector(`[data-family-stage="${index}"] h3`).focus();
+}
+function familyGuide(p, task, response) {
+  const practice = !task;
+  const progress = familyProgress(p);
+  const selected = progress.find(item => item.id === response?.milestone?.id && item.count !== 0)
+    ?? progress.find(item => item.count !== 0);
+  const scenario = familyCases.find(item => item.id === response?.scenario) ?? familyCases[0];
+  return `<form data-form="${practice ? 'family-practice' : 'family-submit'}" data-step="0" novalidate>
+    <ol class="family-steps" aria-label="${esc(tr('Challenge steps'))}">${familyStages.map((label, index) =>
+      `<li ${index === 0 ? 'aria-current="step"' : ''}><span class="family-step-num">${index + 1}</span> ${esc(tr(label))}</li>`).join('')}</ol>
+    <section data-family-stage="0">
+      <h3 tabindex="-1">${esc(tr('Show what you’ve learnt'))}</h3>
+      <p>${esc(tr('Do this with a parent, caregiver, trusted adult or your school facilitator. Show them something from your progress below, then teach them one money skill using a made-up example.'))}</p>
+      ${familyProgressCards(progress, selected.id)}
+      ${familyGuideField('skill', response)}
+    </section>
+    <section data-family-stage="1" hidden>
+      <h3 tabindex="-1">${esc(tr('Solve a money decision together'))}</h3>
+      <p>${esc(tr('Pick a pretend situation. Take turns saying what you’d do and why. Then name what your choice gives you and what you give up.'))}</p>
+      <fieldset class="family-picks"><legend>${esc(tr('Choose a scenario'))}</legend>
+      <div class="family-card-grid">${familyCases.map(item =>
+        `<label class="family-choice"><input type="radio" name="scenario" value="${item.id}" ${scenario.id === item.id ? 'checked' : ''}>
+          <span aria-hidden="true">${item.icon}</span><strong>${esc(tr(item.title))}</strong></label>`).join('')}</div></fieldset>
+      <div id="family-brief" class="lesson family-brief" aria-live="polite">${familyBrief(scenario, p.track === 2)}</div>
+      ${familyGuideField('tradeoff', response)}
+    </section>
+    <section data-family-stage="2" hidden>
+      <h3 tabindex="-1">${esc(tr('Make a plan you can try'))}</h3>
+      <p>${esc(tr('Agree on a small habit, who will try it and when. For example, “On Sunday we’ll make a pretend budget together so we can practise planning for a surprise cost.”'))}</p>
+      ${familyGuideField('next', response)}
+    </section>
+    <p class="error" role="alert"></p>
+    <div class="dialog-actions">
+      ${button('Back', 'family-back', 'hidden')}
+      ${button('Continue', 'family-next', '', 'primary')}
+      <button type="submit" class="button primary" hidden>${esc(tr(practice || p.solo ? 'Finish and see my recap' : 'Submit for review and see my recap'))}</button>
+    </div>
+  </form>`;
+}
+
 function familyTaskDialog(p, task) {
   const practice = !task;
   const editable = practice || ['todo', 'revision'].includes(task.status);
@@ -1229,20 +1331,10 @@ function familyTaskDialog(p, task) {
       ${response ? familyAnswers(response) + button('Open family recap', 'family-recap') : ''}`);
     return;
   }
-  const scenario = familyCases.find(item => item.id === response?.scenario) ?? familyCases[0];
-  openDialog(familyTitle, banner + `<ol class="family-steps"><li>${esc(tr('1. Teach a skill'))}</li><li>${esc(tr('2. Decide together'))}</li><li>${esc(tr('3. Pick a next step'))}</li></ol>
-    <p>${esc(tr('Open My progress together and show a milestone you’re proud of. Explain one money skill you learnt to a parent, caregiver or trusted adult. You can do the same activity with your facilitator at school.'))}</p>
-    <p>${esc(tr('Use the fictional scenario below. Keep real pay, balances, debts and account details out of your answers.'))}</p>
+  openDialog(familyTitle, banner + `<p class="family-privacy">${esc(tr('Keep real pay, balances, debts and account details out of your answers.'))}</p>
     ${mark}
     ${task?.feedback ? `<div class="feedback"><strong>${esc(tr('Feedback'))}</strong><p>${esc(task.feedback)}</p></div>` : ''}
-    ${form(practice ? 'family-practice' : 'family-submit',
-      `<div class="field"><label for="family-scenario">${esc(tr('Choose a scenario'))}</label>
-        <select id="family-scenario" name="scenario">${familyCases.map(item =>
-          `<option value="${item.id}" ${scenario.id === item.id ? 'selected' : ''}>${item.icon} ${esc(tr(item.title))}</option>`).join('')}</select></div>
-       <div id="family-brief" class="lesson family-brief" aria-live="polite">${familyBrief(scenario, p.track === 2)}</div>
-       <h3>${esc(tr('Write your three short answers'))}</h3>
-       ${familyQuestions.map(({ key, label, tip }) => noteField(label, key, tip, response?.[key])).join('')}`,
-      practice || p.solo ? 'Finish and see my recap' : 'Submit for review and see my recap')}`);
+    ${familyGuide(p, task, response)}`);
 }
 function familyRecap(response, practice = false, message = '') {
   const scenario = familyCases.find(item => item.id === response.scenario);
@@ -1251,6 +1343,7 @@ function familyRecap(response, practice = false, message = '') {
       <div class="certificate-label">SUCCESS AVENUE MONEY · ${esc(tr(practice ? 'PRACTICE ONLY' : 'WEEK 12'))}</div>
       <h3>${esc(tr('Family Money Challenge'))}</h3>
       <p>${esc(tr(scenario.title))}</p>
+      ${response.milestone ? `<h4>${esc(tr('Progress I shared'))}</h4><p>${esc(familyMilestoneLabel(response.milestone))}</p>` : ''}
       <h4>${esc(tr('The skill I shared'))}</h4><p>${esc(response.skill)}</p>
       <h4>${esc(tr('Our next step'))}</h4><p>${esc(response.next)}</p>
     </article>
@@ -1488,6 +1581,25 @@ document.addEventListener('click', event => {
         navigate('challenges');
       }
       break;
+    case 'family-back':
+    case 'family-next': {
+      if (role !== 'learner') return;
+      const guide = el.closest('form[data-step]');
+      if (!guide) return;
+      const index = Number(guide.dataset.step);
+      const next = index + (action === 'family-next' ? 1 : -1);
+      if (next < 0 || next >= familyStages.length) return;
+      if (action === 'family-next') {
+        const answer = guide.elements.namedItem(familyStageFields[index]);
+        if (!answer.value.trim()) {
+          guide.querySelector('.error').textContent = tr('Write a short answer before you continue.');
+          answer.focus();
+          return;
+        }
+      }
+      showFamilyStage(guide, next, true);
+      break;
+    }
     case 'family-practice':
       if (role === 'learner' && p && view === 'challenges') familyTaskDialog(p);
       break;
@@ -1837,9 +1949,17 @@ document.addEventListener('change', event => {
   }
   if (event.target.id === 'home-group') { selectGroup(event.target.value); save(); $('#home-group').focus(); }
   if (event.target.id === 'detail-week') { detailWeek = Number(event.target.value); render(); $('#detail-week').focus(); }
-  if (event.target.id === 'family-scenario' && role === 'learner') {
-    const scenario = familyCases.find(item => item.id === event.target.value);
-    if (scenario) $('#family-brief').innerHTML = familyBrief(scenario, player()?.track === 2);
+  const guide = event.target.closest('form[data-step]');
+  if (guide && role === 'learner') {
+    const { name, value } = event.target;
+    if (name === 'milestone' && Object.hasOwn(familyMilestones, value)) {
+      $('#family-milestone-prompt').innerHTML = `<p>${esc(tr(familyMilestones[value].prompt))}</p>`;
+    }
+    if (name === 'scenario') {
+      const scenario = familyCases.find(item => item.id === value);
+      const brief = $('#family-brief');
+      if (scenario) brief.innerHTML = familyBrief(scenario, brief.querySelector('details').open);
+    }
   }
   if (event.target.id === 'ledger-week') { ledgerWeek = Number(event.target.value); render(); $('#ledger-week').focus(); }
 });
@@ -1861,8 +1981,15 @@ document.addEventListener('submit', async event => {
       const practice = el.dataset.form === 'family-practice';
       const family = w.tasks.find(task => task.id === 'family');
       if (practice ? view !== 'challenges' : w.closed || !family || !['todo', 'revision'].includes(family.status)) return;
+      if (Number(el.dataset.step) !== familyStages.length - 1) return;
       const response = readFamilyResponse(value);
-      if (!response) return fail('Choose a scenario and write all three short answers.');
+      if (!response) {
+        const incomplete = familyStageFields.findIndex(name => !value(name));
+        if (incomplete >= 0) showFamilyStage(el, incomplete, true);
+        return fail('Choose a scenario and write all three short answers.');
+      }
+      const milestone = familyProgress(p).find(item => item.id === value('milestone') && item.count !== 0);
+      if (milestone) response.milestone = milestone;
       if (practice) {
         familyRecap(response, true, 'Practice complete!');
         break;

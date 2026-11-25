@@ -29,3 +29,74 @@
 .family-print.certificate-sheet { text-align: left; }
 .family-print p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .family-print.certificate-sheet > .certificate-label { font-size: .8rem; }
+
+dialog:has(form[data-step]) {
+  width: min(690px, calc(100% - 24px));
+}
+.family-privacy {
+  font-size: .9rem;
+  color: var(--muted);
+}
+.family-steps li[aria-current="step"] {
+  background: var(--lime);
+  color: var(--ink);
+  border-color: var(--lime);
+  font-weight: 800;
+}
+.family-steps li.done {
+  border-color: var(--lime);
+}
+.family-step-num {
+  display: inline-block;
+  min-width: 1.15em;
+  font-weight: 800;
+}
+.family-picks {
+  border: 0;
+  padding: 0;
+  margin: .75rem 0;
+  min-inline-size: 0;
+}
+.family-picks legend {
+  font-weight: 750;
+  margin-bottom: .55rem;
+}
+.family-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: .55rem;
+}
+.family-choice {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: .4rem;
+  min-height: 52px;
+  padding: .55rem;
+  border-radius: 9px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  color: var(--text);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.family-choice:hover { background: var(--hover); }
+.family-choice:has(input:checked) {
+  border-color: var(--lime);
+  background: var(--inset);
+}
+.family-choice input {
+  margin: 0;
+  accent-color: var(--lime);
+}
+.family-count {
+  display: block;
+  color: var(--lime);
+  font-weight: 800;
+  font-size: 1.15rem;
+}
+.family-writing .field { margin-bottom: .4rem; }
+.family-writing .field p { margin: 0; }
+.family-writing summary,
+.family-brief summary { cursor: pointer; color: var(--accent); }
+form[data-step] .error:empty { display: none; }

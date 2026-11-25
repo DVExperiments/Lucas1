@@ -621,6 +621,16 @@ const phrases = [
   ['Open family recap','Huakina te whakarāpopototanga ā-whānau','Abrir el resumen familiar'],
   ['Print family recap','Tāngia te whakarāpopototanga ā-whānau','Imprimir el resumen familiar'],
   ['Placeholder · link coming soon','He wāhi pupuri · ka tāpirihia te hononga ākuanei','Marcador provisional · enlace próximamente'],
+  ['Challenge steps','Ngā hipanga o te wero','Pasos del reto'],
+  ['Show & teach','Whakaatu, whakaako','Muestra y enseña'],
+  ['Decide together','Whakatau ngātahi','Decidan juntos'],
+  ['Choose a next step','Kōwhiria te mahi ka whai ake','Elijan el siguiente paso'],
+  ['Show what you’ve learnt','Whakaaturia tāu i ako ai','Muestra lo que aprendiste'],
+  ['My progress · Choose one thing to share','Taku ahunga whakamua · Kōwhiria tētahi mea hei whakaatu','Mi progreso · Elige algo para compartir'],
+  ['Optional · Go further','Ki te hiahia koe · Āta wānangahia','Opcional · Profundiza'],
+  ['Need a sentence starter?','Kei te hiahia tīmatanga rerenga kōrero?','¿Necesitas una frase para empezar?'],
+  ['Progress I shared','Te ahunga whakamua i whakaaturia e au','El progreso que compartí'],
+  ['Continue','Haere tonu','Continuar'],
 ];
 const catalog = new Map(phrases.map(([english, maori, spanish]) => [english, { mi: maori, es: spanish }]));
 export const translate = (language, source) => catalog.get(source)?.[language] ?? source;

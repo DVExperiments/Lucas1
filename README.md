@@ -1,4 +1,4 @@
-# The Lucas Money Game V3.5
+# The Lucas Money Game V3.6
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.
 
@@ -24,8 +24,8 @@ A Success Avenue Money pilot for intermediate-school learners. Learners complete
 ## Week 12 Family Money Challenge
 
 - Open **Challenges → Try the Week 12 activity** on any learner dashboard to try the full activity. The preview has a printable recap and leaves the learner’s saved progress, certificates and rewards unchanged.
-- In Week 12, the official **Family Money Challenge** appears in both Challenges and Missions. A learner shows their progress to a parent, caregiver or other trusted adult, teaches one money skill, discusses a fictional situation, and writes three short answers. A learner can do it with their facilitator at school. Keep household pay, balances, debts and account details out of submissions. Older learners on the existing senior track see an additional discussion prompt.
-- In a mentored game, use the learner’s weekly record to review the three responses, mark them out of six, and approve or request a revision. Solo learners complete the task themselves. Completion earns the Week 12 certificate and Shop points once. The printable recap shows the skill and next step. The recommended SAM budget or finance tool is a labelled placeholder pending a URL.
+- In Week 12, the official **Family Money Challenge** appears in both Challenges and Missions. The activity walks learners through three steps. They pick a milestone from the built-in My progress cards, teach a money skill, discuss a fictional decision, and choose a habit to try. Back and Continue keep their answers while the activity is open. A learner can do it with their facilitator at school. Keep household pay, balances, debts and account details out of submissions. Every step has visible instructions and an optional sentence starter. Every learner can open an optional stretch question, which starts open on the senior track.
+- In a mentored game, use the learner’s weekly record to review the three responses, mark them out of six, and approve or request a revision. Solo learners complete the task themselves. Completion earns the Week 12 certificate and Shop points once. The printable recap shows the chosen milestone, skill and next step. The recommended SAM budget or finance tool is a labelled placeholder pending a URL.
 - An existing open Week 12 receives the family mission on upgrade. Closed weeks retain their historical records.
 
 ## Publish on GitHub Pages
