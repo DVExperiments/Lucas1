@@ -84,6 +84,28 @@ export function fresh() {
   peer.weeks[0].tasks[0].evidence = 'The pots and mix cost $4 for two herbs. I asked my aunt and my neighbour, then chose $6 per plant.';
   return { ...newGroup('Test group'), showLearnerLeaderboard:true, current: player.id, players: [player, peer] };
 }
+const fullQuizXp = 20;
+
+function quizXp(week) {
+  return week.schoolQuizRewards?.xp ?? (week.quizPassed || week.schoolQuizResult || week.tasks.some(task =>
+    task.id === 'learning' && task.source !== 'reflection' && task.status === 'approved') ? fullQuizXp : 0);
+}
+
+export function taskPoints(week, task) {
+  return task.id === 'learning' ? week.schoolQuizRewards?.points ?? task.points : task.points;
+}
+
+export function recordSchoolQuiz(week, task, result) {
+  const previousXp = quizXp(week);
+  const previousPoints = week.schoolQuizRewards?.points ?? (task.status === 'approved' ? task.points : 0);
+  const fraction = result.passed ? 1 : 0.5;
+  const xp = Math.max(previousXp, fullQuizXp * fraction);
+  const points = Math.max(previousPoints, task.points * fraction);
+  week.schoolQuizRewards = { xp, points };
+  week.schoolQuizResult = result;
+  return { xp: xp - previousXp, points: points - previousPoints };
+}
+
 export function totals(week) {
   const sum = kind => week.transactions.filter(entry => entry.kind === kind).reduce((acc, entry) => acc + entry.cents, 0);
   const sales = sum('sale'), costs = sum('cost'), rewards = sum('reward'), spending = sum('spend');
@@ -101,11 +123,14 @@ export function totals(week) {
     const remainder = distributable - allocations.reduce((a, b) => a + b, 0);
     order.slice(0, remainder).forEach(index => allocations[index]++);
   }
-  const approved = week.tasks.filter(task => task.status === 'approved');
+  const missionPoints = week.tasks.reduce((points, task) => {
+    const credited = task.status === 'approved' || (task.id === 'learning' && week.schoolQuizRewards);
+    return points + (credited ? taskPoints(week, task) : 0);
+  }, 0);
   const ready = week.tasks.every(task => !task.required || task.status === 'approved');
   const bonus = week.closed && ready ? week.rules.bonus : 0;
   const match = week.closed && ready ? Math.min(Math.round(Math.max(0, allocations[1]) * week.rules.match / 100), week.rules.cap) : 0;
-  return { sales, costs, rewards, spending, profit, tax, distributable, allocations, ready, match, points: approved.reduce((acc, task) => acc + task.points, 0) + bonus };
+  return { sales, costs, rewards, spending, profit, tax, distributable, allocations, ready, match, points: missionPoints + bonus };
 }
 export function accounts(player, replacement) {
   let cash = 0, moved = 0;
@@ -249,7 +274,8 @@ const skillAwards = [
   { id: 'business', icon: '01', title: 'Business in action', description: 'Complete your first business mission.', points: 5,
     reached: ({ done }) => done('business') },
   { id: 'quiz', icon: '?', title: 'Money basics', description: 'Complete your first money quiz.', points: 5,
-    reached: ({ done }) => done('learning') },
+    reached: ({ p }) => p.weeks.some(w => w.schoolQuizResult?.passed !== false &&
+      w.tasks.some(t => t.id === 'learning' && t.status === 'approved')) },
   { id: 'transfer', icon: '+', title: 'Money skills in real life', description: 'Complete your first mission outside your business.', points: 5,
     reached: ({ done }) => done('reflection') },
   { id: 'week', icon: '✓', title: 'First week closed', description: 'Settle your first week or finish a mentor check-in.', points: 10,
@@ -420,11 +446,12 @@ export function learningStats(player, weeksToCount = player.weeks) {
     stats.missions += approved.filter(task => task.kind !== 'chore').length + Number(approved.some(task => task.kind === 'chore'));
     const recordedSam = week.tasks.some(task => task.id === 'learning' && task.source === 'sam' && task.status === 'approved');
     stats.videos += Number(Boolean(week.videoWatched || recordedSam));
-    stats.quizzes += Number(Boolean(week.quizPassed || week.schoolQuizResult || week.tasks.some(task =>
-      task.id === 'learning' && task.source !== 'reflection' && task.status === 'approved')));
+    const xp = quizXp(week);
+    stats.quizzes += Number(xp > 0);
+    stats.xp += xp;
   }
   stats.lessons = stats.videos + stats.quizzes;
-  stats.xp = 10 * (stats.missions + stats.videos) + 20 * stats.quizzes;
+  stats.xp += 10 * (stats.missions + stats.videos);
   return stats;
 }
 export function competitionBoard(competition, players) {

@@ -1,6 +1,6 @@
 import { mountShowdown } from './showdown.js?v=3.8';
-import { schoolQuizFor, gradeSchoolQuiz } from './school-quizzes.js?v=3.8';
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.8';
+import { schoolQuizFor, gradeSchoolQuiz, quizPassMark } from './school-quizzes.js?v=3.8.1';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough, taskPoints, recordSchoolQuiz } from './game.js?v=3.8.1';
 import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
@@ -253,7 +253,7 @@ function weekView(p) {
   <div class="tasks">${week.tasks.map(task => {
     const kind = task.kind === 'chore' ? 'chore' : task.id;
     const category = Object.hasOwn(missionIcons, kind) ? kind : 'custom';
-    return `<article class="task"><div class="task-icon mission-${category}" aria-hidden="true">${task.status === 'approved' ? '✓' : missionIcons[category] ?? '★'}</div><div class="task-copy"><div class="task-type">${task.kind === 'chore' ? 'Chore' : taskLabels[task.id] ?? taskLabels.custom} · +${task.points} pts${task.required ? '' : ' · Optional'}</div><h3>${esc(tr(taskName(task, p)))}</h3><p>${esc(localMission(taskPrompt(task, p, week)))}</p>${task.feedback ? `<p class="feedback"><strong>${esc(tr("Feedback"))}</strong> · ${esc(task.feedback)}</p>` : ''}</div><div class="task-actions">${pill(status(task), task.status === 'approved' ? 'green' : task.status === 'revision' ? 'amber' : '')}${button(week.closed || ['submitted','approved'].includes(task.status) ? 'View' : 'Open', 'task', `data-id="${esc(task.id)}"`, 'small')}</div></article>`;
+    return `<article class="task"><div class="task-icon mission-${category}" aria-hidden="true">${task.status === 'approved' ? '✓' : missionIcons[category] ?? '★'}</div><div class="task-copy"><div class="task-type">${task.kind === 'chore' ? 'Chore' : taskLabels[task.id] ?? taskLabels.custom} · +${taskPoints(week, task)} pts${task.required ? '' : ' · Optional'}</div><h3>${esc(tr(taskName(task, p)))}</h3><p>${esc(localMission(taskPrompt(task, p, week)))}</p>${task.feedback ? `<p class="feedback"><strong>${esc(tr("Feedback"))}</strong> · ${esc(task.feedback)}</p>` : ''}</div><div class="task-actions">${pill(status(task), task.status === 'approved' ? 'green' : task.status === 'revision' ? 'amber' : '')}${button(week.closed || ['submitted','approved'].includes(task.status) ? 'View' : 'Open', 'task', `data-id="${esc(task.id)}"`, 'small')}</div></article>`;
   }).join('')}</div>
   ${p.solo && tally.ready && !week.closed ? `<div class="settle">${button('Settle the week', 'solo-settle', '', 'primary')}</div>` : ''}
   </section></div><aside class="aside">${goal(p, true)}<section class="panel route"><h2>${tr('Season map')}</h2><p>${tr('Choose a week to see what you’ll learn.')}</p><ol>${episodes.map((entry, index) => `<li class="${index === week.index ? 'current' : ''}"><span class="route-dot" aria-hidden="true">${p.weeks[index]?.closed ? '✓' : index + 1}</span>${button(esc(moduleTitle(p,index)) + (index > week.index ? '<small>' + tr('Preview') + '</small>' : ''), 'season-preview', `data-index="${index}"`, 'quiet season-week')}</li>`).join('')}</ol></section>
@@ -555,7 +555,8 @@ function quizResults(result, learner = false, expanded = false) {
   if (!result) return '';
   return `<section class="lesson school-quiz-results" lang="en-NZ">
     <h3>${esc(result.title)}</h3>
-    <p><strong>Score: ${result.score} / ${result.answers.length}</strong> · ${Math.round(100 * result.score / result.answers.length)}%</p>
+    <p><strong>Score: ${result.score} / ${result.answers.length}</strong> · ${Math.round(100 * result.score / result.answers.length)}%
+      ${typeof result.passed === 'boolean' ? ' · ' + pill(result.passed ? 'Pass' : 'Fail', result.passed ? 'green' : 'amber') : ''}</p>
     <details ${expanded ? 'open' : ''}>
       <summary>Answer breakdown</summary>
       <ol>${result.answers.map(answer => `<li>
@@ -1413,7 +1414,8 @@ function familyReviewDialog(p, task) {
 }
 
 function canTakeSchoolQuiz(week, task) {
-  return !week.closed && (task.source === 'placeholder' || ['todo', 'revision'].includes(task.status));
+  return Boolean(task && (week.schoolQuizResult?.passed === false ||
+    (!week.closed && (task.source === 'placeholder' || ['todo', 'revision'].includes(task.status)))));
 }
 function taskDialog(p, week, task, showQuiz = false) {
   if (task.id === 'family') return familyTaskDialog(p, task);
@@ -1436,9 +1438,9 @@ function taskDialog(p, week, task, showQuiz = false) {
     const assignment = samAssignment(module);
     const quiz = schoolQuizFor(week.index);
     if (quiz && canTakeSchoolQuiz(week, task) && showQuiz) {
-      content += form('school-quiz', `<h3>${esc(quiz.title)}</h3><p>Choose one answer for each question. You’ll see your score and all the answers after submitting.</p>
+      content += form('school-quiz', `<h3>${esc(quiz.title)}</h3><p>Choose one answer for each question. You need ${quizPassMark}% to pass. You’ll see your score and all the answers after submitting.</p>
         <div class="quiz-questions school-quiz" lang="en-NZ">${quiz.questions.map((q, i) => `<fieldset><legend>${i + 1}. ${esc(q.question)}</legend>
-          <div class="quiz-options">${q.options.map((answer, j) => `<label><input type="radio" name="answer-${i}" value="${j}" required><span aria-hidden="true">${'ABCD'[j]}</span>${esc(answer)}</label>`).join('')}</div></fieldset>`).join('')}</div>`, 'Submit quiz');
+          <div class="quiz-options">${q.options.map((answer, j) => `<label><input type="radio" name="answer-${i}" value="${j}" required><span aria-hidden="true">${'ABCD'[j]}</span>${esc(answer)}</label>`).join('')}</div></fieldset>`).join('')}</div>`, 'Submit quiz', `${playerAttrs(p)} data-index="${week.index}"`);
     } else {
       if (week.schoolQuizResult) content += quizResults(week.schoolQuizResult, true);
       if (assignment.video !== samVideoLibrary) content += `<div class="lesson"><h3>Assigned SAM video</h3>${samVideo(assignment)}</div>`;
@@ -1450,8 +1452,8 @@ function taskDialog(p, week, task, showQuiz = false) {
       }
       if (module.lessonNote) content += `<p><strong>Link to your business</strong> · ${esc(module.lessonNote)}</p>`;
       if (quiz) {
-        if (canTakeSchoolQuiz(week, task)) content += `<div class="lesson"><h3>${esc(quiz.title)}</h3><p>${quiz.questions.length} questions · 1 point per correct answer</p>
-          ${button(week.schoolQuizResult ? 'Retake quiz' : 'Start quiz', 'lesson-quiz', '', 'primary')}</div>`;
+        if (canTakeSchoolQuiz(week, task)) content += `<div class="lesson"><h3>${esc(quiz.title)}</h3><p>${quiz.questions.length} questions · ${quizPassMark}% to pass · half XP and Shop points for a fail</p>
+          ${button(week.schoolQuizResult ? 'Retake quiz' : 'Start quiz', 'lesson-quiz', `data-index="${week.index}"`, 'primary')}</div>`;
       } else if (assignment.assigned) {
         content += `<div class="lesson"><p>Watch the assigned video and take its quiz on SAM.</p>${samLink(assignment.quiz, 'Open the SAM quiz')}</div>`;
         if (editable) content += form('sam-lesson-record',
@@ -1535,7 +1537,7 @@ function learnerDetail(p) {
   ${week ? `<section class="panel spaced">
     <div class="section-title detail-section"><div><h2>Missions and submissions</h2><p>${week.tasks.filter(t => t.status === 'approved').length} of ${week.tasks.length} complete or approved · ${tally.points} points this week</p></div>
     <div class="action-row">${isHomeGame() && editable ? button('Assign activity', 'assign', '', 'small') : ''}${editable && !p.solo && tally.ready ? button('Record check-in', 'close-week', attrs, 'primary') : ''}</div></div>
-    <div class="record-missions">${week.tasks.map(task => `<article class="record-mission"><div class="section-title detail-section"><div><h3>${esc(tr(taskName(task, p)))}</h3><p>${task.required ? 'Required' : 'Optional'} · ${task.points} pts</p></div>${pill(statuses[task.status], task.status === 'approved' ? 'green' : '')}</div>
+    <div class="record-missions">${week.tasks.map(task => `<article class="record-mission"><div class="section-title detail-section"><div><h3>${esc(tr(taskName(task, p)))}</h3><p>${task.required ? 'Required' : 'Optional'} · ${taskPoints(week, task)} pts</p></div>${pill(statuses[task.status], task.status === 'approved' ? 'green' : '')}</div>
       <p>${esc(localMission(taskPrompt(task,p,week)))}</p>
       ${task.familyResponse ? familyAnswers(task.familyResponse) : task.evidence ? `<p class="record-answer"><strong>Submission</strong><span>${esc(task.evidence)}</span></p>` : task.id === 'learning' && week.schoolQuizResult ? '' : '<p>No submission yet.</p>'}
       ${task.id === 'learning' ? quizResults(week.schoolQuizResult) : quizResults(task.showdown?.learnerResult)}
@@ -1825,9 +1827,14 @@ document.addEventListener('click', event => {
     case 'edit-player': if (role === 'facilitator' && p) playerDialog(p); break;
     case 'add-player': if (role === 'facilitator' && state && !isHomeGame()) playerDialog(); break;
     case 'task': if (task) taskDialog(p, w, task); break;
-    case 'lesson-quiz':
-      if (role === 'learner' && w && !w.closed && schoolQuizFor(w.index)) taskDialog(p, w, w.tasks.find(t => t.id === 'learning'), true);
+    case 'lesson-quiz': {
+      const week = p?.weeks[Number(index)];
+      const learning = week?.tasks.find(t => t.id === 'learning');
+      if (role === 'learner' && week && schoolQuizFor(week.index) && canTakeSchoolQuiz(week, learning)) {
+        taskDialog(p, week, learning, true);
+      }
       break;
+    }
     case 'log-chore':
       if (role === 'learner' && w && !w.closed) openDialog(tr('I did a chore'), form('chore',
         textField('What did you do?','choreTitle','For example, mowed the lawn or washed the car.') +
@@ -1846,6 +1853,7 @@ document.addEventListener('click', event => {
         <div class="lesson"><h3>${tr('Business mission')}</h3><p>${esc(localMission(info.business))}</p>
         <h3>${tr('Money habit')}</h3><p>${esc(tr(info.outside))}</p></div>
         ${quizResults(p.weeks[n]?.schoolQuizResult, true)}
+        ${p.weeks[n]?.schoolQuizResult?.passed === false ? button('Retake quiz', 'lesson-quiz', `data-index="${n}"`, 'primary') : ''}
         ${n === familyWeek ? `<div class="lesson"><h3>${esc(tr(familyTitle))}</h3><p>${esc(tr(familyPrompt))}</p>
         ${button('Open Challenges', 'open-weekly-challenges', '', 'small')}</div>` : ''}`);
       break;
@@ -2251,21 +2259,29 @@ document.addEventListener('submit', async event => {
       break;
     }
     case 'school-quiz': {
-      const learning = w?.tasks.find(t => t.id === 'learning');
-      if (role !== 'learner' || !learning || !canTakeSchoolQuiz(w, learning)) return;
-      const quiz = schoolQuizFor(w.index);
+      if (role !== 'learner' || p?.id !== el.dataset.player) return;
+      const week = p.weeks[Number(el.dataset.index)];
+      const learning = week?.tasks.find(t => t.id === 'learning');
+      if (!week || !canTakeSchoolQuiz(week, learning)) return;
+      const quiz = schoolQuizFor(week.index);
       if (!quiz) return;
       const result = gradeSchoolQuiz(quiz, quiz.questions.map((_, i) => {
         const choice = value('answer-' + i);
         return choice ? Number(choice) : NaN;
       }));
       if (!result) return fail('Choose one answer for every question.');
-      w.schoolQuizResult = result;
-      const approved = p.solo || learning.status === 'approved';
-      Object.assign(learning, { source: 'school-quiz', status: approved ? 'approved' : 'submitted', evidence: '', feedback: '' });
-      const message = p.solo ? 'Quiz complete.' : 'Quiz results saved for your facilitator.';
-      save(message, grantAwards(p));
-      openDialog(tr('Quiz results'), `<p role="status">${esc(tr(message))}</p>${quizResults(result, true, true)}`);
+      const { xp, points } = recordSchoolQuiz(week, learning, result);
+      if (!week.closed) {
+        const approved = p.solo || learning.status === 'approved';
+        Object.assign(learning, { source: 'school-quiz', status: approved ? 'approved' : 'submitted', evidence: '', feedback: '' });
+      }
+      const reward = xp || points
+        ? tr('Earned {xp} XP and {points} Shop points.', { xp, points })
+        : tr('No additional XP or Shop points this time.');
+      save(reward, grantAwards(p));
+      openDialog(tr('Quiz results'), `<p role="status">${esc(reward)}</p>${quizResults(result, true, true)}
+        ${result.passed ? '' : `<p>${esc(tr('Pass a retake to earn any remaining quiz rewards.'))}</p>
+          ${button('Retake quiz', 'lesson-quiz', `data-index="${week.index}"`, 'primary')}`}`);
       break;
     }
     case 'chore': {

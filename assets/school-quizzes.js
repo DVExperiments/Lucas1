@@ -77,6 +77,7 @@ const quizzes = [
   questions: questions.map(([question, options, answer]) => ({ question, options, answer }))
 }));
 
+export const quizPassMark = 60;
 export const schoolQuizFor = index => quizzes[index];
 
 export function gradeSchoolQuiz(quiz, choices) {
@@ -88,5 +89,6 @@ export function gradeSchoolQuiz(quiz, choices) {
     expected: options[answer],
     correct: choices[index] === answer
   }));
-  return { title: quiz.title, score: answers.filter(answer => answer.correct).length, answers };
+  const score = answers.filter(answer => answer.correct).length;
+  return { title: quiz.title, score, answers, passed: score * 100 >= quizPassMark * answers.length };
 }
