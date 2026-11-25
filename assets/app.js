@@ -1,3 +1,4 @@
+import { mountShowdown } from './showdown.js?v=3.7';
 import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.5';
 import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
@@ -5,7 +6,7 @@ import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices
 
 import { languages, translate } from './locale.js?v=3.6';
 import { vimeoPlayer } from './vimeo.js';
-import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js?v=3.6';
+import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js?v=3.7';
 
 const assetUrl = image => new URL('./assets/' + image, location.href).href;
 const sitePath = location.pathname.replace(/index\.html$/, '');
@@ -507,7 +508,7 @@ function weeklyChallengeCard(p) {
     <div class="play-emblem" aria-hidden="true">🤝</div>
     <div><div class="eyebrow">${esc(tr('WEEK 12 FINALE'))}</div><h2>${esc(tr(familyTitle))}</h2>
     <p>${esc(tr(familyPrompt))}</p></div>
-    ${button(['approved', 'submitted'].includes(family.status) ? 'View family challenge' : 'Start family challenge', 'task', 'data-id="family"', 'primary')}</section>`;
+    ${button(['approved', 'submitted'].includes(family.status) ? 'View Week 12 result' : 'Start the Showdown', 'task', 'data-id="family"', 'primary')}</section>`;
   return `<section class="panel play-card">
     <div class="play-emblem" aria-hidden="true">🎮</div>
     <div><div class="eyebrow">${tr('WEEK {number} CHALLENGE', {number:week.index+1})}</div><h2>${tr(scenario.title)}</h2>
@@ -554,8 +555,8 @@ function challengesView(p) {
     <section class="panel play-card family-practice spaced">
       <div class="play-emblem" aria-hidden="true">🤝</div>
       <div><div class="eyebrow">${esc(tr('PRACTICE ONLY'))}</div><h2>${esc(tr('Preview the Week 12 finale'))}</h2>
-      <p>${esc(tr('Try the family activity from any week. Practice does not count towards progress or rewards.'))}</p></div>
-      ${button('Try the Week 12 activity', 'family-practice', '', 'primary')}
+      <p>${esc(tr('Play the Showdown from any week. Practice does not count towards progress or rewards.'))}</p></div>
+      ${button('Try the Week 12 Showdown', 'family-practice', '', 'primary')}
     </section>
     <section class="panel spaced" aria-labelledby="sam-quiz-title">
       <h2 id="sam-quiz-title">${esc(tr("Weekly video and quiz on Success Avenue Money"))}</h2>
@@ -1317,7 +1318,33 @@ function familyGuide(p, task, response) {
   </form>`;
 }
 
+function openFamilyShowdown(p, task) {
+  const practice = !task;
+  const status = practice ? 'Practice play. Your game progress stays as it is.' : 'Play both turns and reveal the results to complete Week 12.';
+  openDialog(familyTitle, `<p id="showdown-status" role="status">${esc(tr(status))}</p><div id="showdown-host"></div>`);
+  mountShowdown(document.getElementById('showdown-host'), result => {
+    if (practice || activeWeek(p).closed || !activeWeek(p).tasks.includes(task) || !['todo', 'revision'].includes(task.status)) return;
+    const [learner, partner] = result.scores;
+    task.showdown = result;
+    task.status = 'approved';
+    task.evidence = `${result.topic} (${result.difficulty}) · Learner ${learner}/${result.possible} · Partner ${partner}/${result.possible}.`;
+    delete task.familyResponse;
+    delete task.familyScores;
+    delete task.feedback;
+    completeWeeklyChallenge(p, activeWeek(p).index);
+    save('Week 12 Showdown completed.', grantAwards(p));
+    const notice = document.getElementById('showdown-status');
+    if (notice) notice.textContent = tr('Week 12 Showdown completed. Your certificate is in My progress.');
+  });
+}
+
 function familyTaskDialog(p, task) {
+  if (!task || ['todo', 'revision'].includes(task.status) && !activeWeek(p).closed) return openFamilyShowdown(p, task);
+  if (task.showdown) {
+    openDialog(familyTitle, `<p>${esc(task.evidence)}</p><p>${esc(tr('Your certificate is in My progress.'))}</p>`);
+    return;
+  }
+
   const practice = !task;
   const editable = practice || ['todo', 'revision'].includes(task.status);
   const response = task?.familyResponse;

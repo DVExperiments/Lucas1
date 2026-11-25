@@ -1,3 +1,7 @@
+# Lucas Money Game V3.7
+
+Family Money Showdown replaces the Week 12 activity. Play both turns and reveal the results to complete it and earn the existing certificate. Scores do not affect eligibility. Practice stays available from Challenges. Existing submitted or approved responses remain viewable. Official SAM lesson links are pending.
+
 # The Lucas Money Game V3.6
 
 A Success Avenue Money pilot for intermediate-school learners. Learners complete real jobs, run a small business, and practise making money decisions over 12 weeks. Families can play with one learner and a caregiver. Teachers can try a class with multiple learners on the same browser.

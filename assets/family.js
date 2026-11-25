@@ -1,8 +1,8 @@
 import { programmeLength } from './curriculum.js';
 
 export const familyWeek = programmeLength - 1;
-export const familyTitle = 'Family Money Challenge';
-export const familyPrompt = 'Show an adult one money skill you learnt, solve a pretend money decision together, then choose a habit to try.';
+export const familyTitle = 'Family Money Showdown';
+export const familyPrompt = 'Take turns with an adult or facilitator in the Week 12 Showdown. Reveal your results and talk through a decision together.';
 export function ensureFamilyTask(week) {
   if (week.index === familyWeek && !week.closed && !week.tasks.some(task => task.id === 'family')) {
     week.tasks.push({ id: 'family', required: true, points: 10, status: 'todo', evidence: '', feedback: '' });
