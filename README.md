@@ -6,8 +6,14 @@ A Success Avenue Money pilot for intermediate-school learners. Learners complete
 
 1. Open the hosted site and choose **Play the demo** to open a sample learner dashboard. Use **Start at home** or **Start a class** for fresh progress. Choose an age band in learner setup. Ages 11–13 is the main pilot experience, with display adjustments for ages 8–10 and 14–17.
 2. The dashboard quest trail shows the optional challenge, required missions and check-in. From the dashboard, use **I did a chore**, **Business mission**, or **Money habit** to record real activities. Open **Money lesson** for the weekly quiz or reflection. The lesson also shows the assigned video when one is provided.
-3. Use **Facilitator view** to review submissions, tailor a learner's weekly module, and record a check-in. Check-ins open the next week. After the week 12 check-in, the learner can choose **Keep playing** to continue at their own pace.
+3. Use **Facilitator view** to review submissions, tailor a learner's weekly module, and record a check-in. A check-in completes the current week. The progression setting controls when the next week opens. After the week 12 check-in, the learner can choose **Keep playing** to continue at their own pace.
 4. In a class, open the facilitator dashboard to view progress and create a competition. Choose a metric and target. Learners see new challenges on their dashboard and score as they complete activities after the competition starts.
+
+## Week progression
+
+- **Learner-paced** (default). Week 1 opens as soon as the learner is created. After the required missions are complete and the week is closed, the learner chooses **Start next week** on the dashboard or Missions page. Solo learners close their own week. In a mentored game, the facilitator approves required missions and records the check-in.
+- **Scheduled**. Choose a start date for Week 1. Week 2 is due seven days later, Week 3 is due fourteen days later, and so on. Dates use the device’s local calendar. Each later week opens automatically once its date has arrived and the previous week is closed. Learners who fall behind finish each week in order and can continue as soon as they catch up.
+- In **Facilitator → Settings**, set the class progression and start date. In **Add learner** or **Edit learner profile**, use the class setting or give that learner a separate schedule. For home games, set it during setup or use **Parent / caregiver view → Edit learner profile**. Changing a schedule keeps weeks the learner has already started.
 
 ## Progress and rewards
 

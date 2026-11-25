@@ -49,6 +49,51 @@ export function makeWeek(index, rules) {
   return ensureFamilyTask({ index, closed: false, rules: structuredClone(rules), transactions: [], transfers: [], choice: null, feedback: '',
     tasks: ['business', 'learning', 'reflection'].map(id => ({ id, required: true, points: 10, status: 'todo', evidence: '', feedback: '' })) });
 }
+export function effectiveWeekSchedule(group, player) {
+  return player.weekSchedule ?? group.weekSchedule ?? { mode: 'manual' };
+}
+
+export function todayDate(now = new Date()) {
+  return [now.getFullYear(), now.getMonth() + 1, now.getDate()]
+    .map((part, index) => String(part).padStart(index === 0 ? 4 : 2, '0')).join('-');
+}
+
+export function validStartDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000-')) return false;
+  const date = new Date(value + 'T00:00:00Z');
+  return value <= '9999-10-15' && Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+export function weekStartDate(schedule, index) {
+  if (schedule.mode !== 'scheduled' || !validStartDate(schedule.startDate) || index >= programmeLength) return '';
+  const date = new Date(schedule.startDate + 'T00:00:00Z');
+  date.setUTCDate(date.getUTCDate() + index * 7);
+  return date.toISOString().split('T')[0];
+}
+
+export function waitingForWeekOne(player, schedule, today = todayDate()) {
+  const week = player.weeks[0];
+  return player.weeks.length === 1 && !week.started && !week.closed &&
+    weekStartDate(schedule, 0) > today &&
+    !week.transactions.length && !week.transfers?.length && week.plan === undefined &&
+    week.choice == null && !week.videoWatched && !week.quizPassed && !week.schoolQuizResult && !week.weeklyCertificate &&
+    !week.tasks.some(task => task.status !== 'todo');
+}
+
+export function nextProgrammeWeek(player) {
+  const week = player.weeks.at(-1);
+  return week.closed && week.index + 1 < programmeLength ? week.index + 1 : null;
+}
+
+export function startNextWeek(player, rules, schedule, trigger, today = todayDate()) {
+  const index = nextProgrammeWeek(player);
+  if (index === null || schedule.mode !== trigger) return false;
+  const date = weekStartDate(schedule, index);
+  if (trigger === 'scheduled' && (!date || date > today)) return false;
+  player.weeks.push(makeWeek(index, rules));
+  return true;
+}
+
 export function makePlayer(fields, rules) {
   return { id: uid(), ...fields, weeks: [makeWeek(0, rules)] };
 }
