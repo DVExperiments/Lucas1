@@ -1,0 +1,31 @@
+.family-practice {
+  background: linear-gradient(120deg, #243054, #14203f);
+}
+.family-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  list-style: none;
+  padding: 0;
+  margin: .75rem 0;
+}
+.family-steps li {
+  border: 1px solid #6177a9;
+  border-radius: .55rem;
+  padding: .3rem .65rem;
+  background: #1b2b50;
+}
+.family-brief { border-left: 3px solid #dafa77; }
+.family-brief p { margin-block: .4rem; }
+.family-answers { margin: .65rem 0; }
+.family-answers dt { font-weight: 700; }
+.family-answers dd {
+  margin: 0 0 .65rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.family-resource { margin-block: .75rem; }
+.family-resource strong { color: inherit; }
+.family-print.certificate-sheet { text-align: left; }
+.family-print p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.family-print.certificate-sheet > .certificate-label { font-size: .8rem; }

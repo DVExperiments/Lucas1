@@ -1,4 +1,5 @@
 import { programmeLength, episodeFor } from './curriculum.js';
+import { ensureFamilyTask } from './family.js';
 import { weeklyCertificates, weeklyPoints, weeklyAvatarRewards } from './challenges.js';
 
 export const tracks = ['Ages 8–10', 'Ages 11–13 · Intermediate', 'Ages 14–17'];
@@ -39,14 +40,14 @@ export const weeks = [
   }
 ];
 
-export const taskLabels = { business: 'Business', learning: 'Money lesson', reflection: 'Reflection', custom: 'Extra challenge' };
+export const taskLabels = { business: 'Business', learning: 'Money lesson', reflection: 'Reflection', family: 'Family challenge', custom: 'Extra challenge' };
 export const uid = () => {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
 };
 export function makeWeek(index, rules) {
-  return { index, closed: false, rules: structuredClone(rules), transactions: [], transfers: [], choice: null, feedback: '',
-    tasks: ['business', 'learning', 'reflection'].map(id => ({ id, required: true, points: 10, status: 'todo', evidence: '', feedback: '' })) };
+  return ensureFamilyTask({ index, closed: false, rules: structuredClone(rules), transactions: [], transfers: [], choice: null, feedback: '',
+    tasks: ['business', 'learning', 'reflection'].map(id => ({ id, required: true, points: 10, status: 'todo', evidence: '', feedback: '' })) });
 }
 export function makePlayer(fields, rules) {
   return { id: uid(), ...fields, weeks: [makeWeek(0, rules)] };

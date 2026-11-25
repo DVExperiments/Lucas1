@@ -1,10 +1,11 @@
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.4';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough } from './game.js?v=3.5';
 import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
 
-import { languages, translate } from './locale.js?v=3.4';
+import { languages, translate } from './locale.js?v=3.5';
 import { vimeoPlayer } from './vimeo.js';
+import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js';
 
 const assetUrl = image => new URL('./assets/' + image, location.href).href;
 const sitePath = location.pathname.replace(/index\.html$/, '');
@@ -23,7 +24,7 @@ const moduleTitle = (p, index) => tr(moduleFor(p, index).title);
 const $ = selector => document.querySelector(selector);
 const dialog = $('#dialog');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-const missionIcons = { chore: '✓', business: '▦', learning: '▶', reflection: '✎' };
+const missionIcons = { chore: '✓', business: '▦', learning: '▶', reflection: '✎', family: '🤝' };
 const marks = ['🛍️', '🐖', '🌱', '🎁'];
 const statuses = { todo: 'To do', submitted: 'Awaiting review', revision: 'Revise', approved: 'Approved' };
 function readSave(key) {
@@ -63,6 +64,7 @@ for (const group of [...workspace.groups.map(entry => entry.data), workspace.sam
     if (!group.ageBandsV2) learner.track = learner.track === 1 ? 2 : 1;
     for (const week of learner.weeks) {
       if (!week.closed) week.transfers ??= [];
+      ensureFamilyTask(week);
     }
     const last = learner.weeks.at(-1);
     if (last?.closed && last.index === 3 && learner.weeks.length === 4) learner.weeks.push(makeWeek(4, group.rules));
@@ -176,11 +178,13 @@ function pageHeader(label, title, description, action = '') {
 function pct(p) { return Math.min(100, Math.floor(progress(p).buckets[1] * 100 / p.target)); }
 function taskName(task, p) {
   if (task.title) return task.title;
+  if (task.id === 'family') return familyTitle;
   if (task.id === 'business') return 'Make a business move';
   if (task.id === 'reflection' && p.mode === 'manual') return 'Try it beyond your business';
   return taskLabels[task.id];
 }
 function taskPrompt(task, p, week) {
+  if (task.id === 'family') return familyPrompt;
   if (task.assignedPrompt && ['submitted','approved'].includes(task.status)) return task.assignedPrompt;
   const info = week.module ?? moduleFor(p, week.index);
   if (task.id === 'business') return info.business;
@@ -495,8 +499,15 @@ function journey(p, level) {
     <ol>${levels.map((name,i) => `<li class="journey-step level-${i} ${i === level ? 'here' : ''}" ${i === level ? 'aria-current="step"' : ''}><b>${tr('LEVEL')} ${i+1}</b><span class="journey-icon" aria-hidden="true">${levelIcons[i]}</span><strong>${tr(name)}</strong><small>${tr(levelGoals[i])}</small></li>`).join('')}</ol>
     <div class="arc-week-grid" aria-label="${esc(tr("Programme weeks"))}">${episodes.map((episode,i) => `<span title="${i+1} · ${esc(tr(episode.title))}" class="${p.weeks[i]?.closed ? 'done' : p.weeks[i] ? 'current' : ''}">${i+1}</span>`).join('')}</div></section>`;
 }
+const challengeTitle = week => week.tasks.some(task => task.id === 'family') ? familyTitle : challengeFor(week.index).title;
 function weeklyChallengeCard(p) {
   const week = activeWeek(p), scenario = challengeFor(week.index);
+  const family = week.tasks.find(task => task.id === 'family');
+  if (family) return `<section class="panel play-card">
+    <div class="play-emblem" aria-hidden="true">🤝</div>
+    <div><div class="eyebrow">${esc(tr('WEEK 12 FINALE'))}</div><h2>${esc(tr(familyTitle))}</h2>
+    <p>${esc(tr(familyPrompt))}</p></div>
+    ${button(['approved', 'submitted'].includes(family.status) ? 'View family challenge' : 'Start family challenge', 'task', 'data-id="family"', 'primary')}</section>`;
   return `<section class="panel play-card">
     <div class="play-emblem" aria-hidden="true">🎮</div>
     <div><div class="eyebrow">${tr('WEEK {number} CHALLENGE', {number:week.index+1})}</div><h2>${tr(scenario.title)}</h2>
@@ -540,6 +551,12 @@ function challengesView(p) {
   const assignment = samAssignment(moduleFor(p, week.index));
   return `${pageHeader('CHALLENGE ARCADE', 'Challenges', 'Choose this week’s activity, open a teacher challenge, or play a practice game.')}
     ${weeklyChallengeCard(p)}
+    <section class="panel play-card family-practice spaced">
+      <div class="play-emblem" aria-hidden="true">🤝</div>
+      <div><div class="eyebrow">${esc(tr('PRACTICE ONLY'))}</div><h2>${esc(tr('Preview the Week 12 finale'))}</h2>
+      <p>${esc(tr('Try the family activity from any week. Practice does not count towards progress or rewards.'))}</p></div>
+      ${button('Try the Week 12 activity', 'family-practice', '', 'primary')}
+    </section>
     <section class="panel spaced" aria-labelledby="sam-quiz-title">
       <h2 id="sam-quiz-title">${esc(tr("Weekly video and quiz on Success Avenue Money"))}</h2>
       <p>${esc(tr("Sign in to SAM. Watch the video first, then take the quiz about that video."))}</p>
@@ -552,7 +569,7 @@ function challengesView(p) {
     <p>${esc(tr("Try another stall plan with $40 in game money. Weekly certificates come from the weekly challenge above."))}</p>
     ${button('Play Market Day practice', 'practice-market')}</section>
     ${past.length ? `<section class="panel spaced"><h2>${esc(tr("Earlier challenges"))}</h2>
-    <ul class="challenge-list">${past.map(w => `<li><div><strong>${tr('Week')} ${w.index + 1} · ${tr(challengeFor(w.index).title)}</strong>
+    <ul class="challenge-list">${past.map(w => `<li><div><strong>${tr('Week')} ${w.index + 1} · ${tr(challengeTitle(w))}</strong>
       <p>${w.weeklyCertificate ? 'Certificate earned' : 'Available to catch up'}</p></div>
       ${button(w.weeklyCertificate ? 'Replay' : 'Play', 'weekly-play', `data-index="${w.index}" aria-label="Play week ${w.index + 1} challenge"`, 'small')}</li>`).join('')}</ul></section>` : ''}`;
 }
@@ -651,7 +668,7 @@ function nextCertificateReward(count) {
   return 'Next unlock: ' + shopItems.find(item => item.id === milestone.item).name + ' · ' + remaining + ' certificate' + (remaining === 1 ? '' : 's') + ' to go';
 }
 function certificateShelf(p) {
-  const weekly = weeklyCertificates(p).map(w => `<li><div><strong>${tr('Week')} ${w.index + 1} · ${tr(challengeFor(w.index).title)}</strong><p>Weekly challenge certificate</p></div>${button('View certificate','show-certificate',scenarioAttrs(w.index),'small')}</li>`);
+  const weekly = weeklyCertificates(p).map(w => `<li><div><strong>${tr('Week')} ${w.index + 1} · ${tr(challengeTitle(w))}</strong><p>Weekly challenge certificate</p></div>${button('View certificate','show-certificate',scenarioAttrs(w.index),'small')}</li>`);
   const custom = (state.classChallenges ?? []).filter(c => c.certificate && c.learners.includes(p.id) && c.entries[p.id]?.status === 'approved')
     .map(c => `<li><div><strong>${esc(c.title)}</strong><p>Teacher challenge certificate</p></div>${button('View certificate','show-certificate',`data-id="${c.id}"`,'small')}</li>`);
   return `<section class="panel spaced"><div class="section-title"><div><h2>Certificates</h2>
@@ -739,7 +756,7 @@ function questTrail(p) {
   const complete = required.filter(task => task.status === 'approved').length;
   const next = required.find(task => ['todo','revision'].includes(task.status));
   const steps = [
-    ['🎮', 'Play the weekly challenge', week.weeklyCertificate ? 'Certificate earned' : 'Optional · earns a certificate', week.weeklyCertificate,
+    ['🎮', 'Play the weekly challenge', week.weeklyCertificate ? 'Certificate earned' : week.tasks.some(task => task.id === 'family') ? 'Required for Week 12' : 'Optional · earns a certificate', week.weeklyCertificate,
       button('Open Challenges','open-weekly-challenges','','small')],
     ['⚡', 'Finish your missions', tr('{done} of {total} approved', {done:complete,total:required.length}), complete === required.length,
       next ? button('Open next mission','task',`data-id="${esc(next.id)}"`,'small') : ''],
@@ -1187,7 +1204,79 @@ function textField(label, name, hint, value = '', limit = 80, required = true) {
 function noteField(label, name, hint, value = '', required = true) {
   return field(label, name, hint, `<textarea name="${name}" rows="4" maxlength="600" ${required ? 'required' : ''}>${esc(value)}</textarea>`);
 }
+function familyBrief(scenario, advanced) {
+  return `<h3>${esc(tr(scenario.title))}</h3><p>${esc(tr(scenario.story))}</p>
+    <p><strong>${esc(tr('Ask your partner'))}</strong> · ${esc(tr(scenario.ask))}</p>
+    ${advanced ? `<p><strong>${esc(tr('Go further'))}</strong> · ${esc(tr(scenario.stretch))}</p>` : ''}`;
+}
+function familyAnswers(response) {
+  const scenario = familyCases.find(item => item.id === response.scenario);
+  return `<div class="lesson">${scenario ? familyBrief(scenario, false) : ''}
+    <dl class="family-answers">${familyQuestions.map(({ key, label }) =>
+      `<dt>${esc(tr(label))}</dt><dd>${esc(response[key])}</dd>`).join('')}</dl></div>`;
+}
+function familyTaskDialog(p, task) {
+  const practice = !task;
+  const editable = practice || ['todo', 'revision'].includes(task.status);
+  const response = task?.familyResponse;
+  const mark = task?.familyScores ? `<p><strong>${esc(tr('Facilitator mark'))}</strong> · ${task.familyScores.reduce((sum, score) => sum + score, 0)} / 6</p>` : '';
+  const banner = practice ? `<p class="eyebrow">${esc(tr('PRACTICE ONLY'))}</p>
+    <p>${esc(tr('Try the finale from any week. Practice answers disappear when you close the recap or leave the activity. Your progress and rewards stay the same.'))}</p>` : '';
+  if (!editable) {
+    openDialog(familyTitle, `<p>${esc(tr(statuses[task.status]))}</p>
+      ${mark}
+      ${task.feedback ? `<div class="feedback"><strong>${esc(tr('Feedback'))}</strong><p>${esc(task.feedback)}</p></div>` : ''}
+      ${response ? familyAnswers(response) + button('Open family recap', 'family-recap') : ''}`);
+    return;
+  }
+  const scenario = familyCases.find(item => item.id === response?.scenario) ?? familyCases[0];
+  openDialog(familyTitle, banner + `<ol class="family-steps"><li>${esc(tr('1. Teach a skill'))}</li><li>${esc(tr('2. Decide together'))}</li><li>${esc(tr('3. Pick a next step'))}</li></ol>
+    <p>${esc(tr('Open My progress together and show a milestone you’re proud of. Explain one money skill you learnt to a parent, caregiver or trusted adult. You can do the same activity with your facilitator at school.'))}</p>
+    <p>${esc(tr('Use the fictional scenario below. Keep real pay, balances, debts and account details out of your answers.'))}</p>
+    ${mark}
+    ${task?.feedback ? `<div class="feedback"><strong>${esc(tr('Feedback'))}</strong><p>${esc(task.feedback)}</p></div>` : ''}
+    ${form(practice ? 'family-practice' : 'family-submit',
+      `<div class="field"><label for="family-scenario">${esc(tr('Choose a scenario'))}</label>
+        <select id="family-scenario" name="scenario">${familyCases.map(item =>
+          `<option value="${item.id}" ${scenario.id === item.id ? 'selected' : ''}>${item.icon} ${esc(tr(item.title))}</option>`).join('')}</select></div>
+       <div id="family-brief" class="lesson family-brief" aria-live="polite">${familyBrief(scenario, p.track === 2)}</div>
+       <h3>${esc(tr('Write your three short answers'))}</h3>
+       ${familyQuestions.map(({ key, label, tip }) => noteField(label, key, tip, response?.[key])).join('')}`,
+      practice || p.solo ? 'Finish and see my recap' : 'Submit for review and see my recap')}`);
+}
+function familyRecap(response, practice = false, message = '') {
+  const scenario = familyCases.find(item => item.id === response.scenario);
+  openDialog('Family challenge recap', `${message ? `<p role="status">${esc(tr(message))}</p>` : ''}
+    <article class="certificate-sheet family-print">
+      <div class="certificate-label">SUCCESS AVENUE MONEY · ${esc(tr(practice ? 'PRACTICE ONLY' : 'WEEK 12'))}</div>
+      <h3>${esc(tr('Family Money Challenge'))}</h3>
+      <p>${esc(tr(scenario.title))}</p>
+      <h4>${esc(tr('The skill I shared'))}</h4><p>${esc(response.skill)}</p>
+      <h4>${esc(tr('Our next step'))}</h4><p>${esc(response.next)}</p>
+    </article>
+    <section class="lesson family-resource"><h3>${esc(tr('Keep learning together on SAM'))}</h3>
+      <p><strong>${esc(tr(scenario.tool === 'budget' ? 'SAM budget tool' : 'SAM finance tool'))}</strong> · ${esc(tr('Placeholder · link coming soon'))}</p>
+      <p>${esc(tr(scenario.tool === 'budget' ? 'When available, use it together to sketch a budget for a goal you choose.' : 'When available, use it together to explore how a longer-term plan could change over time.'))}</p>
+    </section>${button('Print family recap', 'print-certificate')}`);
+}
+function familyReviewDialog(p, task) {
+  openDialog('Review Family Money Challenge', familyAnswers(task.familyResponse) +
+    form('family-review',
+      `<h3>${esc(tr('Mark out of 6'))}</h3>
+       <p>${esc(tr('Score each skill using the written responses.'))}</p>
+       ${familyQuestions.map(({ key, criterion }) => `<div class="field"><label for="score-${key}">${esc(tr(criterion))}</label>
+       <select id="score-${key}" name="score-${key}" required><option value="">${esc(tr('Choose a mark'))}</option>
+       <option value="0">${esc(tr('0 · Missing'))}</option><option value="1">${esc(tr('1 · Developing'))}</option>
+       <option value="2">${esc(tr('2 · Clear and specific'))}</option></select></div>`).join('')}
+       <div class="field"><label for="family-review-decision">${esc(tr('Decision'))}</label>
+       <select id="family-review-decision" name="decision"><option value="approved">${esc(tr('Approve'))}</option>
+       <option value="revision">${esc(tr('Ask for a revision'))}</option></select></div>
+       ${noteField('Feedback', 'feedback', 'Say what worked or what to change. Feedback is required when asking for a revision.', '', false)}`,
+      'Save review', playerAttrs(p)));
+}
+
 function taskDialog(p, week, task, showQuiz = false) {
+  if (task.id === 'family') return familyTaskDialog(p, task);
   const episode = episodeFor(week.index);
   const module = moduleFor(p, week.index);
   const editable = !week.closed && ['todo', 'revision'].includes(task.status);
@@ -1254,6 +1343,7 @@ function playerDialog(p, homeSetup = false) {
     ${textField('Savings goal', 'goal', 'Choose something specific you want to save for, such as art supplies or a used bike.', p?.goal)}${field('Goal amount (NZD)', 'target', 'How much do you want in Save for this goal? Enter an amount in New Zealand dollars, such as 30 or 30.50.', `<input name="target" type="number" step=".01" min=".01" max="1000000" value="${p ? p.target / 100 : ''}" required>`)}</div>${homeSetup ? starterLookFields() : ''}`, homeSetup ? 'Start home game' : p ? 'Save changes' : 'Create learner', p ? playerAttrs(p) : ''));
 }
 function reviewDialog(p, t) {
+  if (t.id === 'family' && t.familyResponse) return familyReviewDialog(p, t);
   const w = activeWeek(p);
   openDialog('Review ' + esc(p.name) + '’s submission', `<h3>${esc(tr(taskName(t, p)))}</h3><p>${esc(taskPrompt(t, p, w))}</p><div class="lesson"><p>${esc(t.evidence)}</p></div>
     ${form('review', `${field('Decision', 'decision', 'Approve to give credit for this mission. Ask for a revision when the learner needs to try again.', `<select name="decision"><option value="approved">Approve</option><option value="revision">Ask for a revision</option></select>`)}${noteField('Feedback', 'feedback', 'Say what worked or what to change. Feedback is required when asking for a revision.', '', false)}`, 'Save review', `data-player="${p.id}" data-id="${t.id}"`)}`);
@@ -1298,7 +1388,8 @@ function learnerDetail(p) {
     <div class="action-row">${isHomeGame() && editable ? button('Assign activity', 'assign', '', 'small') : ''}${editable && !p.solo && tally.ready ? button('Record check-in', 'close-week', attrs, 'primary') : ''}</div></div>
     <div class="record-missions">${week.tasks.map(task => `<article class="record-mission"><div class="section-title detail-section"><div><h3>${esc(tr(taskName(task, p)))}</h3><p>${task.required ? 'Required' : 'Optional'} · ${task.points} pts</p></div>${pill(statuses[task.status], task.status === 'approved' ? 'green' : '')}</div>
       <p>${esc(localMission(taskPrompt(task,p,week)))}</p>
-      ${task.evidence ? `<p class="record-answer"><strong>Submission</strong><span>${esc(task.evidence)}</span></p>` : '<p>No submission yet.</p>'}
+      ${task.familyResponse ? familyAnswers(task.familyResponse) : task.evidence ? `<p class="record-answer"><strong>Submission</strong><span>${esc(task.evidence)}</span></p>` : '<p>No submission yet.</p>'}
+      ${task.familyScores ? `<p><strong>${esc(tr('Facilitator mark'))}</strong> · ${task.familyScores.reduce((sum, score) => sum + score, 0)} / 6</p>` : ''}
       ${task.feedback ? `<p class="record-answer"><strong>${esc(tr("Feedback"))}</strong><span>${esc(task.feedback)}</span></p>` : ''}
       ${editable && task.status === 'submitted' ? button('Review submission', 'review', `${attrs} data-id="${esc(task.id)}"`, 'small') : ''}</article>`).join('')}</div>
     ${week.closed ? `<div class="check-in-note"><h3>Check-in note</h3><p>${esc(week.feedback || 'No note recorded.')}</p>${!p.solo ? button('Edit check-in note', 'edit-check-in', indexAttrs, 'small') : ''}</div>` : ''}
@@ -1397,6 +1488,14 @@ document.addEventListener('click', event => {
         navigate('challenges');
       }
       break;
+    case 'family-practice':
+      if (role === 'learner' && p && view === 'challenges') familyTaskDialog(p);
+      break;
+    case 'family-recap': {
+      const response = w?.tasks.find(task => task.id === 'family')?.familyResponse;
+      if (role === 'learner' && response) familyRecap(response);
+      break;
+    }
     case 'weekly-play':
     case 'practice-market':
       if (role !== 'learner' || !w) return;
@@ -1404,6 +1503,7 @@ document.addEventListener('click', event => {
       if (action === 'practice-market') startScenario('practice');
       else {
         const week = index === undefined ? w.index : Number(index);
+        if (p.weeks[week]?.tasks.some(task => task.id === 'family')) return;
         if (p.weeks[week]) startScenario(week);
       }
       break;
@@ -1419,7 +1519,7 @@ document.addEventListener('click', event => {
       if (role !== 'learner' || !p) return;
       if (index !== undefined && p.weeks[Number(index)]?.weeklyCertificate) {
         const n = Number(index);
-        showCertificate(p, challengeFor(n).title, 'Weekly challenge · Week ' + (n + 1));
+        showCertificate(p, challengeTitle(p.weeks[n]), 'Weekly challenge · Week ' + (n + 1));
       } else if (contest?.certificate && contest.learners.includes(p.id) && contest.entries[p.id]?.status === 'approved') {
         showCertificate(p, contest.title, 'Teacher challenge · ' + state.group);
       }
@@ -1575,7 +1675,9 @@ document.addEventListener('click', event => {
       openDialog(tr('Week') + ' ' + (n + 1) + ' · ' + esc(moduleTitle(p,n)),
         `<p class="eyebrow">${tr(status)}</p><p>${esc(tr(info.summary))}</p>
         <div class="lesson"><h3>${tr('Business mission')}</h3><p>${esc(localMission(info.business))}</p>
-        <h3>${tr('Money habit')}</h3><p>${esc(tr(info.outside))}</p></div>`);
+        <h3>${tr('Money habit')}</h3><p>${esc(tr(info.outside))}</p></div>
+        ${n === familyWeek ? `<div class="lesson"><h3>${esc(tr(familyTitle))}</h3><p>${esc(tr(familyPrompt))}</p>
+        ${button('Open Challenges', 'open-weekly-challenges', '', 'small')}</div>` : ''}`);
       break;
     }
     case 'add-bucket':
@@ -1735,6 +1837,10 @@ document.addEventListener('change', event => {
   }
   if (event.target.id === 'home-group') { selectGroup(event.target.value); save(); $('#home-group').focus(); }
   if (event.target.id === 'detail-week') { detailWeek = Number(event.target.value); render(); $('#detail-week').focus(); }
+  if (event.target.id === 'family-scenario' && role === 'learner') {
+    const scenario = familyCases.find(item => item.id === event.target.value);
+    if (scenario) $('#family-brief').innerHTML = familyBrief(scenario, player()?.track === 2);
+  }
   if (event.target.id === 'ledger-week') { ledgerWeek = Number(event.target.value); render(); $('#ledger-week').focus(); }
 });
 document.addEventListener('submit', async event => {
@@ -1749,8 +1855,41 @@ document.addEventListener('submit', async event => {
   const finish = (message, unlocked) => { closeDialog(); save(message, unlocked); };
   const contest = state?.classChallenges?.find(c => c.id === el.dataset.id);
   switch (el.dataset.form ?? 'settings') {
+    case 'family-practice':
+    case 'family-submit': {
+      if (role !== 'learner' || !p) return;
+      const practice = el.dataset.form === 'family-practice';
+      const family = w.tasks.find(task => task.id === 'family');
+      if (practice ? view !== 'challenges' : w.closed || !family || !['todo', 'revision'].includes(family.status)) return;
+      const response = readFamilyResponse(value);
+      if (!response) return fail('Choose a scenario and write all three short answers.');
+      if (practice) {
+        familyRecap(response, true, 'Practice complete!');
+        break;
+      }
+      Object.assign(family, { familyResponse: response, status: p.solo ? 'approved' : 'submitted', feedback: '' });
+      delete family.familyScores;
+      if (p.solo) completeWeeklyChallenge(p, w.index);
+      const message = p.solo ? 'Family challenge complete. See your certificate in My progress.' : 'Your answers are ready for your facilitator to review.';
+      save(message, grantAwards(p));
+      familyRecap(response, false, message);
+      break;
+    }
+    case 'family-review': {
+      if (role !== 'facilitator' || !w || w.closed) return;
+      const family = w.tasks.find(task => task.id === 'family');
+      if (family?.status !== 'submitted' || !family.familyResponse) return;
+      const familyScores = readFamilyScores(value), decision = value('decision'), feedback = value('feedback');
+      if (!familyScores || !['approved', 'revision'].includes(decision)) return fail('Choose a mark for all three skills and a review decision.');
+      if (decision === 'revision' && !feedback) return fail('Add feedback so the learner knows what to change.');
+      Object.assign(family, { familyScores, feedback, status: decision });
+      if (decision === 'approved') completeWeeklyChallenge(p, w.index);
+      finish('Review saved.', grantAwards(p));
+      break;
+    }
     case 'weekly-decisions': {
-      if (role !== 'learner' || !p?.weeks[Number(el.dataset.index)]) return;
+      const week = p?.weeks[Number(el.dataset.index)];
+      if (role !== 'learner' || !week || week.tasks.some(task => task.id === 'family')) return;
       const n = Number(el.dataset.index), scenario = challengeFor(n);
       if (scenario.kind !== 'decision') return;
       const wrong = scenario.questions.findIndex((q,i) => value('q' + i) === '' || Number(value('q' + i)) !== q.correct);
@@ -1961,7 +2100,7 @@ document.addEventListener('submit', async event => {
       break;
     }
     case 'task':
-      if (w.closed || !task || !['todo','revision'].includes(task.status)) return;
+      if (w.closed || !task || task.id === 'family' || !['todo','revision'].includes(task.status)) return;
       if (task.id === 'business' && p.mode === 'sim' && w.choice === null) return fail('Run market day first.');
       if (!value('evidence')) return fail('Add a short response before submitting.');
       Object.assign(task, { assignedPrompt: taskPrompt(task, p, w), evidence: value('evidence'), status: p.solo ? 'approved' : 'submitted', feedback: '' });
@@ -2044,7 +2183,7 @@ document.addEventListener('submit', async event => {
     }
     case 'review':
       if (role !== 'facilitator') return;
-      if (w.closed || task?.status !== 'submitted') return;
+      if (w.closed || task?.status !== 'submitted' || task.id === 'family') return;
       if (value('decision') === 'revision' && !value('feedback')) return fail('Add feedback so the learner knows what to change.');
       Object.assign(task, { status: value('decision'), feedback: value('feedback') });
       finish('Review saved.', grantAwards(p)); break;

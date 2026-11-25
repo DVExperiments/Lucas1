@@ -609,6 +609,18 @@ const phrases = [
   ['Neon Sunset','Tōnga Rā Hīaho','Atardecer neón'],
   ['Electric Orbit','Ara Hiko','Órbita eléctrica'],
   ['Neon Spectrum','Tūāwhiorangi Hīaho','Espectro neón'],
+  ['Family Money Challenge','Te Wero Moni ā-Whānau','Reto de dinero en familia'],
+  ['Try the Week 12 activity','Whakamātauria te mahi o te wiki 12','Prueba la actividad de la semana 12'],
+  ['PRACTICE ONLY','HE MAHI WHAKAHARATAU','SOLO PRÁCTICA'],
+  ['Preview the Week 12 finale','Tirohia te mahi whakamutunga o te wiki 12','Explora el reto final de la semana 12'],
+  ['WEEK 12 FINALE','TE MAHI WHAKAMUTUNGA O TE WIKI 12','RETO FINAL DE LA SEMANA 12'],
+  ['Start family challenge','Tīmatahia te wero ā-whānau','Iniciar el reto en familia'],
+  ['View family challenge','Tirohia te wero ā-whānau','Ver el reto en familia'],
+  ['Choose a scenario','Kōwhiria tētahi horopaki','Elige un caso'],
+  ['Family challenge recap','He whakarāpopototanga o te wero ā-whānau','Resumen del reto en familia'],
+  ['Open family recap','Huakina te whakarāpopototanga ā-whānau','Abrir el resumen familiar'],
+  ['Print family recap','Tāngia te whakarāpopototanga ā-whānau','Imprimir el resumen familiar'],
+  ['Placeholder · link coming soon','He wāhi pupuri · ka tāpirihia te hononga ākuanei','Marcador provisional · enlace próximamente'],
 ];
 const catalog = new Map(phrases.map(([english, maori, spanish]) => [english, { mi: maori, es: spanish }]));
 export const translate = (language, source) => catalog.get(source)?.[language] ?? source;
