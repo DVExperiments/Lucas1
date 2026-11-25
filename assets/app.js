@@ -5,7 +5,7 @@ import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
 
-import { languages, translate } from './locale.js?v=3.6';
+import { languages, translate } from './locale.js?v=3.8.3';
 import { vimeoPlayer } from './vimeo.js';
 import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js?v=3.7';
 
@@ -56,6 +56,7 @@ const facilitatorRoutes = new Set(['group', 'detail', 'settings', 'facilitator-h
 let ledgerWeek;
 let detailWeek;
 let detailPlayerId;
+let learnerSetup;
 let marketAttempt;
 let marketTimer;
 const unlockedClasses = new Set();
@@ -447,11 +448,11 @@ let shopCategory = 'icon';
 function backgroundTile(item) {
   return `<span class="style-scene" style="background-image:url('${esc(assetUrl(item.image))}')" aria-hidden="true"></span>`;
 }
-function starterLookFields() {
+function starterLookFields(appearance = {}) {
   const groups = [['icon','Starting profile picture','hero'], ['background','Starting dashboard background','sunset']];
   return `<div class="starter-looks">${groups.map(([kind, label, initial]) =>
     `<fieldset><legend>${tr(label)}</legend><div class="starter-look-options starter-${kind}">
-      ${starterOptions(kind).map(item => `<label><input type="radio" name="starter-${kind}" value="${item.id}" ${item.id === initial ? 'checked' : ''}>
+      ${starterOptions(kind).map(item => `<label><input type="radio" name="starter-${kind}" value="${item.id}" ${item.id === (appearance[kind] ?? initial) ? 'checked' : ''}>
         <span class="starter-look-card">${kind === 'icon' ? portrait(item) : backgroundTile(item)}
           <span>${esc(tr(item.name))}</span></span></label>`).join('')}
     </div></fieldset>`).join('')}</div>`;
@@ -1078,26 +1079,35 @@ function groupView() {
 }
 function homeView() {
   const homeGames = workspace.groups.filter(({data}) => data.kind === 'home');
-  const homeGame = homeGames.find(group => group.id === workspace.active) ?? homeGames[0];
+  const homeGame = homeGames.find(group => group.id === workspace.active) ?? homeGames.at(-1);
   const classGame = assignedClass();
   const classLearner = classGame?.data.players.find(p => p.id === classGame.data.current);
+  const homeAttrs = homeGame ? `data-id="${esc(homeGame.id)}"` : '';
   return `<section class="welcome">
     <div><div class="eyebrow">SUCCESS AVENUE MONEY</div><h1>The Lucas Money Game</h1>
-      <p>${esc(tr("Do chores. Take on a mini business. Build money habits that bring your big goal closer."))}</p>
-      <div class="action-row">${button(workspace.sample ? 'Resume demo' : 'Play the demo', 'test-group', '', 'primary')}${button('Start at home', 'new-home')}${button('Start a class', 'new-group')}</div></div>
+      <p>${esc(tr('Start a small business or try a paid activity, then work towards something you want to save for. Ask a parent or caregiver to help with your weekly check-ins.'))}</p>
+      ${homeGame ? `<label for="home-group">${esc(tr('Home game'))}<select id="home-group">${homeGames.map(({ id, data }) =>
+        `<option value="${esc(id)}"${id === homeGame.id ? ' selected' : ''}>${esc(data.group)}</option>`).join('')}</select></label>` : ''}
+      <div class="action-row">
+        ${homeGame ? button('Continue my game', 'resume-home', homeAttrs, 'primary') : ''}
+        ${button('Start a new game', 'new-home', '', homeGame ? 'secondary' : 'primary')}
+      </div>
+      ${homeGame ? `<div class="action-row">${button('Open parent view', 'resume-parent', homeAttrs, 'small')}</div>` : ''}
+    </div>
     <div class="welcome-route"><strong>${esc(tr("Savings milestones"))}</strong><div class="welcome-milestones">${savingsMilestones.map(percent => `<span>${percent}%</span>`).join('')}</div><p>${esc(tr("Earn badges as you close in on your goal."))}</p></div>
   </section>
   <div class="welcome-grid">
-    <section class="panel start-panel"><h2>${esc(tr("Continue a saved game"))}</h2>
-      ${classLearner ? `<p>Class learner on this device · <strong>${esc(classLearner.name)}</strong></p>${button('Continue class game','resume-class','', 'primary')}` : ''}
-      ${homeGame ? `<label for="home-group">${esc(tr("Home game"))}<select id="home-group">${homeGames.map(({id,data})=>`<option value="${esc(id)}" ${id===homeGame.id?'selected':''}>${esc(data.group)}</option>`).join('')}</select></label>
-        <div class="action-row">${button('Continue home game','resume-home',`data-id="${esc(homeGame.id)}"`,'primary')}${button('Open parent view','resume-parent',`data-id="${esc(homeGame.id)}"`)}</div>` : ''}
-      ${classGroups().length ? button('Open teacher dashboard','open-facilitator') : ''}
-      ${workspace.sample ? button('Open demo teacher dashboard','open-demo-teacher','', 'small') : ''}
-      ${!homeGame && !classGroups().length && !workspace.sample ? `<p>${esc(tr("Saved games will appear here."))}</p>` : ''}
+    <section class="panel start-panel"><h2>${esc(tr('Class games'))}</h2>
+      ${classLearner ? `<p>${esc(tr('Class learner on this device'))} · <strong>${esc(classLearner.name)}</strong></p>${button('Continue class game', 'resume-class')}` : ''}
+      ${button('Start a class', 'new-group')}
+      ${classGroups().length ? button('Open teacher dashboard', 'open-facilitator') : ''}
     </section>
-    <section class="panel start-panel"><h2>${esc(tr("First time playing?"))}</h2><p>${esc(tr("Play at home with one learner and a parent or caregiver. For a class or club, set up a group and add learners."))}</p>
-    <p>${esc(tr("The test group lets you try the game with sample learners and submissions."))}</p>${button('View setup instructions', 'view', 'data-view="setup"')}</section>
+    <section class="panel start-panel"><h2>${esc(tr('Try the demo'))}</h2>
+      <p>${esc(tr('The test group lets you try the game with sample learners and submissions.'))}</p>
+      ${button(workspace.sample ? 'Resume demo' : 'Play the demo', 'test-group')}
+      ${workspace.sample ? button('Open demo teacher dashboard', 'open-demo-teacher', '', 'small') : ''}
+      ${button('View setup instructions', 'view', 'data-view="setup"', 'small')}
+    </section>
   </div>`;
 }
 function setupView() {
@@ -1108,7 +1118,7 @@ function setupView() {
         <li>Set up one learner with a business or paid household job and a savings goal.</li>
         <li>Use <strong>${esc(tr("Parent / caregiver view"))}</strong> to tailor the first week or add a mission you can do together.</li>
         <li>In <strong>${esc(tr("Learner view"))}</strong>, record earnings and costs and submit the missions. Review them together in the parent view and record the check-in to complete the week.</li>
-      </ol>${button('Start at home', 'new-home', '', 'primary')}
+      </ol>${button('Start a new game', 'new-home', '', 'primary')}
     </section>
     <section class="panel help-panel"><h2>Play with a group</h2>
       <ol class="setup-steps">
@@ -1186,13 +1196,14 @@ function facilitatorHelpView() {
   </div>`;
 }
 
-function scheduleFields(schedule, inherit = false) {
+function scheduleFields(schedule, inherit = false, conditionalDate = false) {
   const selected = schedule?.mode ?? (inherit ? 'group' : 'manual');
   const options = { ...(inherit ? { group: 'Use class setting' } : {}), manual: 'Learner-paced', scheduled: 'Scheduled' };
-  return field('Week progression', 'weekMode', 'Learner-paced lets the learner start the next week after completing this one. Scheduled weeks open automatically when both the date and completion requirements are met.',
-    `<select name="weekMode">${Object.entries(options).map(([value, label]) => `<option value="${value}"${selected === value ? ' selected' : ''}>${tr(label)}</option>`).join('')}</select>`) +
-    field('Programme start date', 'weekStart', 'Required for Scheduled. Week 1 starts on this date, with each later week scheduled seven days apart.',
-      `<input name="weekStart" type="date" value="${esc(schedule?.startDate)}">`);
+  const mode = field('Week progression', 'weekMode', 'Learner-paced lets the learner start the next week after completing this one. Scheduled weeks open automatically when both the date and completion requirements are met.',
+    `<select name="weekMode">${Object.entries(options).map(([value, label]) => `<option value="${value}"${selected === value ? ' selected' : ''}>${tr(label)}</option>`).join('')}</select>`);
+  const start = field('Programme start date', 'weekStart', 'Required for Scheduled. Week 1 starts on this date, with each later week scheduled seven days apart.',
+    `<input name="weekStart" type="date" value="${esc(schedule?.startDate)}"${conditionalDate && selected === 'scheduled' ? ' required' : ''}>`);
+  return mode + (conditionalDate ? `<div data-setup-date${selected === 'scheduled' ? '' : ' hidden'}>${start}</div>` : start);
 }
 
 function readWeekSchedule(value) {
@@ -1264,7 +1275,13 @@ function wireLessonVideo(week) {
     $('#lesson-status').textContent = 'This video couldn’t load. Reopen the lesson and try again.';
   });
 }
-dialog.addEventListener('close', () => { if (!dialog.open) { resetMarketDay(); dialog.classList.remove('arc-quiz'); } });
+dialog.addEventListener('close', () => {
+  if (!dialog.open) {
+    resetMarketDay();
+    dialog.classList.remove('arc-quiz');
+    learnerSetup = undefined;
+  }
+});
 function openDialog(title, body) {
   dialog.innerHTML = `<div class="dialog-head"><h2 id="dialog-title" tabindex="-1">${tr(title)}</h2>${button(tr('Close'), 'dismiss', `aria-label="${esc(tr('Close dialog'))}"`, 'small')}</div>${body}`;
   if (!dialog.open) dialog.showModal();
@@ -1541,16 +1558,114 @@ function taskDialog(p, week, task, showQuiz = false) {
   openDialog(esc(tr(taskName(task, p))), content);
   if (task.id === 'learning' && !week.closed && !week.videoWatched && $('#lesson-film')) wireLessonVideo(week);
 }
-function playerDialog(p, homeSetup = false) {
-  openDialog(homeSetup ? 'Play at home' : p ? 'Edit learner profile' : 'Add learner', form(homeSetup ? 'new-home' : p ? 'edit-player' : 'add-player', `${homeSetup ? '<p>Set up one learner. A parent or caregiver can tailor missions, review work and run weekly check-ins.</p>' : ''}<div class="fields">
-    ${textField('First name or nickname', 'name', 'This name appears on the learner and facilitator dashboards. A nickname is enough.', p?.name, 40)}${textField('Business name', 'business', 'Give your business or household service a name, such as Weekend Car Wash.', p?.business)}
-    ${field('Age range', 'track', 'Choose the learner’s age range. This adjusts their dashboard and mission guidance.', `<select name="track">${tracks.map((label,index) => `<option value="${index}" ${index === (p?.track ?? 1) ? 'selected' : ''}>${label}</option>`).join('')}</select>`)}
-    ${!p ? field('Business mode', 'mode', 'Choose My real business for paid household jobs, a service or a product you sell. The practice simulation supplies sample figures.', `<select name="mode"><option value="manual">My real business</option><option value="sim">Practice simulation</option></select>`) : ''}
-    ${textField('What do you offer? (optional)', 'offer', 'Describe the job or product, such as mowing the lawn for an agreed price.', p?.offer, 120, false)}
-    ${textField('Who is it for? (optional)', 'customers', 'Name the type of customer, such as my family or neighbours I know.', p?.customers, 120, false)}
-    ${!p && !homeSetup ? `${field('Play with', 'reviewMode', 'In solo practice you close your own weeks. In mentor mode a facilitator reviews your work and records check-ins.', `<select name="reviewMode"><option value="mentor" ${role === 'facilitator' ? 'selected' : ''}>Mentor check-ins</option><option value="solo" ${role === 'learner' ? 'selected' : ''}>Solo practice</option></select>`)}` : ''}
-    ${scheduleFields(p?.weekSchedule, !homeSetup && !isHomeGame())}
-    ${textField('Savings goal', 'goal', 'Choose something specific you want to save for, such as art supplies or a used bike.', p?.goal)}${field('Goal amount (NZD)', 'target', 'How much do you want in Save for this goal? Enter an amount in New Zealand dollars, such as 30 or 30.50.', `<input name="target" type="number" step=".01" min=".01" max="1000000" value="${p ? p.target / 100 : ''}" required>`)}</div>${homeSetup ? starterLookFields() : ''}`, homeSetup ? 'Start home game' : p ? 'Save changes' : 'Create learner', p ? playerAttrs(p) : ''));
+function ageGroupField(track) {
+  return field('Age group', 'track', 'This changes the dashboard and mission guidance for your age group.',
+    `<select name="track" required>
+      <option value="">${esc(tr('Choose an age group'))}</option>
+      ${tracks.map((label, index) => `<option value="${index}"${String(index) === String(track) ? ' selected' : ''}>${esc(tr(label))}</option>`).join('')}
+    </select>`);
+}
+function goalAmountField(amount) {
+  return field('Goal amount (NZD)', 'target', 'Enter how much you want to save, in New Zealand dollars.',
+    `<input name="target" type="number" step=".01" min=".01" max="1000000" value="${esc(amount)}" required>`);
+}
+function editPlayerDialog(p) {
+  openDialog('Edit learner profile', form('edit-player', `<div class="fields">
+    ${textField('First name or nickname', 'name', 'This name appears on the learner and facilitator dashboards. A nickname is enough.', p.name, 40)}
+    ${textField('Business name', 'business', 'Give your business or household service a name, such as Weekend Car Wash.', p.business)}
+    ${ageGroupField(p.track ?? 1)}
+    ${textField('What do you offer? (optional)', 'offer', 'Describe the job or product, such as mowing the lawn for an agreed price.', p.offer, 120, false)}
+    ${textField('Who is it for? (optional)', 'customers', 'Name the type of customer, such as my family or neighbours I know.', p.customers, 120, false)}
+    ${scheduleFields(p.weekSchedule, !isHomeGame())}
+    ${textField('Savings goal', 'goal', 'Choose something specific you want to save for, such as art supplies or a used bike.', p.goal)}
+    ${goalAmountField(p.target / 100)}
+  </div>`, 'Save changes', playerAttrs(p)));
+}
+
+const learnerSetupSteps = {
+  about: 'About you',
+  earn: 'How will you earn?',
+  goal: 'What are you saving for?',
+  settings: 'Review and scheduling',
+  look: 'Make it yours'
+};
+function startLearnerSetup(home) {
+  learnerSetup = {
+    home,
+    group: home ? null : state,
+    steps: Object.keys(learnerSetupSteps).filter(step => step !== 'settings' || !home),
+    index: 0,
+    answers: { reviewMode: 'mentor', weekMode: home ? 'manual' : 'group' }
+  };
+  showLearnerSetupStep();
+}
+function showLearnerSetupStep() {
+  const { home, steps, index, answers } = learnerSetup;
+  const step = steps[index];
+  const final = index === steps.length - 1;
+  const label = final ? (home ? 'Start playing' : 'Add learner') : 'Continue';
+  let fields;
+  switch (step) {
+    case 'about':
+      fields = `<div class="fields">
+        ${textField('Nickname', 'name', 'This is the name you’ll see in your game.', answers.name, 40)}
+        ${ageGroupField(answers.track)}
+      </div>`;
+      break;
+    case 'earn':
+      fields = `<div class="fields">
+        ${field('How do you want to earn?', 'mode', 'Choose a paid job or small business you can try, or practise with pretend money in the game.',
+          `<select name="mode" required>
+            <option value="">${esc(tr('Choose how to earn'))}</option>
+            <option value="manual"${answers.mode === 'manual' ? ' selected' : ''}>${esc(tr('Real-world paid activity'))}</option>
+            <option value="sim"${answers.mode === 'sim' ? ' selected' : ''}>${esc(tr('Practice business'))}</option>
+          </select>`)}
+        ${textField('Activity or business name', 'business', 'For example, Weekend Car Wash or a pretend plant stall.', answers.business)}
+      </div>
+      <details data-setup-offer${answers.mode === 'manual' ? '' : ' hidden'}${answers.offer || answers.customers ? ' open' : ''}>
+        <summary>${esc(tr('Add details about your activity (optional)'))}</summary>
+        <div class="fields">
+          ${textField('What will you offer?', 'offer', 'For example, wash cars or sell plants.', answers.offer, 120, false)}
+          ${textField('Who will pay you?', 'customers', 'For example, family or neighbours you know.', answers.customers, 120, false)}
+        </div>
+      </details>
+      <p class="detail" data-setup-practice${answers.mode === 'sim' ? '' : ' hidden'}>${esc(tr('You’ll try pricing and selling at a practice market in the game.'))}</p>`;
+      break;
+    case 'goal':
+      fields = `<div class="fields">
+        ${textField('Savings goal', 'goal', 'Pick something to save for, such as art supplies or a second-hand bike.', answers.goal)}
+        ${goalAmountField(answers.target)}
+      </div>`;
+      break;
+    case 'settings':
+      fields = `<div class="fields">
+        ${field('Play with', 'reviewMode', 'Mentor check-ins let a facilitator review the learner’s work. In solo practice the learner closes their own weeks.',
+          `<select name="reviewMode">
+            <option value="mentor"${answers.reviewMode === 'mentor' ? ' selected' : ''}>${esc(tr('Mentor check-ins'))}</option>
+            <option value="solo"${answers.reviewMode === 'solo' ? ' selected' : ''}>${esc(tr('Solo practice'))}</option>
+          </select>`)}
+        ${scheduleFields({ mode: answers.weekMode, startDate: answers.weekStart }, true, true)}
+      </div>`;
+      break;
+    case 'look':
+      fields = `<p>${esc(tr('Pick a free profile picture and dashboard background. You can change them in the Profile Shop.'))}</p>
+        ${starterLookFields({ icon: answers['starter-icon'], background: answers['starter-background'] })}`;
+      break;
+  }
+  const progress = tr('Step {step} of {total}', { step: index + 1, total: steps.length });
+  openDialog(learnerSetupSteps[step], `<form data-form="learner-setup">
+    <p class="detail">${esc(progress)}</p>
+    ${fields}
+    <p class="error" role="alert"></p>
+    <div class="dialog-actions">
+      ${index ? button('Back', 'learner-setup-back') : ''}
+      <button type="submit" class="button primary">${esc(tr(label))}</button>
+    </div>
+  </form>`);
+  dialog.scrollTop = 0;
+}
+function rememberLearnerSetup(data) {
+  for (const [name, value] of data) learnerSetup.answers[name] = String(value).trim();
 }
 function reviewDialog(p, t) {
   if (t.id === 'family' && t.familyResponse) return familyReviewDialog(p, t);
@@ -1685,6 +1800,14 @@ document.addEventListener('click', event => {
   const contest = state?.classChallenges?.find(c => c.id === item);
   switch (action) {
     case 'dismiss': closeDialog(); break;
+    case 'learner-setup-back': {
+      const setup = el.closest('[data-form="learner-setup"]');
+      if (!setup || !learnerSetup?.index) return;
+      rememberLearnerSetup(new FormData(setup));
+      learnerSetup.index--;
+      showLearnerSetupStep();
+      break;
+    }
     case 'view-wealth':
       if (role === 'learner' && view === 'dashboard' && p) showWealth(p);
       break;
@@ -1852,7 +1975,7 @@ document.addEventListener('click', event => {
       save();
       break;
     case 'new-home':
-      if (publicRoutes.has(view)) playerDialog(undefined, true);
+      if (publicRoutes.has(view)) startLearnerSetup(true);
       break;
     case 'new-group':
       if (!publicRoutes.has(view) && !(role === 'facilitator' && !isHomeGame())) return;
@@ -1888,8 +2011,8 @@ document.addEventListener('click', event => {
         textField('Savings goal','goal','Name something you’d like to save for.',p.goal)
         + field('Goal amount (NZD)','target','Enter the total amount you need to save.',`<input type="number" name="target" min=".01" max="1000000" step=".01" value="${p.target/100}" required>`),'Save goal'));
       break;
-    case 'edit-player': if (role === 'facilitator' && p) playerDialog(p); break;
-    case 'add-player': if (role === 'facilitator' && state && !isHomeGame()) playerDialog(); break;
+    case 'edit-player': if (role === 'facilitator' && p) editPlayerDialog(p); break;
+    case 'add-player': if (role === 'facilitator' && state && !isHomeGame()) startLearnerSetup(false); break;
     case 'task': if (task && !weekOneLocked(p)) taskDialog(p, w, task); break;
     case 'lesson-quiz': {
       const week = p?.weeks[Number(index)];
@@ -2064,6 +2187,16 @@ document.addEventListener('change', event => {
     workspace.language = language = event.target.value;
     save();
     return;
+  }
+  const setup = event.target.closest('[data-form="learner-setup"]');
+  if (setup && event.target.name === 'mode') {
+    setup.querySelector('[data-setup-offer]').hidden = event.target.value !== 'manual';
+    setup.querySelector('[data-setup-practice]').hidden = event.target.value !== 'sim';
+  }
+  if (setup && event.target.name === 'weekMode') {
+    const scheduled = event.target.value === 'scheduled';
+    setup.querySelector('[data-setup-date]').hidden = !scheduled;
+    setup.elements.weekStart.required = scheduled;
   }
   const marketForm = event.target.closest('[data-form="school-market"]');
   if (marketForm) {
@@ -2294,38 +2427,59 @@ document.addEventListener('submit', async event => {
       setStarterLook(p, { icon:value('starter-icon'), background:value('starter-background') });
       finish('Starter look saved.');
       break;
-    case 'new-home':
-    case 'add-player':
+    case 'learner-setup': {
+      if (!learnerSetup || !dialog.open || !dialog.contains(el)) return;
+      const { home, group, steps, index, answers } = learnerSetup;
+      if (home ? !publicRoutes.has(view) : role !== 'facilitator' || group !== state || isHomeGame()) return;
+      const step = steps[index];
+      const invalid = (name, message) => {
+        fail(message);
+        el.elements.namedItem(name).focus();
+      };
+      if (step === 'about' && !value('name')) return invalid('name', 'Enter a nickname.');
+      if (step === 'earn' && !value('business')) return invalid('business', 'Enter an activity or business name.');
+      if (step === 'goal' && !value('goal')) return invalid('goal', 'Enter a savings goal.');
+      if (step === 'settings' && readWeekSchedule(value) === undefined) return invalid('weekStart', 'Enter a valid programme start date.');
+      rememberLearnerSetup(data);
+      if (index < steps.length - 1) {
+        learnerSetup.index++;
+        showLearnerSetupStep();
+        return;
+      }
+      const { name, business, mode, goal } = answers;
+      const fields = {
+        name, business, mode, goal,
+        track: Number(answers.track), target: Math.round(Number(answers.target) * 100),
+        offer: mode === 'manual' ? answers.offer : '',
+        customers: mode === 'manual' ? answers.customers : '',
+        weekSchedule: readWeekSchedule(key => answers[key])
+      };
+      const appearance = { icon: answers['starter-icon'], background: answers['starter-background'] };
+      learnerSetup = undefined;
+      if (home) {
+        const id = uid();
+        workspace.groups.push({ id, data: newHomeGame(fields, appearance) });
+        selectGroup(id);
+        closeDialog();
+        openRole('learner');
+        save('Home game ready. Open Parent / caregiver view to plan or review the week together.');
+      } else {
+        const learner = makePlayer({ ...fields, solo: answers.reviewMode === 'solo' }, state.rules);
+        setStarterLook(learner, appearance);
+        state.players.push(learner);
+        finish('Learner added.');
+      }
+      break;
+    }
     case 'edit-player': {
+      if (role !== 'facilitator' || !p) return;
       const fields = { name: value('name'), business: value('business'), offer: value('offer'), customers: value('customers'), goal: value('goal'), track: Number(value('track')), target: Math.round(Number(value('target')) * 100) };
       if (!fields.name || !fields.business || !fields.goal) return fail('Enter a name, a business and a savings goal.');
       if (!tracks[fields.track] || !Number.isSafeInteger(fields.target) || fields.target < 1 || fields.target > 100000000) return fail('Choose a learning level and enter a valid goal amount.');
       const schedule = readWeekSchedule(value);
-      if (schedule === undefined || (schedule === null && (el.dataset.form === 'new-home' || isHomeGame()))) {
-        return fail('Choose a progression mode and a valid start date for Scheduled.');
-      }
-      fields.weekSchedule = schedule;
-      if (el.dataset.form === 'new-home') {
-        if (!publicRoutes.has(view)) return;
-        const id = uid();
-        workspace.groups.push({ id, data: newHomeGame({ ...fields, mode:value('mode') }, { icon:value('starter-icon'), background:value('starter-background') }) });
-        selectGroup(id);
-        role = 'learner';
-        view = 'dashboard';
-        finish('Home game ready. Open Parent / caregiver view to plan or review the week together.');
-        break;
-      }
-      if (role !== 'facilitator') return;
-      if (el.dataset.form === 'edit-player') {
-        if (!p) return;
-        Object.assign(p, fields);
-      }
-      else {
-        if (!state || isHomeGame()) return;
-        const learner = makePlayer({ ...fields, starterPending:true, mode: value('mode'), solo: value('reviewMode') === 'solo' }, state.rules);
-        state.players.push(learner);
-      }
-      finish(el.dataset.form === 'edit-player' ? 'Learner profile saved.' : 'Learner added.');
+      if (schedule === undefined || (schedule === null && isHomeGame())) return fail('Choose a progression mode and a valid start date for Scheduled.');
+      Object.assign(p, fields, { weekSchedule: schedule });
+      finish('Learner profile saved.');
       break;
     }
     case 'lesson-reflection':
