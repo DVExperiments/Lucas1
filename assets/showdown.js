@@ -3,7 +3,7 @@ function showdown(root,onComplete){
  const guided=[[{"level":"Round 1","title":"Snack after school","pockets":[["In your wallet",20],["Bus fare",8],["Trip savings",6]],"question":"Put the bus fare and trip savings aside. What’s the biggest snack you can buy with the money left?","moves":[["Small snack",4],["Medium snack",6],["Large snack",8]],"correct":1,"reasons":["Only the bus fare needs to be set aside.","The smallest snack is the only one that leaves the trip money safe.","The bus fare and trip money have jobs already. Spend only what’s left."],"why":2,"hint":"Start with $20. Take away the bus fare and the amount you’re saving.","explain":"$20 − $8 − $6 = $6. The $4 snack fits too, but the $6 snack is the biggest one you can afford."},{"level":"Round 2","title":"One notebook, three shops","pockets":[],"question":"All three shops sell the same notebook. You can buy it today from any of them. Which costs the least once you include delivery?","moves":[["Shop A",5,"Collect it for free"],["Shop B",4,"Add $2 for delivery"],["Shop C",5,"Add $1 for delivery"]],"correct":0,"reasons":["Compare the total you’ll pay at each shop, including delivery.","Choose the shop with the lowest notebook price.","Choose the shop with the cheapest paid delivery."],"why":0,"hint":"Look at the notebook price and delivery together.","explain":"Shop A costs $5 altogether. B costs $4 + $2 = $6 and C costs $5 + $1 = $6."},{"level":"Round 3","title":"Nearly there","pockets":[["Already saved",16],["Needed by Friday",20],["Available today",8]],"question":"A weekend job might pay another $5. Choose the smallest amount you can save today that gets you to your Friday goal.","moves":[["Save",2],["Save",6],["Save",4]],"correct":2,"reasons":["Put aside more than the gap just in case.","Fill the gap using money you already have. Weekend pay comes after Friday.","Count the weekend pay towards Friday’s total."],"why":1,"hint":"Find the gap between what you’ve saved and what you need by Friday.","explain":"$20 − $16 = $4. Saving $6 would also reach the goal, but setting aside $4 leaves more available."}],[{"level":"Round 1","title":"Get ready for a quiet week","pockets":[["Likely pay next week",20],["Bus and lunch next week",25]],"question":"You can keep some of this week’s money for next week. Choose the smallest amount that covers the gap.","moves":[["Set aside",5],["Set aside",10],["Set aside",15]],"correct":0,"reasons":["Cover the whole cost with this week’s money.","Pick an amount bigger than the gap in case the plan changes.","Set aside the part of next week’s costs that next week’s pay won’t cover."],"why":2,"hint":"How much more than $20 will you need?","explain":"Next week’s $20 pays most of the $25. Put aside the $5 difference now."},{"level":"Round 2","title":"A bill due today","pockets":[["Cash today",15],["Bike repair due today",20],["Money set aside",10]],"question":"You’ll earn $10 tomorrow. How much should you take from the money you set aside to pay the repair today and keep as much as possible for later?","moves":[["Take out",2],["Take out",5],["Take out",10]],"correct":1,"reasons":["Use today’s cash first. Take out only what you still need for the repair.","Take out everything so you don’t have to count the gap.","Treat tomorrow’s pay as money you already have."],"why":0,"hint":"Tomorrow’s pay won’t be there when you pay the repair today.","explain":"$20 − $15 = $5. Taking $5 pays the repair and keeps the other $5 set aside."},{"level":"Round 3","title":"Refill the spare money","pockets":[["Set aside now",5],["Target",15],["New pay",15]],"question":"You want to get back to your $15 target and keep as much of your new pay as possible. How much do you put back?","moves":[["Put back",5],["Put back",15],["Put back",10]],"correct":2,"reasons":["Match what’s there already and leave the rest for spending.","Add the difference between what’s there now and what you want to have.","Put in the full target amount, even though some money is already there."],"why":1,"hint":"The money already set aside counts towards the $15 target.","explain":"You already have $5 set aside, so $15 − $5 = $10. You can keep the other $5 of your new pay."}]];
  const dollars=n=>"$"+n;
  let topic=0,stretch=false,screen="start",player=0,round=0,pick=null,reason=null,review=0;
- let answers=[[],[]];
+ let answers=[[],[]], result;
  const names=["Learner","Adult"];
  const control=(label,move,style="",disabled=false)=>`<button type="button" data-move="${move}" class="${style}" ${disabled?"disabled":""}>${label}</button>`;
  function draw(focus=false){
@@ -26,7 +26,7 @@ function showdown(root,onComplete){
   if(screen==="pass")body=`<h1 tabindex="-1" id="view">Pass the device</h1><p>The learner’s decisions are locked. Adult, take the same challenge, then compare what you each chose.</p>${control("Start adult’s turn","adult","primary")}`;
   if(screen==="ready")body=`<h1 tabindex="-1" id="view">Both turns are in</h1><p>Look together to see where you agreed and what each of you worked out.</p>${control("Reveal both results","reveal","primary")}`;
   if(screen==="results"){
-   const scores=answers.map(attempt=>attempt.reduce((sum,value,i)=>sum+Number(value.pick===deck.cards[i].correct)+Number(value.reason===deck.cards[i].why),0));
+   const { scores } = result;
    const diff=scores[0]-scores[1], match=deck.cards.filter((_,i)=>answers[0][i].pick===answers[1][i].pick).length;
    const message=diff>0?"The learner takes this round.":diff===0?"It’s a tie.":diff===-1?"The learner finished one point behind.":"The adult takes this round.";
    const item=deck.cards[review];
@@ -34,7 +34,9 @@ function showdown(root,onComplete){
    body=`<h1 tabindex="-1" id="view">The reveal</h1><div class="scoreboard">${scores.map((score,i)=>`<div><small>${names[i]}</small><strong>${score} / ${deck.cards.length*2}</strong></div>`).join("")}</div>
    <p><strong>${message}</strong> You made the same choice ${match} ${match===1?"time":"times"}.</p>
    <h2>Compare your decisions</h2><div class="rounds">${deck.cards.map((_,i)=>control("Decision "+(i+1),"review-"+i,i===review?"selected":"")).join("")}</div>
-   <section class="panel"><h3>${item.title}</h3><div class="scoreboard">${answers.map((attempt,i)=>{const {pick,reason}=attempt[review];const move=item.moves[pick];return `<div><small>${names[i]} chose</small><b>${move[0]} · ${dollars(move[1])}</b><small>Move ${pick===item.correct?"✓":"·"} · Reason ${reason===item.why?"✓":"·"}</small><p>${item.reasons[reason]}</p></div>`;}).join("")}</div>
+   <section class="panel"><h3>${item.title}</h3><div class="scoreboard">${answers.map((attempt,i)=>{const {pick,reason}=attempt[review];const move=item.moves[pick];return `<div><small>${names[i]} chose</small><b>${move[0]} · ${dollars(move[1])}</b><small>Move ${pick===item.correct?"correct":"incorrect"} · Reason ${reason===item.why?"correct":"incorrect"}</small><p>${item.reasons[reason]}</p></div>`;}).join("")}</div>
+   <p><strong>Correct move</strong> · ${item.moves[item.correct][0]} · ${dollars(item.moves[item.correct][1])}</p>
+   <p><strong>Correct reason</strong> · ${item.reasons[item.why]}</p>
    <p><strong>How it works</strong> · ${item.explain}</p><p><b>Learner</b> · Explain how you worked it out, or what you’d do differently. <b>Adult</b> · Where could you use that idea this week?</p></section>
    <section class="panel"><h2>Keep going on SAM</h2><p>${recommended>=0?`Start with the idea behind “${deck.cards[recommended].title}”. `:"Try the idea in a new example. "}${deck.practice}</p><p class="pending">${deck.lesson} · Official Success Avenue Money lesson link pending.</p></section>
    ${control("Play again","reset","primary")}`;
@@ -58,11 +60,29 @@ function showdown(root,onComplete){
   if(move==="reveal"){
    if(screen!=="ready")return;
    const deck=stretch?decks[topic].cards:guided[topic];
-   onComplete({topic:decks[topic].name,difficulty:stretch?"Stretch":"Standard",possible:deck.length*2,
-     scores:answers.map(attempt=>attempt.reduce((total,pair,i)=>total+Number(pair.pick===deck[i].correct)+Number(pair.reason===deck[i].why),0))});
+   const scores = answers.map(attempt => attempt.reduce((total, pair, i) =>
+     total + Number(pair.pick === deck[i].correct) + Number(pair.reason === deck[i].why), 0));
+   const moveLabel = ([label, cost, detail]) => [label, dollars(cost), detail].filter(Boolean).join(' · ');
+   const learnerAnswers = deck.flatMap((card, i) => {
+     const { pick, reason } = answers[0][i];
+     return [
+       { question: card.question, selected: moveLabel(card.moves[pick]),
+         expected: moveLabel(card.moves[card.correct]), correct: pick === card.correct },
+       { question: card.title + ' · Reason for the move', selected: card.reasons[reason],
+         expected: card.reasons[card.why], correct: reason === card.why }
+     ];
+   });
+   result = {
+     topic: decks[topic].name,
+     difficulty: stretch ? "Stretch" : "Standard",
+     possible: learnerAnswers.length,
+     scores,
+     learnerResult: { title: 'Learner’s Showdown answers', score: scores[0], answers: learnerAnswers }
+   };
+   onComplete(result);
    screen="results"; const mismatch=answers[0].findIndex((value,i)=>value.pick!==answers[1][i].pick||value.reason!==answers[1][i].reason);review=Math.max(0,mismatch);}
   if(move==="review"){review=Number(n);draw();root.querySelector('[data-move="review-'+n+'"]').focus();return;}
-  if(move==="reset"){screen="start";answers=[[],[]];player=0;round=0;pick=null;reason=null;review=0;}
+  if(move==="reset"){result=undefined;screen="start";answers=[[],[]];player=0;round=0;pick=null;reason=null;review=0;}
   draw(true);
  });
  draw();

@@ -420,7 +420,8 @@ export function learningStats(player, weeksToCount = player.weeks) {
     stats.missions += approved.filter(task => task.kind !== 'chore').length + Number(approved.some(task => task.kind === 'chore'));
     const recordedSam = week.tasks.some(task => task.id === 'learning' && task.source === 'sam' && task.status === 'approved');
     stats.videos += Number(Boolean(week.videoWatched || recordedSam));
-    stats.quizzes += Number(Boolean(week.quizPassed || week.tasks.some(task => task.id === 'learning' && task.status === 'approved')));
+    stats.quizzes += Number(Boolean(week.quizPassed || week.schoolQuizResult || week.tasks.some(task =>
+      task.id === 'learning' && task.source !== 'reflection' && task.status === 'approved')));
   }
   stats.lessons = stats.videos + stats.quizzes;
   stats.xp = 10 * (stats.missions + stats.videos) + 20 * stats.quizzes;

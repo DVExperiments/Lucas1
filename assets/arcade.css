@@ -294,3 +294,10 @@ body[data-role="facilitator"] .nav > button[aria-current] { color:var(--accent);
 .arc-avatar.frame-neon-sunset { --neon-edge:#ffb266; --neon-glow:#ff7450; --neon-halo:#ff724a85; border-bottom-color:#ff6dc4; }
 .arc-avatar.frame-neon-orbit { --neon-edge:#8fe3ff; --neon-glow:#aa77ff; --neon-halo:#8862ff88; border-inline-color:#b48cff; }
 .arc-avatar.frame-neon-spectrum { --neon-edge:#9dfaff; --neon-glow:#fd8ff4; --neon-halo:#ac8bff92; border-right-color:#ff9af5; border-bottom-color:#ffcb65; border-left-color:#bdff70; }
+
+.school-quiz .quiz-options { grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); }
+.school-quiz-results summary { cursor: pointer; }
+.school-quiz-results ol { padding-inline-start: 1.5rem; }
+.school-quiz-results li { padding: .65rem 0; }
+.school-quiz-results li + li { border-top: 1px solid var(--line); }
+.school-quiz-results li p { margin: .35rem 0 0; }
