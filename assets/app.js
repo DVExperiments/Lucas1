@@ -5,7 +5,7 @@ import { episodes, episodeFor, programmeLength } from './curriculum.js';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, prices, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js';
 
-import { languages, translate } from './locale.js?v=3.8.3';
+import { languages, translate } from './locale.js?v=3.8.4';
 import { vimeoPlayer } from './vimeo.js';
 import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js?v=3.7';
 
@@ -1077,6 +1077,13 @@ function groupView() {
   }).join('')}</tbody></table></div></section>
   <p class="detail">${workspace.active === 'test' ? 'Sample learners and activity for trying the teacher view.' : 'This class shares one browser. The facilitator PIN gates the teacher view on this device.'}</p>`;
 }
+function groupDisplayName(group) {
+  const name = group.players[0]?.name;
+  if (group.kind === 'home' && name && group.group === name + '’s home game') {
+    return tr('{name}’s home game', { name });
+  }
+  return group.group;
+}
 function homeView() {
   const homeGames = workspace.groups.filter(({data}) => data.kind === 'home');
   const homeGame = homeGames.find(group => group.id === workspace.active) ?? homeGames.at(-1);
@@ -1087,7 +1094,7 @@ function homeView() {
     <div><div class="eyebrow">SUCCESS AVENUE MONEY</div><h1>The Lucas Money Game</h1>
       <p>${esc(tr('Start a small business or try a paid activity, then work towards something you want to save for. Ask a parent or caregiver to help with your weekly check-ins.'))}</p>
       ${homeGame ? `<label for="home-group">${esc(tr('Home game'))}<select id="home-group">${homeGames.map(({ id, data }) =>
-        `<option value="${esc(id)}"${id === homeGame.id ? ' selected' : ''}>${esc(data.group)}</option>`).join('')}</select></label>` : ''}
+        `<option value="${esc(id)}"${id === homeGame.id ? ' selected' : ''}>${esc(groupDisplayName(data))}</option>`).join('')}</select></label>` : ''}
       <div class="action-row">
         ${homeGame ? button('Continue my game', 'resume-home', homeAttrs, 'primary') : ''}
         ${button('Start a new game', 'new-home', '', homeGame ? 'secondary' : 'primary')}
@@ -1115,19 +1122,19 @@ function setupView() {
   <div class="help-grid">
     <section class="panel help-panel"><h2>${esc(tr("Play at home"))}</h2>
       <ol class="setup-steps">
-        <li>Set up one learner with a business or paid household job and a savings goal.</li>
-        <li>Use <strong>${esc(tr("Parent / caregiver view"))}</strong> to tailor the first week or add a mission you can do together.</li>
-        <li>In <strong>${esc(tr("Learner view"))}</strong>, record earnings and costs and submit the missions. Review them together in the parent view and record the check-in to complete the week.</li>
+        <li>${esc(tr("Choose a business or paid activity and set a savings goal."))}</li>
+        <li>${esc(tr("Ask your parent or caregiver to open their view. Together you can plan your first week or add a mission."))}</li>
+        <li>${esc(tr("Record what you earn and spend, then submit your missions. Review them together to finish the week."))}</li>
       </ol>${button('Start a new game', 'new-home', '', 'primary')}
     </section>
-    <section class="panel help-panel"><h2>Play with a group</h2>
+    <section class="panel help-panel"><h2>${esc(tr("Play in a group"))}</h2>
       <ol class="setup-steps">
-        <li>Create a group for your class, club or household with multiple learners.</li>
-        <li>In <strong>${esc(tr("Facilitator view"))}</strong>, set the weekly money rules in Settings if needed, then use <strong>${esc(tr("Add learner"))}</strong> to set up each person.</li>
-        <li>Open a learner record to review their work or choose <strong>${esc(tr("Hand device to learner"))}</strong> to open that learner’s dashboard.</li>
+        <li>${esc(tr("Create a group for your class, club or household with multiple learners."))}</li>
+        <li>${esc(tr("Open the facilitator view. Adjust the weekly money rules in Settings if needed, then choose Add learner for each person."))}</li>
+        <li>${esc(tr("Open a learner record to review their work. Choose Hand device to learner to open their dashboard."))}</li>
       </ol><div class="action-row">${button('Start a new group', 'new-group')}${button(workspace.sample ? 'Resume demo' : 'Play the demo', 'test-group')}</div>
     </section>
-  </div><p class="detail spaced">Games and progress are saved in this browser. Learners and facilitators use the same saved game on this device.</p>`;
+  </div><p class="detail spaced">${esc(tr("Games and progress are saved in this browser. Learners and facilitators use the same saved game on this device."))}</p>`;
 }
 
 function aboutPanel() {
@@ -1231,7 +1238,10 @@ function render() {
   document.documentElement.lang = language;
   $('#game-language').value = language;
   $('#language-label').textContent = tr('Language');
-  $('#storage-note').textContent = tr('12-week programme · Demo progress is stored in this browser');
+  $('#storage-note').textContent = tr('12-week programme · Progress is stored in this browser');
+  $('.brand').setAttribute('aria-label', tr('The Lucas Money Game, home'));
+  $('#nav').setAttribute('aria-label', tr('Game sections'));
+  $('.skip').textContent = tr('Skip to content');
   const isPublic = publicRoutes.has(view);
   const p = isPublic ? undefined : player();
   $('#role').innerHTML = !isPublic && state && (role === 'learner' ? isHomeGame() : p)
@@ -1248,7 +1258,7 @@ function render() {
   document.body.dataset.role = role ?? 'public';
   document.body.dataset.skin = !isPublic && role === 'facilitator' ? 'staff' : p?.track === 0 ? 'junior' : p?.track === 2 ? 'teen' : 'arcade';
   const translationNote = language === 'en-NZ' ? '' : `<p class="group-context" lang="${language}">${tr('Some learning content is in English.')}</p>`;
-  const context = !isPublic && state ? `<p class="group-context">${workspace.active === 'test' ? tr('Test group · Sample data') : esc(state.group)}</p>` : '';
+  const context = !isPublic && state ? `<p class="group-context">${workspace.active === 'test' ? tr('Test group · Sample data') : esc(groupDisplayName(state))}</p>` : '';
   const content = role === 'learner' && weeklyViews.has(view) && weekOneLocked(p)
     ? pageHeader('LUCAS MONEY GAME', 'Week 1 is scheduled', tr('Your programme starts on {date}.', { date: scheduleDate(weekStartDate(weekSchedule(p), 0)) }))
     : sections[view](view === 'detail' ? state.players.find(other => other.id === detailPlayerId) : p);
@@ -1283,7 +1293,7 @@ dialog.addEventListener('close', () => {
   }
 });
 function openDialog(title, body) {
-  dialog.innerHTML = `<div class="dialog-head"><h2 id="dialog-title" tabindex="-1">${tr(title)}</h2>${button(tr('Close'), 'dismiss', `aria-label="${esc(tr('Close dialog'))}"`, 'small')}</div>${body}`;
+  dialog.innerHTML = `<div class="dialog-head"><h2 id="dialog-title" tabindex="-1">${tr(title)}</h2>${button('Close', 'dismiss', `aria-label="${esc(tr('Close dialog'))}"`, 'small')}</div>${body}`;
   if (!dialog.open) dialog.showModal();
   $('#dialog-title').focus();
 }
@@ -1292,7 +1302,7 @@ function form(action, body, label, attrs = '') {
 }
 function field(label, id, hint, control) {
   const input = control.replace(/^<(input|select|textarea)/, `<$1 id="${id}" aria-describedby="tip-${id}"`);
-  return `<div class="field"><div class="field-heading"><label for="${id}">${tr(label)}</label><button type="button" class="field-tip" data-action="field-tip" aria-label="Help for ${esc(label)}" aria-expanded="false" aria-controls="tip-${id}">?</button></div>
+  return `<div class="field"><div class="field-heading"><label for="${id}">${tr(label)}</label><button type="button" class="field-tip" data-action="field-tip" aria-label="${esc(tr('Help for {field}', { field: tr(label) }))}" aria-expanded="false" aria-controls="tip-${id}">?</button></div>
     ${input}<div class="tip-text" id="tip-${id}" hidden>${esc(tr(hint))}</div></div>`;
 }
 function textField(label, name, hint, value = '', limit = 80, required = true) {
@@ -1565,9 +1575,16 @@ function ageGroupField(track) {
       ${tracks.map((label, index) => `<option value="${index}"${String(index) === String(track) ? ' selected' : ''}>${esc(tr(label))}</option>`).join('')}
     </select>`);
 }
-function goalAmountField(amount) {
+function goalAmountField(amount, setup = false) {
+  const attributes = setup ? 'inputmode="decimal"' : 'type="number" step=".01" min=".01" max="1000000"';
   return field('Goal amount (NZD)', 'target', 'Enter how much you want to save, in New Zealand dollars.',
-    `<input name="target" type="number" step=".01" min=".01" max="1000000" value="${esc(amount)}" required>`);
+    `<input name="target" ${attributes} value="${esc(amount)}" required>`);
+}
+function readSetupAmount(value) {
+  const amount = value.replace(',', '.');
+  if (!/^(?:\d+(?:\.\d{1,2})?|\.\d{1,2})$/.test(amount)) return null;
+  const cents = Math.round(Number(amount) * 100);
+  return cents >= 1 && cents <= 100000000 ? cents : null;
 }
 function editPlayerDialog(p) {
   openDialog('Edit learner profile', form('edit-player', `<div class="fields">
@@ -1634,7 +1651,7 @@ function showLearnerSetupStep() {
     case 'goal':
       fields = `<div class="fields">
         ${textField('Savings goal', 'goal', 'Pick something to save for, such as art supplies or a second-hand bike.', answers.goal)}
-        ${goalAmountField(answers.target)}
+        ${goalAmountField(answers.target, true)}
       </div>`;
       break;
     case 'settings':
@@ -1653,7 +1670,7 @@ function showLearnerSetupStep() {
       break;
   }
   const progress = tr('Step {step} of {total}', { step: index + 1, total: steps.length });
-  openDialog(learnerSetupSteps[step], `<form data-form="learner-setup">
+  openDialog(learnerSetupSteps[step], `<form data-form="learner-setup" novalidate>
     <p class="detail">${esc(progress)}</p>
     ${fields}
     <p class="error" role="alert"></p>
@@ -2432,13 +2449,25 @@ document.addEventListener('submit', async event => {
       const { home, group, steps, index, answers } = learnerSetup;
       if (home ? !publicRoutes.has(view) : role !== 'facilitator' || group !== state || isHomeGame()) return;
       const step = steps[index];
+      el.querySelector('[aria-invalid]')?.removeAttribute('aria-invalid');
       const invalid = (name, message) => {
         fail(message);
-        el.elements.namedItem(name).focus();
+        const input = el.elements.namedItem(name);
+        input.setAttribute('aria-invalid', 'true');
+        input.focus();
       };
-      if (step === 'about' && !value('name')) return invalid('name', 'Enter a nickname.');
-      if (step === 'earn' && !value('business')) return invalid('business', 'Enter an activity or business name.');
-      if (step === 'goal' && !value('goal')) return invalid('goal', 'Enter a savings goal.');
+      if (step === 'about') {
+        if (!value('name')) return invalid('name', 'Enter a nickname.');
+        if (!value('track')) return invalid('track', 'Choose an age group.');
+      }
+      if (step === 'earn') {
+        if (!value('mode')) return invalid('mode', 'Choose how you want to earn.');
+        if (!value('business')) return invalid('business', 'Enter an activity or business name.');
+      }
+      if (step === 'goal') {
+        if (!value('goal')) return invalid('goal', 'Enter a savings goal.');
+        if (readSetupAmount(value('target')) === null) return invalid('target', 'Enter a savings amount from NZ$0.01 to NZ$1,000,000, with up to two decimal places.');
+      }
       if (step === 'settings' && readWeekSchedule(value) === undefined) return invalid('weekStart', 'Enter a valid programme start date.');
       rememberLearnerSetup(data);
       if (index < steps.length - 1) {
@@ -2449,7 +2478,7 @@ document.addEventListener('submit', async event => {
       const { name, business, mode, goal } = answers;
       const fields = {
         name, business, mode, goal,
-        track: Number(answers.track), target: Math.round(Number(answers.target) * 100),
+        track: Number(answers.track), target: readSetupAmount(answers.target),
         offer: mode === 'manual' ? answers.offer : '',
         customers: mode === 'manual' ? answers.customers : '',
         weekSchedule: readWeekSchedule(key => answers[key])
