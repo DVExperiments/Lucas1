@@ -1,6 +1,6 @@
-import { programmeLength, episodeFor } from './curriculum.js';
-import { ensureFamilyTask } from './family.js';
-import { weeklyCertificates, weeklyPoints, weeklyAvatarRewards } from './challenges.js';
+import { programmeLength, episodeFor, habitQuestionFor } from './curriculum.js?v=3.8.5';
+import { ensureFamilyTask } from './family.js?v=3.8.5';
+import { weeklyCertificates, weeklyPoints, weeklyAvatarRewards } from './challenges.js?v=3.8.5';
 
 export const tracks = ['Ages 8–10', 'Ages 11–13 · Intermediate', 'Ages 14–17'];
 export const buckets = ['Spend', 'Save', 'Invest', 'Give'];
@@ -308,7 +308,7 @@ export function moduleFor(player, index) {
   const business = player.mode === 'manual' ? episode.business : original.prompts[player.track];
   const defaults = { title: chapter + episode.title, summary: episode.concept,
     business: player.track === 0 ? business + ' Ask an adult to help if you need it.' : business,
-    outside: episode.outside, lessonNote: '', lessonUrl: '', quizUrl: '' };
+    outside: habitQuestionFor(index) ?? episode.outside, lessonNote: '', lessonUrl: '', quizUrl: '' };
   return { ...defaults, ...player.modules?.[index] };
 }
 

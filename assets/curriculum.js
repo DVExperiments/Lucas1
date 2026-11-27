@@ -1,5 +1,21 @@
 export const programmeLength = 12;
 
+const habitQuestions = [
+  'What is one thing you could earn money for this week, and what would it cost you to do it?',
+  'Which cost in a recent purchase was easy to miss, and how could you spot it next time?',
+  'If you had an unexpected $10 cost this week, how would you cover it?',
+  'How much could you put towards your savings goal this week, and what would help you stick to that amount?',
+  'What is one thing you need and one thing you want this week? Which could wait?',
+  'If a job costs $3 in supplies and takes half an hour, what would you charge and why?',
+  'Which expense would you change in next week’s budget, and how much would that free up?',
+  'What could happen if your business relied on one customer, and how could you reduce that risk?',
+  'If you spent $5 on a lottery ticket, what other use for that $5 would you give up?',
+  'If your usual lunch costs $1 more each day, how would you adjust your weekly spending?',
+  'If you earned more than usual this week, what would you do to help that money last?',
+  'If you started a business with a friend, what is one agreement you would put in writing and why?'
+];
+export const habitQuestionFor = index => habitQuestions[index];
+
 // Each practice clip illustrates the week's game activity.
 export const episodes = [
   ['Earn it', 'Income and costs', 'Agree on one paid chore or job with your adult, then record what happened.', 'Before buying lunch, decide how much you can spend and what you’ll keep.',

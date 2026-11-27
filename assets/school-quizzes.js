@@ -1,4 +1,5 @@
-// Weeks 1–6 of the SAM 12-Week School Challenge facilitator edition.
+// Weeks 1–6 from the SAM School Challenge facilitator edition.
+// Weeks 7–12 from SAM Video Quizzes Weeks 7–12 (draft for script verification).
 const quizzes = [
   { title: "Money and Financial Basics", questions: [
     ["What is income?", ["Money you owe someone", "Money you receive or earn", "Money you spend", "Money you borrow"], 1],
@@ -72,8 +73,51 @@ const quizzes = [
     ["What does scalability mean?", ["Reducing customer numbers", "Ability to grow without costs necessarily rising at the same rate", "Increasing prices weekly", "Spending all profits"], 1],
     ["Your first business idea fails. What is the most constructive response?", ["Never try again", "Borrow more without changing strategy", "Blame customers", "Review what went wrong, learn and improve"], 3],
   ] },
+  { title: "Budgeting", questions: [
+    ["Why is budgeting important?", ["It allows you to spend without limits.", "It helps you understand where your money is going.", "It gives you greater control over your finances.", "It eliminates the need to save money."], [1, 2]],
+    ["What does paying yourself first mean?", ["Putting money aside for savings when you receive your income.", "Buying yourself something every payday.", "Spending your income and saving whatever is left.", "Prioritising saving and investing before unnecessary spending."], [0, 3]],
+    ["Which everyday expenses does JC use as examples of how small expenses can add up?", ["Purchasing a new car.", "Buying coffee regularly.", "Buying a house.", "Eating out regularly."], [1, 3]],
+    ["Which two activities can help you understand your spending habits?", ["Tracking your expenses for at least one month.", "Only recording purchases over $100.", "Reviewing your bank transactions and regular payments.", "Only checking your account balance on payday."], [0, 2]],
+    ["Which two expenses would generally be considered wants rather than needs?", ["Basic groceries.", "Upgrading to the latest phone when your current one works.", "Paying for an additional entertainment subscription.", "Essential medication."], [1, 2]],
+  ] },
+  { title: "Diversification", questions: [
+    ["What does diversification involve?", ["Spreading your money across different types of investments.", "Investing everything in your best-performing company.", "Keeping all your wealth in one business.", "Reducing your dependence on a single source of wealth."], [0, 3]],
+    ["What lessons can we learn from the economic difficulties discussed in JC's family story?", ["Successful businesses never experience financial difficulties.", "Economic conditions can change unexpectedly.", "Having different sources of income and wealth can improve financial resilience.", "Previous success guarantees future success."], [1, 2]],
+    ["Which two areas did JC's uncle use to diversify his wealth?", ["Farming and agricultural activities.", "Lottery tickets and casino gambling.", "Property and other business investments.", "Collecting lottery winnings."], [0, 2]],
+    ["Why can relying on a single investment be risky?", ["Owning one investment prevents its value from falling.", "Your financial position depends heavily on its performance.", "All investments perform identically during downturns.", "A downturn in one industry could significantly affect your wealth."], [1, 3]],
+    ["Which two lessons about diversification can you apply to your own business?", ["Try to develop relationships with different customers.", "Depend entirely on one customer.", "Assume demand for your product will never change.", "Explore different opportunities to generate income."], [0, 3]],
+  ] },
+  { title: "Lottery vs Investing", questions: [
+    ["What are two important differences between buying lottery tickets and investing?", ["Lottery tickets provide guaranteed long-term returns.", "Winning a major lottery prize depends heavily on chance.", "Investing allows you to potentially build wealth through asset ownership and growth.", "Investing guarantees that you will never lose money."], [1, 2]],
+    ["What does opportunity cost mean when buying lottery tickets?", ["Giving up the opportunity to invest that money instead.", "Increasing your chances of winning an investment return.", "Receiving interest on the money spent on tickets.", "Missing out on other potential benefits from using that money differently."], [0, 3]],
+    ["What can happen when you regularly invest small amounts of money over a long period?", ["Your investment is guaranteed to double every year.", "Your regular contributions can accumulate into a substantial amount.", "Your investment can never decrease in value.", "Your investment growth may generate further growth through compounding."], [1, 3]],
+    ["Why is patience important when investing?", ["It gives your investments more time to potentially compound.", "It guarantees that every investment will be profitable.", "It can help you avoid making emotional decisions during short-term market downturns.", "It removes the need to understand investment risks."], [0, 2]],
+    ["Which two monthly investment amounts are used in the SAM Lotto vs Investing comparison resource?", ["$200 per month.", "$400 per month.", "$800 per month.", "$1,500 per month."], [1, 2]],
+  ] },
+  { title: "Financial Concepts", questions: [
+    ["Which two statements about compound interest are correct?", ["You can earn returns on previously earned returns.", "It only applies to your original investment.", "It guarantees positive investment returns.", "Time is an important factor in the potential benefits of compounding."], [0, 3]],
+    ["How can inflation affect your everyday life?", ["It automatically increases the value of your savings.", "The same amount of money may buy fewer products in the future.", "The cost of everyday goods and services can increase.", "It guarantees that your income will increase."], [1, 2]],
+    ["Which two financial concepts should you understand when operating your own business?", ["Revenue and expenses.", "Lottery probabilities.", "Cash flow and profit.", "Personal popularity and social media followers."], [0, 2]],
+    ["Which two statements about financial risk are correct?", ["Higher-risk investments always produce higher returns.", "Investments can decrease in value.", "Diversification eliminates all financial risks.", "Understanding risk can help you make better financial decisions."], [1, 3]],
+    ["Which two actions demonstrate good financial decision-making?", ["Understanding the costs and potential benefits before making a purchase.", "Considering how today's financial decisions could affect your future.", "Borrowing money without understanding the repayment conditions.", "Choosing investments solely because your friends recommend them."], [0, 1]],
+  ] },
+  { title: "My Grandfather's Story", questions: [
+    ["Which two countries were part of JC's grandfather's journey before he met his grandmother?", ["New Zealand.", "Austria.", "Australia.", "Argentina."], [1, 3]],
+    ["Which two statements about JC's grandfather's professional life are correct?", ["He worked as a hairdresser.", "He worked as a professional rugby player.", "He became a business owner with hairdressing salons.", "He worked as a commercial pilot."], [0, 2]],
+    ["Which two statements about how JC's grandparents met are correct?", ["They met while travelling around New Zealand.", "They met in Chile.", "They met at an event related to hairdressing.", "They met while studying at university."], [1, 2]],
+    ["Which two statements describe what happened to JC's grandfather's wealth?", ["He lost his wealth through gambling.", "He donated all his wealth to charity.", "He successfully protected his wealth for retirement.", "Despite his previous business success, he died with nothing."], [0, 3]],
+    ["What are two important financial lessons from JC's grandfather's story?", ["Working hard guarantees financial security.", "Making money and knowing how to manage it are different skills.", "Gambling is a reliable way to increase your wealth.", "Financial education and preparing for the future are important, regardless of how much you earn."], [1, 3]],
+  ] },
+  { title: "My First Business Partnership", questions: [
+    ["Which two statements about JC's first business partnership are correct?", ["He started the business while he was a teenager.", "He started the business after moving to New Zealand.", "He started the business after graduating from university.", "He went into business with a friend."], [0, 3]],
+    ["Which two statements describe JC's first business experience?", ["The business involved selling cars.", "The business was related to music and entertainment.", "JC developed skills as a DJ.", "The business involved building houses."], [1, 2]],
+    ["How did JC develop the skills that led to his first business partnership?", ["He gained practical experience working with DJ equipment.", "He completed a university degree in music.", "He had the opportunity to learn at his friend's father's nightclub.", "He attended a professional DJ school overseas."], [0, 2]],
+    ["Which two areas should business partners discuss before starting a business together?", ["Who will have the most impressive job title.", "How much money and equipment each partner will contribute.", "How they will spend profits before earning them.", "How responsibilities and business decisions will be shared."], [1, 3]],
+    ["Which two lessons from JC's first business partnership could you apply to your own business?", ["Put important business agreements in writing.", "Assume that being friends means you will never disagree.", "Communicate openly and establish clear expectations.", "Wait until a disagreement occurs before discussing responsibilities."], [0, 2]],
+  ] },
 ].map(({ title, questions }) => ({
   title,
+  picks: Array.isArray(questions[0][2]) ? 2 : 1,
   questions: questions.map(([question, options, answer]) => ({ question, options, answer }))
 }));
 
@@ -81,14 +125,28 @@ export const quizPassMark = 60;
 export const schoolQuizFor = index => quizzes[index];
 
 export function gradeSchoolQuiz(quiz, choices) {
-  if (choices.length !== quiz.questions.length || quiz.questions.some(({ options }, index) =>
-    !Number.isInteger(choices[index]) || !Object.hasOwn(options, choices[index]))) return null;
-  const answers = quiz.questions.map(({ question, options, answer }, index) => ({
-    question,
-    selected: options[choices[index]],
-    expected: options[answer],
-    correct: choices[index] === answer
-  }));
-  const score = answers.filter(answer => answer.correct).length;
-  return { title: quiz.title, score, answers, passed: score * 100 >= quizPassMark * answers.length };
+  if (!quiz || choices.length !== quiz.questions.length) return null;
+  const picks = quiz.picks ?? 1;
+  const selected = Array.from(choices, choice => Array.isArray(choice) ? choice : [choice]);
+  if (quiz.questions.some(({ options }, index) => {
+    const answers = selected[index];
+    return answers.length !== picks || new Set(answers).size !== picks ||
+      answers.some(option => !Number.isInteger(option) || option < 0 || option >= options.length);
+  })) return null;
+
+  const answers = quiz.questions.map(({ question, options, answer }, index) => {
+    const key = Array.isArray(answer) ? answer : [answer];
+    const points = selected[index].filter(option => key.includes(option)).length;
+    return {
+      question,
+      selected: selected[index].map(option => options[option]).join(' / '),
+      expected: key.map(option => options[option]).join(' / '),
+      correct: points === picks,
+      points,
+      maximum: picks
+    };
+  });
+  const score = answers.reduce((sum, answer) => sum + answer.points, 0);
+  const maximum = answers.length * picks;
+  return { title: quiz.title, score, maximum, answers, passed: score * 100 >= quizPassMark * maximum };
 }
