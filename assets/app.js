@@ -4,7 +4,7 @@ import { episodes, episodeFor, programmeLength } from './curriculum.js?v=3.8.5';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js?v=3.8.5';
 
-import { languages, translate } from './locale.js?v=3.8.9';
+import { languages, translate } from './locale.js?v=3.8.10';
 import { vimeoPlayer } from './vimeo.js';
 import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js?v=3.8.5';
 
@@ -916,7 +916,7 @@ function dashboardView(p) {
           ${button(`<span aria-hidden="true">${missionIcons.business}</span>` + `<strong>${tr('Business mission')}</strong><small>` + tr(p.mode === 'sim' ? 'Try one move in your practice market' : 'Log work, income and costs') + '</small>', 'task', 'data-id="business"', 'mission-action mission-business')}
           ${button(`<span aria-hidden="true">${missionIcons.learning}</span>` + `<strong>${esc(tr('Money lesson'))}</strong><small>` + esc(tr(lessonStatus)) + '</small>', 'task', 'data-id="learning"', 'mission-action mission-learning')}
           ${button(`<span aria-hidden="true">${missionIcons.reflection}</span>` + `<strong>${tr('Money habit')}</strong><small>${esc(tr("Answer this week’s question"))}</small>`, 'task', 'data-id="reflection"', 'mission-action mission-reflection')}
-        </div></section>
+        </div><div class="action-row">${button('My business & chores', 'manage-chores', 'aria-haspopup="dialog"', 'small')}</div></section>
       <aside class="arc-side"><section class="arc-card"><span>${esc(tr("YOUR PROGRESS"))}</span><h2>${button(level === 5 ? 'Top level reached' : 'Next level', 'view', 'data-view="progress" aria-label="Your progress"', 'card-link')}</h2><progress max="100" value="${levelProgress}" aria-label="Learning XP to next level"></progress><p>${level === 5 ? tr('Keep practising your money habits.') : tr('{points} XP to Level {level}', {points:levelStep-levelProgress,level:level+2})}</p></section>
       <section class="arc-card arc-gold"><span>${esc(tr("MY BIG GOAL"))}</span><h2>${button(esc(p.goal), 'view', 'data-view="progress" aria-label="My big goal and savings progress"', 'card-link')}</h2><progress max="100" value="${pct(p)}" aria-label="${esc(tr("Savings goal progress"))}"></progress><p>${tr('{percent}% of goal · {weeks} checked in', {percent:pct(p),weeks:closed})}</p></section>
       ${shopGoalCard(p)}<section class="arc-card arc-chart"><span>${esc(tr("LEARNING THIS WEEK"))}</span><h2>${button(tr('{count} XP earned', {count:week.xp}), 'view', 'data-view="week" aria-label="See this week’s learning"', 'card-link')}</h2><dl>${[['Missions',week.missions,w.tasks.filter(t=>t.id!=='learning' && t.kind!=='chore').length + Number(w.tasks.some(t=>t.kind==='chore'))],['Videos',week.videos,1],['Quizzes',week.quizzes,1]].map(([label,n,max])=>`<div><dt>${tr(label)}</dt><dd><progress aria-label="${label} completed this week" max="${Math.max(1,max)}" value="${n}"></progress><b>${n}</b></dd></div>`).join('')}</dl></section></aside>
@@ -1290,7 +1290,8 @@ function render() {
   const context = !isPublic && state ? `<p class="group-context">${week12Demo ? tr('Week 12 demo · Sample data')
     : workspace.active === 'test' ? tr('Test group · Sample data') : esc(groupDisplayName(state))}</p>` : '';
   const content = role === 'learner' && weeklyViews.has(view) && weekOneLocked(p)
-    ? pageHeader('LUCAS MONEY GAME', 'Week 1 is scheduled', tr('Your programme starts on {date}.', { date: scheduleDate(weekStartDate(weekSchedule(p), 0)) }))
+    ? pageHeader('LUCAS MONEY GAME', 'Week 1 is scheduled', tr('Your programme starts on {date}.', { date: scheduleDate(weekStartDate(weekSchedule(p), 0)) }),
+      view === 'dashboard' ? button('My business & chores', 'manage-chores', 'aria-haspopup="dialog"') : '')
     : sections[view](view === 'detail' ? state.players.find(other => other.id === detailPlayerId) : p);
   $('#main').innerHTML = '<p id="notice" class="toast" role="status" tabindex="-1" hidden></p>' + context + translationNote + teacherGroupControls() + content;
 }
@@ -1624,8 +1625,8 @@ function businessActivityForm(p, task) {
 }
 function choreDialog(p) {
   const presets = p.chorePresets ?? [];
-  openDialog('I did a chore', `<p>${esc(tr('Agree on chores and pay with your parent or caregiver before you start. Even $1 is enough to practise.'))}</p>
-    ${form('chore', field('Chore', 'chorePreset', 'Choose a chore your adult set up, or log another unpaid chore.',
+  openDialog('I did a chore', `<p>${esc(tr('Agree on chores and pay with an adult before you start.'))}</p>
+    ${form('chore', field('Chore', 'chorePreset', 'Choose an agreed chore or log another unpaid chore.',
       `<select name="chorePreset" required><option value="">${esc(tr('Choose a chore'))}</option>
         ${presets.map(chore => `<option value="${esc(chore.id)}">${esc(chore.title)} · ${money(chore.pay)}</option>`).join('')}
         <option value="unpaid">${esc(tr('Other unpaid chore'))}</option></select>`) +
@@ -1634,14 +1635,32 @@ function choreDialog(p) {
       p.solo ? 'Log chore' : 'Log and send for review')}`);
 }
 function manageChores(p) {
-  openDialog('Agreed chores', `<p>${esc(tr('Choose chores and amounts together. The learner can pick them under I did a chore.'))}</p>
-    ${(p.chorePresets ?? []).map(chore => `<div class="lesson"><strong>${esc(chore.title)}</strong> · ${money(chore.pay)}
-      <div class="action-row">${button('Edit', 'edit-chore-preset', `${playerAttrs(p)} data-id="${esc(chore.id)}"`, 'small')}
-        ${button('Remove', 'remove-chore-preset', `${playerAttrs(p)} data-id="${esc(chore.id)}"`, 'small')}</div></div>`).join('')}
+  const learner = role === 'learner';
+  const presets = p.chorePresets ?? [];
+  const business = learner ? `<section class="lesson">
+      <h3>${esc(p.business)}</h3>
+      ${p.mode === 'manual' && p.businessPrice != null ? `<p>${esc(tr('Price per job or item: {amount}', { amount: money(p.businessPrice) }))}</p>` : ''}
+      ${button('Edit business', 'edit-own-business', playerAttrs(p), 'small')}
+    </section><h3>${tr('Agreed chores')}</h3>` : '';
+  openDialog(learner ? 'My business & chores' : 'Agreed chores', `${business}
+    <p>${esc(tr(learner ? 'Agree on chores and pay with an adult before you add or change them. Changes apply the next time you log a chore.'
+      : 'Choose chores and amounts together. The learner can pick them under I did a chore.'))}</p>
+    ${presets.map(chore => {
+      const attrs = `${playerAttrs(p)} data-id="${esc(chore.id)}"`;
+      return `<div class="lesson"><strong>${esc(chore.title)}</strong> · ${money(chore.pay)}
+        <div class="action-row">${button('Edit', 'edit-chore-preset', `${attrs} aria-label="${esc(tr('Edit {chore}', { chore: chore.title }))}"`, 'small')}
+          ${button('Remove', 'remove-chore-preset', `${attrs} aria-label="${esc(tr('Remove {chore}', { chore: chore.title }))}"`, 'small')}</div></div>`;
+    }).join('') || `<p class="detail">${esc(tr('No chores added'))}</p>`}
     ${button('Add an agreed chore', 'edit-chore-preset', playerAttrs(p), 'primary')}`);
 }
+function canManageChores(p, id) {
+  return Boolean(p && (role === 'facilitator' ? p.id === id : role === 'learner' && (!id || p.id === id)));
+}
+function backToChores(p) {
+  return `<div class="action-row">${button('Back', 'manage-chores', playerAttrs(p), 'small')}</div>`;
+}
 function chorePresetDialog(p, preset) {
-  openDialog(preset ? 'Edit agreed chore' : 'Add an agreed chore', form('chore-preset',
+  openDialog(preset ? 'Edit agreed chore' : 'Add an agreed chore', backToChores(p) + form('chore-preset',
     chorePresetFields('presetTitle', 'presetPay', { title: preset?.title, amount: (preset?.pay ?? 100) / 100 }),
     'Save chore', playerAttrs(p) + (preset ? ` data-id="${esc(preset.id)}"` : '')));
 }
@@ -1737,10 +1756,19 @@ function readSetupAmount(value, minimum = 1) {
 function cashField(label, name, hint, cents, required = true) {
   return field(label, name, hint, `<input name="${name}" inputmode="decimal" value="${esc(cents == null ? '' : cents / 100)}" ${required ? 'required' : ''}>`);
 }
-function businessPriceField(cents, draft) {
+function businessPriceField(cents, draft, editing = false) {
   return field('What will you charge per job or item? (NZD)', 'businessPrice',
-    'Set an optional starting price. You can change the actual amount when you log the work.',
+    editing ? 'You can leave this blank or set a default price for the next time you log business work.'
+      : 'Set an optional starting price. You can change the actual amount when you log the work.',
     `<input name="businessPrice" inputmode="decimal" value="${esc(draft ?? (cents == null ? '' : cents / 100))}">`);
+}
+function editOwnBusinessDialog(p) {
+  openDialog('Edit business', backToChores(p) + form('edit-own-business', `<div class="fields">
+    ${textField('Business name', 'business', 'Give your business or household service a name, such as Weekend Car Wash.', p.business)}
+    ${p.mode === 'manual' ? businessPriceField(p.businessPrice, undefined, true) : ''}
+    ${textField('What do you offer? (optional)', 'offer', 'Describe the job or product, such as mowing the lawn for an agreed price.', p.offer, 120, false)}
+    ${textField('Who is it for? (optional)', 'customers', 'Name the type of customer, such as my family or neighbours I know.', p.customers, 120, false)}
+  </div>`, 'Save changes', playerAttrs(p)));
 }
 function editPlayerDialog(p) {
   openDialog('Edit learner profile', form('edit-player', `<div class="fields">
@@ -2330,15 +2358,18 @@ document.addEventListener('click', event => {
       if (role === 'learner' && w && !w.closed && !weekOneLocked(p)) choreDialog(p);
       break;
     case 'manage-chores':
-      if (role === 'facilitator' && p) manageChores(p);
+      if (canManageChores(p, id)) manageChores(p);
+      break;
+    case 'edit-own-business':
+      if (role === 'learner' && p?.id === id) editOwnBusinessDialog(p);
       break;
     case 'edit-chore-preset':
     case 'remove-chore-preset': {
-      if (role !== 'facilitator' || !p) return;
+      if (!canManageChores(p, id)) return;
       const preset = p.chorePresets?.find(chore => chore.id === item);
       if (item && !preset || action === 'remove-chore-preset' && !preset) return;
       if (action === 'edit-chore-preset') chorePresetDialog(p, preset);
-      else openDialog('Remove agreed chore?', `<p>${esc(preset.title)}</p>` +
+      else openDialog('Remove agreed chore?', backToChores(p) + `<p>${esc(preset.title)}</p>` +
         form('remove-chore-preset', '', 'Remove', `${playerAttrs(p)} data-id="${esc(item)}"`));
       break;
     }
@@ -2854,6 +2885,20 @@ document.addEventListener('submit', async event => {
       finish('Learner profile saved.');
       break;
     }
+    case 'edit-own-business': {
+      if (role !== 'learner' || !p || p.id !== el.dataset.player || !dialog.open || !dialog.contains(el)) return;
+      const business = value('business');
+      if (!business) return fail('Enter an activity or business name.');
+      if (p.mode === 'manual') {
+        const price = value('businessPrice') ? readSetupAmount(value('businessPrice'), 0) : undefined;
+        if (price === null) return fail('Enter a valid price or leave it blank.');
+        p.businessPrice = price;
+      }
+      Object.assign(p, { business, offer: value('offer'), customers: value('customers') });
+      save();
+      manageChores(p);
+      break;
+    }
     case 'lesson-reflection':
     case 'sam-lesson-record': {
       const learning = w?.tasks.find(t => t.id === 'learning');
@@ -2945,7 +2990,7 @@ document.addEventListener('submit', async event => {
     }
     case 'chore-preset':
     case 'remove-chore-preset': {
-      if (role !== 'facilitator' || !p || !dialog.contains(el)) return;
+      if (!el.dataset.player || !canManageChores(p, el.dataset.player) || !dialog.open || !dialog.contains(el)) return;
       const presets = p.chorePresets ?? [];
       const existing = presets.find(chore => chore.id === el.dataset.id);
       if (el.dataset.id && !existing || el.dataset.form === 'remove-chore-preset' && !existing) return;
