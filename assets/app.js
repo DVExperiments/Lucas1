@@ -4,7 +4,7 @@ import { episodes, episodeFor, programmeLength } from './curriculum.js?v=3.8.5';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js?v=3.8.5';
 
-import { languages, translate } from './locale.js?v=3.8.6';
+import { languages, translate } from './locale.js?v=3.8.9';
 import { vimeoPlayer } from './vimeo.js';
 import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js?v=3.8.5';
 
@@ -1642,9 +1642,13 @@ function manageChores(p) {
 }
 function chorePresetDialog(p, preset) {
   openDialog(preset ? 'Edit agreed chore' : 'Add an agreed chore', form('chore-preset',
-    textField('Chore name', 'presetTitle', 'For example, fold the washing.', preset?.title) +
-    cashField('Agreed pay (NZD)', 'presetPay', 'Enter the amount for each completed chore. Use 0 for unpaid chores.', preset?.pay ?? 100),
+    chorePresetFields('presetTitle', 'presetPay', { title: preset?.title, amount: (preset?.pay ?? 100) / 100 }),
     'Save chore', playerAttrs(p) + (preset ? ` data-id="${esc(preset.id)}"` : '')));
+}
+function chorePresetFields(titleName, payName, { title, amount }, required = true) {
+  return textField('Chore name', titleName, 'For example, fold the washing.', title, 80, required) +
+    field('Agreed pay (NZD)', payName, 'Enter the amount for each completed chore. Use 0 for unpaid chores.',
+      `<input name="${payName}" inputmode="decimal" value="${esc(amount)}" ${required ? 'required' : ''}>`);
 }
 function taskDialog(p, week, task, showQuiz = false) {
   if (task.id === 'family') return familyTaskDialog(p, task);
@@ -1755,6 +1759,7 @@ function editPlayerDialog(p) {
 const learnerSetupSteps = {
   about: 'About you',
   earn: 'How will you earn?',
+  chores: 'Agreed chores',
   goal: 'What are you saving for?',
   settings: 'Review and scheduling',
   look: 'Make it yours',
@@ -1766,12 +1771,29 @@ function startLearnerSetup(home) {
     group: home ? null : state,
     steps: Object.keys(learnerSetupSteps).filter(step => step !== 'settings' || !home),
     index: 0,
+    choreDrafts: [],
     answers: { reviewMode: 'mentor', weekMode: home ? 'manual' : 'group' }
   };
   showLearnerSetupStep();
 }
+function setupChoreRow(draft = {}) {
+  const id = uid();
+  return `<div class="lesson" data-setup-chore>
+    <div class="fields">${chorePresetFields('chore-title-' + id, 'chore-pay-' + id, draft, false)}</div>
+    ${button('Remove chore', 'setup-chore-remove', '', 'small')}
+  </div>`;
+}
+function setupChoreInputs(row) {
+  return [...row.querySelectorAll('input')];
+}
+function readSetupChores(setup) {
+  return [...setup.querySelectorAll('[data-setup-chore]')].map(row => {
+    const [title, amount] = setupChoreInputs(row).map(input => input.value.trim());
+    return { title, amount };
+  }).filter(chore => chore.title || chore.amount);
+}
 function showLearnerSetupStep() {
-  const { steps, index, answers, editing } = learnerSetup;
+  const { steps, index, answers, editing, choreDrafts } = learnerSetup;
   const step = steps[index];
   if (step === 'review') return showLearnerSetupReview();
   let fields;
@@ -1803,6 +1825,11 @@ function showLearnerSetupStep() {
         </div>
       </details>
       <p class="detail" data-setup-practice${answers.mode === 'sim' ? '' : ' hidden'}>${esc(tr('You’ll try pricing and selling at a practice market in the game.'))}</p>`;
+      break;
+    case 'chores':
+      fields = `<p>${esc(tr('Optional. Agree on chores and pay with an adult, or continue without adding any.'))}</p>
+        <div data-setup-chores>${choreDrafts.length ? choreDrafts.map(setupChoreRow).join('') : setupChoreRow()}</div>
+        ${button('Add an agreed chore', 'setup-chore-add', '', 'small')}`;
       break;
     case 'goal':
       fields = `<div class="fields">
@@ -1838,7 +1865,7 @@ function showLearnerSetupStep() {
   dialog.scrollTop = 0;
 }
 function showLearnerSetupReview() {
-  const { home, group, steps, index, answers } = learnerSetup;
+  const { home, group, steps, index, answers, choreDrafts } = learnerSetup;
   const real = answers.mode === 'manual';
   const row = (label, content) => `<div><dt>${esc(tr(label))}</dt><dd>${content}</dd></div>`;
   const fields = {
@@ -1848,6 +1875,9 @@ function showLearnerSetupReview() {
       + (real && answers.businessPrice ? row('Starting price (NZD)', money(readSetupAmount(answers.businessPrice, 0))) : '')
       + (real && answers.offer ? row('What will you offer?', esc(answers.offer)) : '')
       + (real && answers.customers ? row('Who will pay you?', esc(answers.customers)) : ''),
+    chores: choreDrafts.length
+      ? choreDrafts.map(({ title, amount }) => `<div><dt>${esc(title)}</dt><dd>${money(readSetupAmount(amount, 0))}</dd></div>`).join('')
+      : `<p class="detail">${esc(tr('No chores added'))}</p>`,
     goal: row('Savings goal', esc(answers.goal)) + row('Goal amount (NZD)', money(readSetupAmount(answers.target))),
     look: starterLookGroups.map(([kind, label, initial]) => {
       const item = starterOptions(kind).find(item => item.id === (answers['starter-' + kind] ?? initial));
@@ -1868,7 +1898,7 @@ function showLearnerSetupReview() {
       const title = tr(learnerSetupSteps[step]);
       return `<section class="lesson"><div class="section-title"><h3>${esc(title)}</h3>
         ${button('Edit', 'learner-setup-edit', `data-id="${step}" aria-label="${esc(tr('Edit {section}', { section: title }))}"`, 'small')}
-        </div><dl class="learner-facts">${fields[step]}</dl></section>`;
+        </div>${step === 'chores' && !choreDrafts.length ? fields[step] : `<dl class="learner-facts">${fields[step]}</dl>`}</section>`;
     }).join(''), home ? 'Start playing' : 'Add learner')}`);
   dialog.scrollTop = 0;
 }
@@ -2031,9 +2061,29 @@ document.addEventListener('click', event => {
     case 'learner-setup-back': {
       const setup = el.closest('[data-form="learner-setup"]');
       if (!setup || !learnerSetup?.index || learnerSetup.editing) return;
-      rememberLearnerSetup(new FormData(setup));
+      if (learnerSetup.steps[learnerSetup.index] === 'chores') learnerSetup.choreDrafts = readSetupChores(setup);
+      else rememberLearnerSetup(new FormData(setup));
       learnerSetup.index--;
       showLearnerSetupStep();
+      break;
+    }
+    case 'setup-chore-add':
+    case 'setup-chore-remove': {
+      const setup = el.closest('[data-form="learner-setup"]');
+      if (!setup || learnerSetup?.steps[learnerSetup.index] !== 'chores') return;
+      const list = setup.querySelector('[data-setup-chores]');
+      if (action === 'setup-chore-add') {
+        list.insertAdjacentHTML('beforeend', setupChoreRow());
+        setupChoreInputs(list.lastElementChild)[0].focus();
+      } else {
+        const row = el.closest('[data-setup-chore]');
+        if (!row) return;
+        const neighbour = row.nextElementSibling ?? row.previousElementSibling;
+        row.remove();
+        (neighbour?.querySelector('[data-action="setup-chore-remove"]') ?? setup.querySelector('[data-action="setup-chore-add"]')).focus();
+        setup.querySelector('.error').textContent = '';
+        setup.querySelector('[aria-invalid]')?.removeAttribute('aria-invalid');
+      }
       break;
     }
     case 'view-wealth':
@@ -2736,12 +2786,23 @@ document.addEventListener('submit', async event => {
           return invalid('businessPrice', 'Enter a valid price or leave it blank.');
         }
       }
+      if (step === 'chores') {
+        for (const row of el.querySelectorAll('[data-setup-chore]')) {
+          const [title, amount] = setupChoreInputs(row);
+          const choreTitle = value(title.name), choreAmount = value(amount.name);
+          if (!choreTitle && !choreAmount) continue;
+          if (!choreTitle || readSetupAmount(choreAmount, 0) === null) {
+            return invalid(choreTitle ? amount.name : title.name, 'Enter a chore name and a valid amount.');
+          }
+        }
+        learnerSetup.choreDrafts = readSetupChores(el);
+      }
       if (step === 'goal') {
         if (!value('goal')) return invalid('goal', 'Enter a savings goal.');
         if (readSetupAmount(value('target')) === null) return invalid('target', 'Enter a savings amount from NZ$0.01 to NZ$1,000,000, with up to two decimal places.');
       }
       if (step === 'settings' && readWeekSchedule(value) === undefined) return invalid('weekStart', 'Enter a valid programme start date.');
-      rememberLearnerSetup(data);
+      if (step !== 'chores') rememberLearnerSetup(data);
       if (editing) returnToLearnerSetupReview();
       else {
         learnerSetup.index++;
@@ -2751,7 +2812,7 @@ document.addEventListener('submit', async event => {
     }
     case 'learner-setup-confirm': {
       if (!learnerSetup || !dialog.open || !dialog.contains(el)) return;
-      const { home, group, steps, index, answers } = learnerSetup;
+      const { home, group, steps, index, answers, choreDrafts } = learnerSetup;
       if (steps[index] !== 'review' || (home ? !publicRoutes.has(view) : role !== 'facilitator' || group !== state || isHomeGame())) return;
       const { name, business, mode, goal } = answers;
       const fields = {
@@ -2760,6 +2821,7 @@ document.addEventListener('submit', async event => {
         businessPrice: mode === 'manual' && answers.businessPrice ? readSetupAmount(answers.businessPrice, 0) : undefined,
         offer: mode === 'manual' ? answers.offer : '',
         customers: mode === 'manual' ? answers.customers : '',
+        chorePresets: choreDrafts.map(({ title, amount }) => ({ id: uid(), title, pay: readSetupAmount(amount, 0) })),
         weekSchedule: readWeekSchedule(key => answers[key])
       };
       const appearance = { icon: answers['starter-icon'], background: answers['starter-background'] };
