@@ -1,10 +1,10 @@
 import { schoolQuizFor, gradeSchoolQuiz, quizPassMark } from './school-quizzes.js?v=3.8.5';
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough, taskPoints, recordSchoolQuiz, effectiveWeekSchedule, todayDate, validStartDate, weekStartDate, waitingForWeekOne, nextProgrammeWeek, startNextWeek } from './game.js?v=3.8.5';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough, taskPoints, recordSchoolQuiz, effectiveWeekSchedule, todayDate, validStartDate, weekStartDate, weeklyUnlockTime, waitingForWeekOne, nextProgrammeWeek, startNextWeek } from './game.js?v=3.8.11';
 import { episodes, episodeFor, programmeLength } from './curriculum.js?v=3.8.5';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js?v=3.8.5';
 
-import { languages, translate } from './locale.js?v=3.8.10';
+import { languages, translate } from './locale.js?v=3.8.11';
 import { vimeoPlayer } from './vimeo.js';
 import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js?v=3.8.5';
 
@@ -81,13 +81,22 @@ const weeklyViews = new Set(['dashboard', 'week', 'challenges', 'money', 'invest
 const scheduleDate = date => new Intl.DateTimeFormat(language, {
   day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
 }).format(new Date(date + 'T00:00:00Z'));
+const unlockDate = time => new Intl.DateTimeFormat(language, {
+  dateStyle: 'long', timeStyle: 'short'
+}).format(time);
 
 function syncProgramme() {
   if (!role || !state) return false;
-  const today = todayDate();
+  const now = Date.now(), today = todayDate(new Date(now));
   let changed = false;
   for (const learner of state.players) {
-    if (startNextWeek(learner, state.rules, weekSchedule(learner), 'scheduled', today)) changed = true;
+    const schedule = weekSchedule(learner);
+    const week = activeWeek(learner);
+    if (schedule.mode === 'weekly' && !Number.isFinite(week.openedAt)) {
+      week.openedAt = now;
+      changed = true;
+    }
+    if (schedule.mode === 'scheduled' && startNextWeek(learner, state.rules, schedule, 'scheduled', now)) changed = true;
   }
   const learner = role === 'learner' ? player() : undefined;
   const week = learner?.weeks[0];
@@ -101,14 +110,28 @@ function syncProgramme() {
 function nextWeekNote(p) {
   const index = nextProgrammeWeek(p);
   if (index === null) return '';
-  const date = weekStartDate(weekSchedule(p), index);
+  const schedule = weekSchedule(p);
+  const date = weekStartDate(schedule, index);
+  const time = weeklyUnlockTime(activeWeek(p));
+  if (schedule.mode === 'weekly' && time > Date.now() && Number.isFinite(time)) {
+    return tr('Week {week} unlocks on {date}.', { week: index + 1, date: unlockDate(time) });
+  }
   return date ? tr('Week {week} opens on {date}.', { week: index + 1, date: scheduleDate(date) })
     : tr('Week {week} is ready to start.', { week: index + 1 });
 }
 
-function startNextWeekButton(p, style = 'primary') {
-  return nextProgrammeWeek(p) !== null && weekSchedule(p).mode === 'manual'
-    ? button('Start next week', 'start-next-week', '', style) : '';
+function weekProgressAction(p, style = 'primary') {
+  const week = activeWeek(p);
+  const schedule = weekSchedule(p);
+  const waiting = schedule.mode === 'weekly' && weeklyUnlockTime(week) > Date.now();
+  if (week.closed) {
+    if (nextProgrammeWeek(p) === null || schedule.mode === 'scheduled') return '';
+    return button('Start next week', 'start-next-week', waiting ? `disabled data-unlocks-at="${weeklyUnlockTime(week)}"` : '', style);
+  }
+  if (!p.solo || !totals(week).ready) return '';
+  const next = week.index + 1 < programmeLength && !waiting && schedule.mode !== 'scheduled';
+  return button(next ? 'Start next week' : 'Settle the week', 'solo-settle',
+    waiting && week.index + 1 < programmeLength ? `data-unlocks-at="${weeklyUnlockTime(week)}"` : '', style);
 }
 const isHomeGame = () => state?.kind === 'home';
 const facilitatorLabel = () => isHomeGame() ? 'Parent / caregiver view' : 'Facilitator view';
@@ -281,11 +304,13 @@ function marketControls(p, week) {
 function nextQuizGuidance(p, week) {
   if (week.closed || week.index >= programmeLength - 1) return '';
   const close = p.solo
-    ? 'Finish the required missions and settle this week.'
+    ? 'Finish the required missions to move on.'
     : 'Finish the required missions and have your adult record the check-in.';
-  const next = weekSchedule(p).mode === 'scheduled'
-    ? 'The next quiz opens with the next scheduled week.'
-    : 'Then choose Start next week to open the next quiz.';
+  const next = {
+    scheduled: 'The next quiz opens with the next scheduled week.',
+    weekly: 'Choose Start next week once seven days have passed since this week opened.',
+    manual: 'Then choose Start next week to open the next quiz.'
+  }[weekSchedule(p).mode];
   return [close, next, 'Weekly arcade challenges are optional.'].map(message => tr(message)).join(' ');
 }
 function weekView(p) {
@@ -298,7 +323,7 @@ function weekView(p) {
   return `${pageHeader(esc(p.business) + ' · WEEK ' + (week.index + 1),
     nextNote ? 'Week complete' : week.closed ? 'Campaign complete' : esc(tr(info.title)),
     nextNote || (week.closed ? 'Look back on your business decisions and see how far you got towards your goal.' : esc(tr(info.summary))),
-    startNextWeekButton(p))}
+    weekProgressAction(p))}
   <div class="game-shell"><div class="play-area"><section class="scene" aria-label="Market board">
     <div class="scene-header"><strong>${p.mode === 'sim' ? market[week.index % market.length].place : 'My business'}</strong><span>WEEK ${week.index + 1}</span></div>
     ${p.mode === 'sim' ? `<ol class="market-steps" aria-label="Market day stages">${['Choose a plan', 'Respond to news', 'See results'].map((label, i) => {
@@ -314,7 +339,6 @@ function weekView(p) {
     const category = Object.hasOwn(missionIcons, kind) ? kind : 'custom';
     return `<article class="task"><div class="task-icon mission-${category}" aria-hidden="true">${task.status === 'approved' ? '✓' : missionIcons[category] ?? '★'}</div><div class="task-copy"><div class="task-type">${task.kind === 'chore' ? 'Chore' : taskLabels[task.id] ?? taskLabels.custom} · +${taskPoints(week, task)} pts${task.required ? '' : ' · Optional'}</div><h3>${esc(tr(taskName(task)))}</h3><p>${esc(localMission(taskPrompt(task, p, week)))}</p>${task.feedback ? `<p class="feedback"><strong>${esc(tr("Feedback"))}</strong> · ${esc(task.feedback)}</p>` : ''}</div><div class="task-actions">${pill(status(task), task.status === 'approved' ? 'green' : task.status === 'revision' ? 'amber' : '')}${button(week.closed || ['submitted','approved'].includes(task.status) ? 'View' : 'Open', 'task', `data-id="${esc(task.id)}"`, 'small')}</div></article>`;
   }).join('')}</div>
-  ${p.solo && tally.ready && !week.closed ? `<div class="settle">${button('Settle the week', 'solo-settle', '', 'primary')}</div>` : ''}
   </section></div><aside class="aside">${goal(p, true)}<section class="panel route"><h2>${tr('Season map')}</h2><p>${tr('Choose a week to see what you’ll learn.')}</p><ol>${episodes.map((entry, index) => `<li class="${index === week.index ? 'current' : ''}"><span class="route-dot" aria-hidden="true">${p.weeks[index]?.closed ? '✓' : index + 1}</span>${button(esc(moduleTitle(p,index)) + (index > week.index ? '<small>' + tr('Preview') + '</small>' : ''), 'season-preview', `data-index="${index}"`, 'quiet season-week')}</li>`).join('')}</ol></section>
   ${week.index > 0 && !week.closed ? `<section class="panel"><h2>${p.solo ? 'Last week’s note' : 'Last check-in'}</h2><p>${esc(p.weeks[week.index - 1].feedback)}</p></section>` : ''}</aside></div>`;
 }
@@ -838,7 +862,7 @@ function questTrail(p) {
       next ? button('Open next mission','task',`data-id="${esc(next.id)}"`,'small') : ''],
     ['🚩', 'Unlock the next week', week.closed ? nextWeekNote(p) || 'Week complete' : complete < required.length
       ? 'Finish the required missions first' : p.solo ? 'Ready to close this week' : 'Ready for an adult check-in', week.closed,
-      week.closed ? startNextWeekButton(p, 'small') : p.solo && complete === required.length ? button('Settle the week','solo-settle','','small') : '']
+      weekProgressAction(p, 'small')]
   ];
   return `<section class="panel quest-trail"><h2>${tr('Week {number} quest trail', {number:week.index+1})}</h2><ol>
     ${steps.map(([icon,label,note,done,action]) => `<li class="${done?'step-done':''}"><span class="quest-symbol" aria-hidden="true">${done?'✓':icon}</span>
@@ -892,7 +916,8 @@ function dashboardView(p) {
     : lessonDone ? 'Lesson complete' : weeklyLessonLabel(w, info);
   const openChallenges = button(tr('Play this week’s challenge'), 'open-weekly-challenges', '', w.closed ? 'secondary' : 'primary');
   const nextNote = nextWeekNote(p);
-  const next = nextNote ? startNextWeekButton(p) : w.closed ? button('Keep playing', 'continue-programme', '', 'primary')
+  const next = nextNote ? weekProgressAction(p) : w.closed ? button('Keep playing', 'continue-programme', '', 'primary')
+    : totals(w).ready ? weekProgressAction(p)
     : lessonDone ? button('See this week’s missions','view','data-view="week"')
     : button('Open weekly lesson','task','data-id="learning"');
   return `<div class="arc-dashboard">
@@ -907,7 +932,7 @@ function dashboardView(p) {
       </aside>
       <section class="arc-main"><div class="arc-hero" ${artwork(p)}>
         <div class="arc-hero-copy"><span class="arc-tag">${w.index >= programmeLength ? tr('Keep going') : tr('Week').toUpperCase() + ' ' + (w.index+1) + ' / 12'}</span>
-          <h1>${nextNote ? tr('Week {week} complete', {week: w.index + 1}) : w.closed ? tr('12 weeks complete!') : tr('Ready, {name}?', {name:esc(p.name)})}</h1><p>${esc(nextNote || tr(info.title))}${p.track === 0 ? ' · ' + tr('Play with a grown-up') : ''}</p>
+          <h1>${nextNote ? tr('Week {week} complete', {week: w.index + 1}) : w.closed ? tr('12 weeks complete!') : tr('Ready, {name}?', {name:esc(p.name)})}</h1><p>${esc(nextNote || tr(!w.closed && !p.solo && totals(w).ready ? 'Your missions are complete. Ask your adult to record the weekly check-in.' : info.title))}${p.track === 0 ? ' · ' + tr('Play with a grown-up') : ''}</p>
           <div class="hero-choices">${w.closed ? next + openChallenges : openChallenges + next}</div>
         </div></div></section>
         <section class="arc-missions"><div class="arc-section-head"><div><span>${esc(tr("YOUR NEXT MOVE"))}</span><h2>${tr('This week’s missions')}</h2></div>${pill(tr('{done} of {total} approved', {done:approved,total:required}), 'green')}</div>
@@ -1184,7 +1209,7 @@ function learnerHelpView() {
       <ol>
         <li><strong>Try it in real life.</strong> Choose what you’ll do and what you’ll charge. Use Business mission to log the job and actual income and costs. For chores, agree on pay with your adult and have them set up Agreed chores.</li>
         <li><strong>Complete your missions.</strong> Open Money lesson to take the weekly quiz. Answer the specific question under Money habit. The arcade challenge is optional until the Week 12 family challenge.</li>
-        <li><strong>Close the week.</strong> Choose <em>${esc(tr("Settle the week"))}</em> in solo practice. In a mentored game, your facilitator reviews the missions and records a check-in. Then choose <strong>Start next week</strong> in a learner-paced game, or wait for the next scheduled date.</li>
+        <li><strong>Move on.</strong> In solo practice, choose <strong>Start next week</strong> when it’s available. If you finish early in One week at a time, you can settle this week while you wait. In a mentored game, your facilitator reviews the missions and records a check-in first.</li>
       </ol>
       ${button('Back to this week', 'view', 'data-view="week"', 'primary')}
     </section>
@@ -1212,7 +1237,7 @@ function facilitatorHelpView() {
       <ol>
         <li>${isHomeGame() ? '<strong>Talk about the goal.</strong> Agree on their paid job or business and what they want to save for.' : '<strong>Add a learner.</strong> Set their business, learning level, savings goal and whether they’ll play solo or with mentor check-ins.'}</li>
         <li><strong>Prepare a module.</strong> Open the learner record and customise the context or missions for a current or upcoming week.</li>
-        <li><strong>Run a check-in.</strong> Review and approve all required missions. Record the check-in to close the week. The learner can then start the next week manually, or it opens automatically on its scheduled date.</li>
+        <li><strong>Run a check-in.</strong> Review and approve all required missions. Record the check-in to close the week. The learner can then choose Start next week when it’s available. One week at a time also requires seven days from when the current week opened.</li>
       </ol>
       ${button('Back to ' + dashboardLabel().toLowerCase(), 'view', 'data-view="group"', 'primary')}
     </section>
@@ -1224,29 +1249,40 @@ function facilitatorHelpView() {
   </div>`;
 }
 
-const scheduleLabels = { group: 'Use class setting', manual: 'Learner-paced', scheduled: 'Scheduled' };
-function scheduleFields(schedule, inherit = false, conditionalDate = false) {
+const scheduleLabels = { group: 'Use class setting', manual: 'Learn at your own pace', weekly: 'One week at a time', scheduled: 'Scheduled' };
+const pacingHelp = 'At your own pace, start the next week after completing the required missions. One week at a time also requires seven days to pass from when the current week opened.';
+function scheduleFields(schedule, inherit = false, legacy = false) {
   const selected = schedule?.mode ?? (inherit ? 'group' : 'manual');
-  const modes = inherit ? ['group', 'manual', 'scheduled'] : ['manual', 'scheduled'];
-  const mode = field('Week progression', 'weekMode', 'Learner-paced lets the learner start the next week after completing this one. Scheduled weeks open automatically when both the date and completion requirements are met.',
+  const modes = inherit ? ['group', 'manual', 'weekly'] : ['manual', 'weekly'];
+  if (legacy && selected === 'scheduled') modes.push('scheduled');
+  const mode = field('Week progression', 'weekMode', pacingHelp,
     `<select name="weekMode">${modes.map(value => `<option value="${value}"${selected === value ? ' selected' : ''}>${tr(scheduleLabels[value])}</option>`).join('')}</select>`);
+  if (!modes.includes('scheduled')) return mode;
   const start = field('Programme start date', 'weekStart', 'Required for Scheduled. Week 1 starts on this date, with each later week scheduled seven days apart.',
-    `<input name="weekStart" type="date" value="${esc(schedule?.startDate)}"${conditionalDate && selected === 'scheduled' ? ' required' : ''}>`);
-  return mode + (conditionalDate ? `<div data-setup-date${selected === 'scheduled' ? '' : ' hidden'}>${start}</div>` : start);
+    `<input name="weekStart" type="date" value="${esc(schedule.startDate)}" required>`);
+  return mode + `<div data-schedule-date>${start}</div>`;
 }
 
 function readWeekSchedule(value) {
   const mode = value('weekMode'), startDate = value('weekStart');
   if (mode === 'group') return null;
-  if (mode === 'manual') return { mode };
+  if (mode === 'manual' || mode === 'weekly') return { mode };
   if (mode === 'scheduled' && validStartDate(startDate)) return { mode, startDate };
+}
+
+function reviewModeField(mode) {
+  return field('Play with', 'reviewMode', 'Mentor check-ins let a facilitator review the learner’s work. In solo practice the learner closes their own weeks.',
+    `<select name="reviewMode">
+      <option value="mentor"${mode === 'mentor' ? ' selected' : ''}>${esc(tr('Mentor check-ins'))}</option>
+      <option value="solo"${mode === 'solo' ? ' selected' : ''}>${esc(tr('Solo practice'))}</option>
+    </select>`);
 }
 
 function settingsView() {
   return `${pageHeader('FACILITATOR', 'Pilot settings', isHomeGame() ? 'Money rules apply to newly opened weeks.' : 'Money rules apply to newly opened weeks. The schedule applies to learners using the class setting.')}
   <form class="panel settings" id="settings"><div class="fields">
   ${field(isHomeGame() ? 'Home game name' : 'Group name', 'group', 'Use a name you’ll recognise when you resume the game from Home.', `<input name="group" value="${esc(state.group)}" required maxlength="60">`)}
-  ${!isHomeGame() ? scheduleFields(state.weekSchedule) : ''}
+  ${!isHomeGame() ? scheduleFields(state.weekSchedule, false, true) : ''}
   ${field('SAM or Vimeo video (optional)', 'lessonUrl', 'Paste a direct SAM link, Vimeo link or Vimeo iframe code.', `<textarea name="lessonUrl" rows="2" placeholder="https://">${esc(state.lessonUrl)}</textarea>`)}
   ${field('SAM quiz link (optional)', 'quizUrl', 'Used when there is no built-in school quiz and a matching video is assigned. Weekly overrides take priority.', `<input type="url" name="quizUrl" value="${esc(state.quizUrl)}" placeholder="https://">`)}
   ${field('Simulated tax rate (%)', 'tax', 'The percentage of positive weekly business profit taken as simulated tax before money is available to move from Main.', `<input type="number" name="tax" min="0" max="100" required value="${state.rules.tax}">`)}
@@ -1778,7 +1814,8 @@ function editPlayerDialog(p) {
     ${p.mode === 'manual' ? businessPriceField(p.businessPrice) : ''}
     ${textField('What do you offer? (optional)', 'offer', 'Describe the job or product, such as mowing the lawn for an agreed price.', p.offer, 120, false)}
     ${textField('Who is it for? (optional)', 'customers', 'Name the type of customer, such as my family or neighbours I know.', p.customers, 120, false)}
-    ${scheduleFields(p.weekSchedule, !isHomeGame())}
+    ${scheduleFields(p.weekSchedule, !isHomeGame(), true)}
+    ${isHomeGame() ? reviewModeField(p.solo ? 'solo' : 'mentor') : ''}
     ${textField('Savings goal', 'goal', 'Choose something specific you want to save for, such as art supplies or a used bike.', p.goal)}
     ${goalAmountField(p.target / 100)}
   </div>`, 'Save changes', playerAttrs(p)));
@@ -1789,7 +1826,7 @@ const learnerSetupSteps = {
   earn: 'How will you earn?',
   chores: 'Agreed chores',
   goal: 'What are you saving for?',
-  settings: 'Review and scheduling',
+  settings: 'Choose your pace',
   look: 'Make it yours',
   review: 'Review your setup'
 };
@@ -1797,10 +1834,10 @@ function startLearnerSetup(home) {
   learnerSetup = {
     home,
     group: home ? null : state,
-    steps: Object.keys(learnerSetupSteps).filter(step => step !== 'settings' || !home),
+    steps: Object.keys(learnerSetupSteps),
     index: 0,
     choreDrafts: [],
-    answers: { reviewMode: 'mentor', weekMode: home ? 'manual' : 'group' }
+    answers: { reviewMode: home ? 'solo' : 'mentor', weekMode: !home && state.weekSchedule?.mode === 'weekly' ? 'weekly' : 'manual' }
   };
   showLearnerSetupStep();
 }
@@ -1866,13 +1903,9 @@ function showLearnerSetupStep() {
       </div>`;
       break;
     case 'settings':
-      fields = `<div class="fields">
-        ${field('Play with', 'reviewMode', 'Mentor check-ins let a facilitator review the learner’s work. In solo practice the learner closes their own weeks.',
-          `<select name="reviewMode">
-            <option value="mentor"${answers.reviewMode === 'mentor' ? ' selected' : ''}>${esc(tr('Mentor check-ins'))}</option>
-            <option value="solo"${answers.reviewMode === 'solo' ? ' selected' : ''}>${esc(tr('Solo practice'))}</option>
-          </select>`)}
-        ${scheduleFields({ mode: answers.weekMode, startDate: answers.weekStart }, true, true)}
+      fields = `<p>${esc(tr(pacingHelp))}</p><div class="fields">
+        ${scheduleFields({ mode: answers.weekMode })}
+        ${reviewModeField(answers.reviewMode)}
       </div>`;
       break;
     case 'look':
@@ -1893,7 +1926,7 @@ function showLearnerSetupStep() {
   dialog.scrollTop = 0;
 }
 function showLearnerSetupReview() {
-  const { home, group, steps, index, answers, choreDrafts } = learnerSetup;
+  const { home, steps, index, answers, choreDrafts } = learnerSetup;
   const real = answers.mode === 'manual';
   const row = (label, content) => `<div><dt>${esc(tr(label))}</dt><dd>${content}</dd></div>`;
   const fields = {
@@ -1913,14 +1946,8 @@ function showLearnerSetupReview() {
       return row(label, `<span>${esc(tr(item.name))}</span>${preview}`);
     }).join('')
   };
-  if (!home) {
-    const chosen = readWeekSchedule(name => answers[name]);
-    const schedule = effectiveWeekSchedule(group, { weekSchedule: chosen });
-    const mode = tr(scheduleLabels[schedule.mode]);
-    fields.settings = row('Play with', esc(tr(answers.reviewMode === 'solo' ? 'Solo practice' : 'Mentor check-ins')))
-      + row('Week progression', esc(chosen ? mode : tr('Use class setting') + ' · ' + mode))
-      + (schedule.mode === 'scheduled' ? row('Programme start date', esc(scheduleDate(schedule.startDate))) : '');
-  }
+  fields.settings = row('Week progression', esc(tr(scheduleLabels[answers.weekMode])))
+    + row('Play with', esc(tr(answers.reviewMode === 'solo' ? 'Solo practice' : 'Mentor check-ins')));
   openDialog(learnerSetupSteps.review, `<p class="detail">${esc(tr('Step {step} of {total}', { step: index + 1, total: steps.length }))}</p>
     ${form('learner-setup-confirm', steps.slice(0, -1).map(step => {
       const title = tr(learnerSetupSteps[step]);
@@ -1966,7 +1993,7 @@ function learnerDetail(p) {
       <div><dt>Customers</dt><dd>${esc(p.customers || 'Add who the business serves in Edit learner profile.')}</dd></div>
       <div><dt>${esc(tr("Savings goal"))}</dt><dd>${esc(p.goal)} · ${money(result.buckets[1])} of ${money(p.target)} (${pct(p)}%)</dd></div>
       <div><dt>Week progression</dt><dd>${weekSchedule(p).mode === 'scheduled'
-        ? esc(tr('Scheduled from {date}', { date: scheduleDate(weekStartDate(weekSchedule(p), 0)) })) : esc(tr('Learner-paced'))}${nextWeekNote(p) ? ' · ' + esc(nextWeekNote(p)) : ''}</dd></div>
+        ? esc(tr('Scheduled from {date}', { date: scheduleDate(weekStartDate(weekSchedule(p), 0)) })) : esc(tr(scheduleLabels[weekSchedule(p).mode]))}${nextWeekNote(p) ? ' · ' + esc(nextWeekNote(p)) : ''}</dd></div>
       <div><dt>Progress</dt><dd>${result.closed} weeks closed · ${learningStats(p).xp} learning XP · ${result.points} points</dd></div>
       <div><dt>Profile shop</dt><dd>${wallet.balance} pts available · ${wallet.spent} spent · ${tr(cosmetics(p).title.name)}</dd></div>
       <div><dt>Badges</dt><dd>${earnedAwards(p).map(award => award.title).join(' · ') || 'None earned yet'}</dd></div>
@@ -2419,7 +2446,7 @@ document.addEventListener('click', event => {
       break;
     }
     case 'start-next-week':
-      if (role === 'learner' && p && startNextWeek(p, state.rules, weekSchedule(p), 'manual')) {
+      if (role === 'learner' && p && startNextWeek(p, state.rules, weekSchedule(p), 'learner')) {
         save(tr('Week {week} is open.', { week: activeWeek(p).index + 1 }));
         $('#main').focus({ preventScroll: true });
       }
@@ -2473,11 +2500,13 @@ document.addEventListener('click', event => {
       break;
     }
     case 'solo-settle': {
-      const tally = totals(w);
-      if (role !== 'learner' || !p.solo || w.closed || weekOneLocked(p) || !tally.ready) return;
+      if (role !== 'learner' || !p?.solo || w.closed || weekOneLocked(p) || !totals(w).ready) return;
+      const schedule = weekSchedule(p);
+      const advances = w.index + 1 < programmeLength && (schedule.mode === 'manual' ||
+        (schedule.mode === 'weekly' && weeklyUnlockTime(w) <= Date.now()));
       openDialog('Settle week ' + (w.index + 1), `<p>${money(accounts(p).available)} is available in Main and carries into your next week.</p>
         <p>Weekly bonus · +${w.rules.bonus} points${w.rules.match ? ' · any eligible simulated match is added to Save' : ''}</p>
-        ${form('solo-settle', '', w.index === programmeLength - 1 ? 'Finish campaign' : 'Close week')}`);
+        ${form('solo-settle', '', w.index === programmeLength - 1 ? 'Finish campaign' : advances ? 'Start next week' : 'Close week')}`);
       break;
     }
     case 'add-entry':
@@ -2537,10 +2566,11 @@ document.addEventListener('change', event => {
     setup.querySelector('[data-setup-offer]').hidden = event.target.value !== 'manual';
     setup.querySelector('[data-setup-practice]').hidden = event.target.value !== 'sim';
   }
-  if (setup && event.target.name === 'weekMode') {
+  const scheduleDateFields = event.target.name === 'weekMode' && event.target.form?.querySelector('[data-schedule-date]');
+  if (scheduleDateFields) {
     const scheduled = event.target.value === 'scheduled';
-    setup.querySelector('[data-setup-date]').hidden = !scheduled;
-    setup.elements.weekStart.required = scheduled;
+    scheduleDateFields.hidden = !scheduled;
+    event.target.form.elements.weekStart.required = scheduled;
   }
   if (event.target.name === 'chorePreset') {
     const other = event.target.form.querySelector('[data-other-chore]');
@@ -2832,7 +2862,9 @@ document.addEventListener('submit', async event => {
         if (!value('goal')) return invalid('goal', 'Enter a savings goal.');
         if (readSetupAmount(value('target')) === null) return invalid('target', 'Enter a savings amount from NZ$0.01 to NZ$1,000,000, with up to two decimal places.');
       }
-      if (step === 'settings' && readWeekSchedule(value) === undefined) return invalid('weekStart', 'Enter a valid programme start date.');
+      if (step === 'settings' && !['manual', 'weekly'].includes(value('weekMode'))) {
+        return invalid('weekMode', 'Choose how to unlock the next week.');
+      }
       if (step !== 'chores') rememberLearnerSetup(data);
       if (editing) returnToLearnerSetupReview();
       else {
@@ -2853,6 +2885,7 @@ document.addEventListener('submit', async event => {
         offer: mode === 'manual' ? answers.offer : '',
         customers: mode === 'manual' ? answers.customers : '',
         chorePresets: choreDrafts.map(({ title, amount }) => ({ id: uid(), title, pay: readSetupAmount(amount, 0) })),
+        solo: answers.reviewMode === 'solo',
         weekSchedule: readWeekSchedule(key => answers[key])
       };
       const appearance = { icon: answers['starter-icon'], background: answers['starter-background'] };
@@ -2865,7 +2898,7 @@ document.addEventListener('submit', async event => {
         openRole('learner');
         save('Home game ready. Open Parent / caregiver view to plan or review the week together.');
       } else {
-        const learner = makePlayer({ ...fields, solo: answers.reviewMode === 'solo' }, state.rules);
+        const learner = makePlayer(fields, state.rules);
         setStarterLook(learner, appearance);
         state.players.push(learner);
         finish('Learner added.');
@@ -2881,6 +2914,7 @@ document.addEventListener('submit', async event => {
       if (schedule === undefined || (schedule === null && isHomeGame())) return fail('Choose a progression mode and a valid start date for Scheduled.');
       const price = value('businessPrice') ? readSetupAmount(value('businessPrice'), 0) : undefined;
       if (price === null) return fail('Enter a valid price or leave it blank.');
+      if (isHomeGame()) p.solo = value('reviewMode') === 'solo';
       Object.assign(p, fields, { weekSchedule: schedule, businessPrice: price });
       finish('Learner profile saved.');
       break;
@@ -3134,7 +3168,10 @@ document.addEventListener('submit', async event => {
       w.module = moduleFor(p, w.index);
       w.closed = true;
       const unlocked = grantAwards(p, { checkSavings: true });
-      const opened = startNextWeek(p, state.rules, weekSchedule(p), 'scheduled');
+      const schedule = weekSchedule(p);
+      const opened = schedule.mode === 'scheduled'
+        ? startNextWeek(p, state.rules, schedule, 'scheduled')
+        : solo && startNextWeek(p, state.rules, schedule, 'learner');
       if (view === 'detail' || (view === 'group' && isHomeGame())) detailWeek = undefined;
       const message = opened ? tr('Week {week} is open.', { week: w.index + 2 })
         : w.index === programmeLength - 1 ? tr('12 weeks complete! Open the learner dashboard to see your progress or keep playing.')
@@ -3146,7 +3183,9 @@ document.addEventListener('submit', async event => {
 });
 
 function refreshProgramme() {
-  if (!dialog.open && syncProgramme()) save();
+  if (dialog.open) return;
+  if (syncProgramme()) save();
+  else if (Number($('[data-unlocks-at]')?.dataset.unlocksAt) <= Date.now()) render();
 }
 window.addEventListener('focus', refreshProgramme);
 window.setInterval(refreshProgramme, 30_000);

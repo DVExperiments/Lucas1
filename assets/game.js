@@ -46,7 +46,7 @@ export const uid = () => {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
 };
 export function makeWeek(index, rules) {
-  return ensureFamilyTask({ index, closed: false, rules: structuredClone(rules), transactions: [], transfers: [], choice: null, feedback: '',
+  return ensureFamilyTask({ index, openedAt: Date.now(), closed: false, rules: structuredClone(rules), transactions: [], transfers: [], choice: null, feedback: '',
     tasks: ['business', 'learning', 'reflection'].map(id => ({ id, required: true, points: 10, status: 'todo', evidence: '', feedback: '' })) });
 }
 export function effectiveWeekSchedule(group, player) {
@@ -85,11 +85,18 @@ export function nextProgrammeWeek(player) {
   return week.closed && week.index + 1 < programmeLength ? week.index + 1 : null;
 }
 
-export function startNextWeek(player, rules, schedule, trigger, today = todayDate()) {
+export function weeklyUnlockTime(week) {
+  return Number.isFinite(week.openedAt) ? week.openedAt + 7 * 24 * 60 * 60 * 1000 : Infinity;
+}
+
+export function startNextWeek(player, rules, schedule, trigger, now = Date.now()) {
   const index = nextProgrammeWeek(player);
-  if (index === null || schedule.mode !== trigger) return false;
-  const date = weekStartDate(schedule, index);
-  if (trigger === 'scheduled' && (!date || date > today)) return false;
+  if (index === null) return false;
+  if (trigger === 'scheduled') {
+    const date = weekStartDate(schedule, index);
+    if (!date || date > todayDate(new Date(now))) return false;
+  } else if (schedule.mode !== 'manual' &&
+    (schedule.mode !== 'weekly' || now < weeklyUnlockTime(player.weeks.at(-1)))) return false;
   player.weeks.push(makeWeek(index, rules));
   return true;
 }
@@ -102,7 +109,7 @@ export function newGroup(name) {
 }
 export function newHomeGame(fields, appearance) {
   const game = newGroup(fields.name + '’s home game');
-  const learner = makePlayer({ ...fields, solo: false }, game.rules);
+  const learner = makePlayer({ solo: false, ...fields }, game.rules);
   if (appearance) setStarterLook(learner, appearance);
   return { ...game, kind: 'home', current: learner.id, players: [learner] };
 }
