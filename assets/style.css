@@ -438,3 +438,21 @@ progress { display:inline-block; appearance:none; height:8px; border:0; border-r
 progress::-webkit-progress-bar { background:var(--track); }
 progress::-webkit-progress-value { background:var(--progress-fill,var(--lime)); border-radius:20px; }
 progress::-moz-progress-bar { background:var(--progress-fill,var(--lime)); border-radius:20px; }
+
+.review-mode { display: grid; gap: 8px; }
+.review-mode:has(> .sr-only) { border: 0; padding: 0; }
+.review-mode-card {
+  align-items: flex-start;
+  padding: 12px;
+  background: var(--inset);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.review-mode-card:has(:checked) { border-color: var(--line-strong); background: var(--surface-raised); }
+.review-mode-card input { margin: 2px 0 0; }
+.review-mode-card .detail { display: block; }
+.weekly-feedback-week { margin-top: 12px; }
+.weekly-feedback-week summary { cursor: pointer; font-weight: 700; }
+.weekly-feedback-week .record-missions { margin-top: 8px; }
+.feedback-revision { border-color: var(--warning-line); }
