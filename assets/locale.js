@@ -809,6 +809,16 @@ const phrases = [
   ["Log work, income and costs", "Tuhia te mahi, ngā moni whiwhi me ngā whakapaunga", "Registra el trabajo, los ingresos y los gastos"],
   ["Take this week’s quiz together in the Family Money Showdown. Your learner turn also counts as your quiz attempt.", "Mahia ngātahitia te patapatai o tēnei wiki i te Wero Moni ā-Whānau. Ka kaute hoki te wāhanga a te ākonga hei whakamātau i te patapatai.", "Hagan juntos el cuestionario de esta semana en el Reto de dinero en familia. El turno del estudiante cuenta como su intento del cuestionario."],
   ["Open Family Money Showdown", "Huakina te Wero Moni ā-Whānau", "Abrir el Reto de dinero en familia"],
+  ["Review your setup", "Tirohia anō ō kōwhiringa", "Revisa tu configuración"],
+  ["Edit {section}", "Whakatika i te wāhanga {section}", "Editar la sección {section}"],
+  ["Cancel edit", "Whakakore i te whakatikanga", "Cancelar edición"],
+  ["Earning mode", "Te ara whiwhi moni", "Forma de ganar dinero"],
+  ["Starting price (NZD)", "Utu tīmatanga (NZD)", "Precio inicial (NZD)"],
+  ["Try Week 12", "Whakamātauria te Wiki 12", "Probar la semana 12"],
+  ["Jump to the Family Money Showdown with a sample learner.", "Haere tōtika ki te Wero Moni ā-Whānau me tētahi ākonga tauira.", "Ve directamente al Reto de dinero en familia con un estudiante de ejemplo."],
+  ["Week 12 demo · Sample data", "Whakaaturanga o te Wiki 12 · Raraunga tauira", "Demostración de la semana 12 · Datos de ejemplo"],
+  ["Week 12 demo · Progress resets when you leave", "Whakaaturanga o te Wiki 12 · Ka tīmata anō te kēmu ina puta koe", "Demostración de la semana 12 · El progreso se reinicia al salir"],
+  ["Replay Week 12 demo", "Purei anō i te whakaaturanga o te Wiki 12", "Volver a jugar la demostración de la semana 12"],
 ];
 const catalog = new Map(phrases.map(([english, maori, spanish]) => [english, { mi: maori, es: spanish }]));
 export const translate = (language, source) => catalog.get(source)?.[language] ?? source;
