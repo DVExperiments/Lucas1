@@ -1,10 +1,10 @@
 import { schoolQuizFor, gradeSchoolQuiz, quizPassMark } from './school-quizzes.js?v=3.8.5';
-import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough, taskPoints, recordSchoolQuiz, effectiveWeekSchedule, todayDate, validStartDate, weekStartDate, weeklyUnlockTime, waitingForWeekOne, nextProgrammeWeek, startNextWeek } from './game.js?v=3.8.11';
+import { tracks, buckets, taskLabels, uid, makeWeek, makePlayer, fresh, totals, accounts, wealthBreakdown, transferDetails, transferMoney, transactionUpdateError, progress, market, marketResult, goodwill, moduleFor, newGroup, newHomeGame, awards, earnedAwards, grantAwards, savingsMilestones, shopItems, shopWallet, starterOptions, setStarterLook, giftCosmetic, buyUpgrade, equipCosmetic, cosmetics, progressHistory, setShopTarget, learningStats, competitionMetrics, competitionBoard, trackVideoCoverage, watchedEnough, taskPoints, recordSchoolQuiz, effectiveWeekSchedule, todayDate, validStartDate, weekStartDate, weeklyUnlockTime, waitingForWeekOne, nextProgrammeWeek, startNextWeek } from './game.js?v=3.8.12';
 import { episodes, episodeFor, programmeLength } from './curriculum.js?v=3.8.5';
 import { weeklyPoints, weeklyAvatarRewards, challengeFor, practiceMarket, stockOptions, runSchoolMarket, weeklyCertificates,
   completeWeeklyChallenge, approvedCount, classroomUnlocked, submitClassWork, reviewClassWork } from './challenges.js?v=3.8.5';
 
-import { languages, translate } from './locale.js?v=3.8.11';
+import { languages, translate } from './locale.js?v=3.8.12';
 import { vimeoPlayer } from './vimeo.js';
 import { familyWeek, familyTitle, familyPrompt, familyCases, familyQuestions, ensureFamilyTask, readFamilyResponse, readFamilyScores } from './family.js?v=3.8.5';
 
@@ -359,7 +359,7 @@ const accountArt = [
   { id:'coast', name:'Coastal ride' }, { id:'market', name:'Evening market' }
 ];
 const allAccounts = p => [...accountNames.map(tr), ...(p.customBuckets ?? []).map(bucket => bucket.name)];
-const bucketName = (p, index) => allAccounts(p)[index];
+const transferAccountName = (p, index) => index === null ? tr('Main account') : allAccounts(p)[index];
 
 function bankActions(p, { secondary = false, attrs = '' } = {}) {
   if (activeWeek(p).closed) return '';
@@ -371,8 +371,10 @@ function bankActions(p, { secondary = false, attrs = '' } = {}) {
 }
 function transferList(p, week) {
   if (!week.transfers?.length) return `<p>${esc(tr("No transfers this week."))}</p>`;
-  return `<ul class="bank-activity">${week.transfers.slice().reverse().map(({ bucket, cents }) => `<li>
-    <span>${tr(cents > 0 ? 'Main → {name}' : '{name} → Main', {name:esc(bucketName(p,bucket))})}</span><strong>${money(Math.abs(cents))}</strong></li>`).join('')}</ul>`;
+  return `<ul class="bank-activity">${week.transfers.slice().reverse().map(move => {
+    const { from, to, cents } = transferDetails(move);
+    return `<li><span>${esc(transferAccountName(p, from))} → ${esc(transferAccountName(p, to))}</span><strong>${money(cents)}</strong></li>`;
+  }).join('')}</ul>`;
 }
 function mainAccount(p) {
   const bank = accounts(p);
@@ -1006,7 +1008,7 @@ function investmentsView(p) {
     <p class="bucket-total"><span>${tr('Total in Main and buckets')}</span><strong>${money(result.main + result.balances.reduce((sum, value) => sum + value, 0))}</strong></p>
   </header>
   <section class="panel bank-overview ledger-toolbar" aria-label="Main account">
-    <div>${mainAccount(p)}<p>${tr('Money you log lands here. Move it to a bucket when you have a plan.')}</p></div>
+    <div>${mainAccount(p)}<p>${tr('Money you log lands here. Use Move money to transfer between Main and any of your buckets.')}</p></div>
     <div class="bank-actions">${bankActions(p, { secondary: true })}</div>
   </section>
   <section class="panel bucket-guide" aria-labelledby="bucket-guide-title">
@@ -1221,7 +1223,7 @@ function learnerHelpView() {
         <div><dt>${esc(tr("Invest"))}</dt><dd>Money earmarked for longer-term growth in the simulation.</dd></div>
         <div><dt>${esc(tr("Give"))}</dt><dd>Money earmarked to support people or causes you choose.</dd></div>
       </dl>
-      <p>Business earnings and activity rewards go into Main. Personal purchases come out of Spend. Business costs come out of Main. Use Move money to transfer to a bucket or back to Main. Unallocated money stays in Main for next week.</p>
+      <p>Business earnings and activity rewards go into Main. Personal purchases come out of Spend. Business costs come out of Main. Use Move money to transfer between any two accounts, including directly between buckets. Unallocated money stays in Main for next week.</p>
     </section>
     <section class="panel help-panel"><h2>${esc(tr("Badges and profile rewards"))}</h2>
       <p>In My progress, badges recognise milestones like completing a mission or saving a quarter of your goal. Visit Profile shop to unlock profile icons, backgrounds and titles. Your badges stay in your collection.</p>
@@ -2069,21 +2071,28 @@ function entryDialog(p, entry, intent) {
     field(tr('Amount (NZD)'), 'amount', 'Enter the amount in dollars and cents, such as 12.50.', `<input name="amount" type="number" inputmode="decimal" min=".01" max="1000000" step=".01" value="${entry?.cents ? entry.cents / 100 : ''}" required>`),
     tr(intent === 'income' ? 'Add to Main' : intent === 'outgoing' ? 'Record money out' : 'Save entry'), `${playerAttrs(p)}${entry?.id ? ' data-id="' + esc(entry.id) + '"' : ''}`));
 }
-function moveMoneyDialog(p, preset) {
+function moveMoneyDialog(p, preset, toMain = false) {
   const week = activeWeek(p), bank = accounts(p);
-  const noFunds = !bank.available && !bank.balances.some(value => value > 0);
-  const selected = preset ?? (bank.available ? 1 : bank.balances.findIndex(value => value > 0));
-  const sendFirst = bank.available > 0;
-  const scope = role === 'facilitator' ? `<p>Practice accounts for <strong>${esc(p.name)}</strong></p>` : '';
-  openDialog(tr('Move money'), `${scope}${mainAccount(p)}${noFunds
-    ? '<p>Log money in to add to Main. Once you have money available, you can choose a bucket.</p>' + button(tr('Money in'), 'add-entry', playerAttrs(p) + ' data-kind="income"', 'primary')
-    : form('move-money',
-      field(tr('Direction'), 'direction', 'Money you record starts in Main. Move it to a bucket or bring it back if your plan changes.', `<select name="direction">
-        <option value="out" ${sendFirst ? 'selected' : ''}>${esc(tr("Main → bucket"))}</option><option value="in" ${sendFirst ? '' : 'selected'}>${esc(tr("Bucket → Main"))}</option></select>`) +
-      field(tr('Bucket account'), 'bucket', 'Pick the account you want to use. The amount beside each name is what it currently holds.', `<select name="bucket">${allAccounts(p).map((name,i) => `<option value="${i}" ${i === selected ? 'selected' : ''}>${esc(name)} · ${money(bank.balances[i])}</option>`).join('')}</select>`) +
-      field(tr('Amount to move (NZD)'), 'move-amount', 'Choose an amount you can afford. For a savings goal, think about how much you want to set aside this week.', '<input name="move-amount" type="number" min=".01" step=".01" inputmode="decimal" required>') +
+  const choices = [{ value: 'main', name: tr('Main account'), balance: bank.available },
+    ...allAccounts(p).map((name, index) => ({ value: String(index), name, balance: bank.balances[index] }))];
+  const funded = choices.find(account => account.balance > 0 && (!toMain || account.value !== 'main'));
+  const selected = choices.find(account => account.value === String(preset));
+  const from = selected?.balance > 0 ? selected : funded ?? choices[0];
+  const defaultBucket = choices.find(account => account.value === (from.value === '1' ? '0' : '1'));
+  const to = toMain && from.value !== 'main' ? choices[0]
+    : selected && selected !== from ? selected : defaultBucket;
+  const options = (chosen, disabled) => choices.map(account => `<option value="${account.value}"
+    ${account === chosen ? 'selected' : ''}${disabled(account) ? ' disabled' : ''}>${esc(account.name)} · ${money(account.balance)}</option>`).join('');
+  const scope = role === 'facilitator' ? `<p>${esc(tr('Practice accounts for {learner}', { learner: p.name }))}</p>` : '';
+  openDialog('Move money', `${scope}${mainAccount(p)}${!choices.some(account => account.balance > 0)
+    ? `<p>${esc(tr('Log money in before making a transfer.'))}</p>` + button('Money in', 'add-entry', playerAttrs(p) + ' data-kind="income"', 'primary')
+    : form('move-money', `<div class="fields">
+      ${field('From account', 'transfer-from', 'Choose the account to take money from.', `<select name="transfer-from" required>${options(from, account => account.balance <= 0)}</select>`)}
+      ${field('To account', 'transfer-to', 'Choose where the money should go.', `<select name="transfer-to" required>${options(to, account => account === from)}</select>`)}
+      </div>` +
+      field('Amount to move (NZD)', 'move-amount', 'Enter an amount up to the balance of the account you’re moving from.', '<input name="move-amount" type="number" min=".01" step=".01" inputmode="decimal" required>') +
       `<details class="lesson"><summary>${esc(tr("Need an idea for splitting your money?"))}</summary><p>${tr('Suggested split')} · ${buckets.map((name, i) => tr(name) + ' ' + week.rules.split[i] + '%').join(' · ')}. Decide how much to move based on your own plan.</p></details>`,
-      tr('Confirm transfer'), playerAttrs(p))}`);
+      'Confirm transfer', playerAttrs(p))}`);
 }
 
 document.addEventListener('click', event => {
@@ -2490,7 +2499,7 @@ document.addEventListener('click', event => {
       const result = marketResult(p, w, w.plan, w.tactic);
       const transactions = [...w.transactions, { id: uid(), kind: 'sale', label: 'Market day sales', cents: result.sales, sim: true }, { id: uid(), kind: 'cost', label: 'Market day costs', cents: result.costs, sim: true }];
       if (transactionUpdateError(p, w, transactions)) {
-        openDialog('Cover your market costs', '<p>Move some money back to Main from a bucket, then run Market Day again.</p>' + button(tr('Move money'), 'move-money', '', 'primary'));
+        openDialog('Cover your market costs', '<p>Move some money back to Main from a bucket, then run Market Day again.</p>' + button('Move money', 'move-money', 'data-to-main', 'primary'));
         return;
       }
       w.choice = w.plan;
@@ -2513,7 +2522,7 @@ document.addEventListener('click', event => {
       if (w && !w.closed && !weekOneLocked(p)) entryDialog(p, undefined, el.dataset.kind);
       break;
     case 'move-money':
-      if (w && !w.closed && !weekOneLocked(p) && ['learner', 'facilitator'].includes(role)) moveMoneyDialog(p, index === undefined ? undefined : Number(index));
+      if (w && !w.closed && !weekOneLocked(p) && ['learner', 'facilitator'].includes(role)) moveMoneyDialog(p, index, el.hasAttribute('data-to-main'));
       break;
     case 'edit-entry': {
       const entry = w.transactions.find(record => record.id === item && !record.sim && !record.missionId);
@@ -2555,6 +2564,13 @@ document.addEventListener('click', event => {
   }
 });
 document.addEventListener('change', event => {
+  if (event.target.name === 'transfer-from') {
+    const destination = event.target.form.elements['transfer-to'];
+    for (const option of destination.options) option.disabled = option.value === event.target.value;
+    if (!destination.value || destination.value === event.target.value) {
+      destination.value = [...destination.options].find(option => !option.disabled).value;
+    }
+  }
   if (event.target.id === 'game-language' && Object.hasOwn(languages,event.target.value)) {
     workspace.language = language = event.target.value;
     save();
@@ -3105,15 +3121,18 @@ document.addEventListener('submit', async event => {
       break;
     }
     case 'move-money': {
-      if (!w || w.closed || !['learner', 'facilitator'].includes(role)) return;
-      const direction = value('direction'), bucket = value('bucket') === '' ? NaN : Number(value('bucket'));
-      if (!['in', 'out'].includes(direction)) return fail('Choose a transfer direction.');
+      if (!w || w.closed || weekOneLocked(p) || !dialog.open || !dialog.contains(el)
+        || !['learner', 'facilitator'].includes(role) || el.dataset.player !== p.id) return;
+      const accountIndex = name => {
+        const account = value(name);
+        return account === 'main' ? null : account === '' ? NaN : Number(account);
+      };
+      const from = accountIndex('transfer-from'), to = accountIndex('transfer-to');
       const cents = Math.round(Number(value('move-amount')) * 100);
-      if (cents <= 0) return fail('Enter an amount greater than zero.');
-      const error = transferMoney(p, bucket, direction === 'in' ? -cents : cents);
+      const error = transferMoney(p, from, to, cents);
       if (error) return fail(error);
       if (view === 'money') ledgerWeek = w.index;
-      finish(tr('{amount} moved to {account}.', {amount:money(cents),account:direction === 'in' ? (language === 'en-NZ' ? 'Main' : tr('Main account')) : bucketName(p,bucket)}));
+      finish(tr('{amount} moved to {account}.', { amount: money(cents), account: transferAccountName(p, to) }));
       break;
     }
     case 'edit-module': {

@@ -158,6 +158,12 @@ export function recordSchoolQuiz(week, task, result) {
   return { xp: xp - previousXp, points: points - previousPoints };
 }
 
+export function transferDetails(move) {
+  if (move.bucket === undefined) return move;
+  return move.cents > 0 ? { from: null, to: move.bucket, cents: move.cents }
+    : { from: move.bucket, to: null, cents: -move.cents };
+}
+
 export function totals(week) {
   const sum = kind => week.transactions.filter(entry => entry.kind === kind).reduce((acc, entry) => acc + entry.cents, 0);
   const sales = sum('sale'), costs = sum('cost'), rewards = sum('reward'), spending = sum('spend');
@@ -166,7 +172,11 @@ export function totals(week) {
   const distributable = Math.max(0, profit - tax);
   const allocations = buckets.map(() => 0);
   if (week.transfers) {
-    for (const move of week.transfers) allocations[move.bucket] = (allocations[move.bucket] ?? 0) + move.cents;
+    for (const move of week.transfers) {
+      const { from, to, cents } = transferDetails(move);
+      if (from !== null) allocations[from] = (allocations[from] ?? 0) - cents;
+      if (to !== null) allocations[to] = (allocations[to] ?? 0) + cents;
+    }
   } else {
     // Historical closed weeks keep their original automatic allocations.
     const raw = week.rules.split.map(rate => distributable * rate);
@@ -235,16 +245,17 @@ export function transactionUpdateError(player, week, transactions) {
   return '';
 }
 
-export function transferMoney(player, bucket, cents) {
+export function transferMoney(player, from, to, cents) {
   const week = player.weeks.at(-1);
   if (!week?.transfers || week.closed) return 'Open a new week before moving money.';
-  if (!Number.isInteger(bucket) || bucket < 0 || bucket >= buckets.length + (player.customBuckets?.length ?? 0) || !Number.isSafeInteger(cents) || cents === 0) {
-    return 'Choose an account and enter an amount greater than zero.';
-  }
+  const count = buckets.length + (player.customBuckets?.length ?? 0);
+  const validAccount = index => index === null || (Number.isInteger(index) && index >= 0 && index < count);
+  if (!validAccount(from) || !validAccount(to) || from === to) return 'Choose two different accounts.';
+  if (!Number.isSafeInteger(cents) || cents <= 0) return 'Enter an amount greater than zero.';
   const bank = accounts(player);
-  if (cents > bank.available) return 'There isn’t enough in Main. Log money in or move some back from a bucket first.';
-  if (-cents > bank.balances[bucket]) return 'There isn’t enough in this bucket to move that much back.';
-  week.transfers.push({ bucket, cents });
+  const available = from === null ? bank.available : bank.balances[from];
+  if (cents > available) return 'There isn’t enough money in the account you’re moving from.';
+  week.transfers.push({ from, to, cents });
   return '';
 }
 
