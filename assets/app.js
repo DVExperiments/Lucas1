@@ -579,6 +579,7 @@ function weeklyChallengeCard(p) {
   </section>`;
 }
 const samVideoLibrary = 'https://www.successavenuemoney.com/library';
+const week12Video = samVideoLibrary + '/my-first-business-partnership-what-you-need-to-know';
 const samQuizLibrary = 'https://www.successavenuemoney.com/quizzes';
 const videoQuizWeeks = [6, 7, 8, 9, 10, 11];
 function vimeoFrame(src) {
@@ -595,9 +596,10 @@ function samAssignment(module, index) {
   const quizWeek = videoQuizWeeks.includes(index);
   const source = module.lessonUrl || (!quizWeek && module.quizUrl) ? module
     : quizWeek ? { lessonUrl: state.weeklyVideos?.[index] } : state;
-  const video = direct(source.lessonUrl, samVideoLibrary) ? source.lessonUrl : samVideoLibrary;
+  const assignedVideo = direct(source.lessonUrl, samVideoLibrary);
+  const video = assignedVideo ? source.lessonUrl : index === familyWeek ? week12Video : samVideoLibrary;
   const quiz = direct(source.quizUrl, samQuizLibrary) ? source.quizUrl : samQuizLibrary;
-  return { video, quiz, embed: vimeoPlayer(video), assigned: video !== samVideoLibrary && quiz !== samQuizLibrary };
+  return { video, quiz, embed: vimeoPlayer(video), assigned: assignedVideo && quiz !== samQuizLibrary };
 }
 function samLink(url, label) {
   return `<a class="button secondary sam-quiz-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${tr(label)}<span class="sr-only"> (opens in a new tab)</span> ↗</a>`;
@@ -1482,6 +1484,9 @@ function quizInstructions(quiz) {
 }
 function videoQuizSource(module, index) {
   const assignment = samAssignment(module, index);
+  if (index === familyWeek) {
+    return `<div class="action-row">${samVideo(assignment)}${samLink(samVideoLibrary, 'Open the SAM video library')}</div>`;
+  }
   if (assignment.video !== samVideoLibrary) return samVideo(assignment);
   return `<p>${esc(tr('Find the matching video in the SAM library.'))}</p>${samLink(samVideoLibrary, 'Open the SAM video library')}`;
 }
