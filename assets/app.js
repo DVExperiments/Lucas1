@@ -1484,9 +1484,6 @@ function quizInstructions(quiz) {
 }
 function videoQuizSource(module, index) {
   const assignment = samAssignment(module, index);
-  if (index === familyWeek) {
-    return `<div class="action-row">${samVideo(assignment)}${samLink(samVideoLibrary, 'Open the SAM video library')}</div>`;
-  }
   if (assignment.video !== samVideoLibrary) return samVideo(assignment);
   return `<p>${esc(tr('Find the matching video in the SAM library.'))}</p>${samLink(samVideoLibrary, 'Open the SAM video library')}`;
 }
